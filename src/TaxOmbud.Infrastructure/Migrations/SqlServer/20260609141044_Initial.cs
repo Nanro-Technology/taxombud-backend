@@ -1,9 +1,9 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace TaxOmbud.Infrastructure.Migrations
+namespace TaxOmbud.Infrastructure.Migrations.SqlServer
 {
     /// <inheritdoc />
     public partial class Initial : Migration

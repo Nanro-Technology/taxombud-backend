@@ -22,18 +22,38 @@ public static class DependencyInjection
         services.Configure<SmtpOptions>(configuration.GetSection(SmtpOptions.SectionName));
 
         // ─── Database ─────────────────────────────────────────────────────────
-        services.AddDbContext<ApplicationDbContext>(options =>
+        var databaseProvider = configuration.GetValue<string>("DatabaseProvider");
+        
+        if (databaseProvider == "MySql")
         {
-            options.UseSqlServer(
-                configuration.GetConnectionString("DefaultConnection"),
-                sql =>
-                {
-                    sql.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName);
-                    sql.EnableRetryOnFailure(maxRetryCount: 5, maxRetryDelay: TimeSpan.FromSeconds(30), errorNumbersToAdd: null);
-                    sql.CommandTimeout(60);
-                });
-            options.UseQueryTrackingBehavior(QueryTrackingBehavior.TrackAll);
-        });
+            var connectionString = configuration.GetConnectionString("MySqlConnection");
+            services.AddDbContext<ApplicationDbContext, MySqlApplicationDbContext>(options =>
+            {
+                options.UseMySql(connectionString, ServerVersion.Parse("8.0.32-mysql"),
+                    sql =>
+                    {
+                        sql.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName);
+                        sql.EnableRetryOnFailure(maxRetryCount: 5, maxRetryDelay: TimeSpan.FromSeconds(30), errorNumbersToAdd: null);
+                        sql.CommandTimeout(60);
+                    });
+                options.UseQueryTrackingBehavior(QueryTrackingBehavior.TrackAll);
+            });
+        }
+        else
+        {
+            var connectionString = configuration.GetConnectionString("DefaultConnection");
+            services.AddDbContext<ApplicationDbContext, SqlServerApplicationDbContext>(options =>
+            {
+                options.UseSqlServer(connectionString,
+                    sql =>
+                    {
+                        sql.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName);
+                        sql.EnableRetryOnFailure(maxRetryCount: 5, maxRetryDelay: TimeSpan.FromSeconds(30), errorNumbersToAdd: null);
+                        sql.CommandTimeout(60);
+                    });
+                options.UseQueryTrackingBehavior(QueryTrackingBehavior.TrackAll);
+            });
+        }
 
         services.AddScoped<IApplicationDbContext>(provider =>
             provider.GetRequiredService<ApplicationDbContext>());
@@ -51,12 +71,33 @@ public static class DependencyInjection
         services.AddScoped<ICacheService, CacheService>();
 
         // ─── Hangfire Background Jobs ─────────────────────────────────────────
-        var connectionString = configuration.GetConnectionString("DefaultConnection");
-        services.AddHangfire(config => config
-            .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
-            .UseSimpleAssemblyNameTypeSerializer()
-            .UseRecommendedSerializerSettings()
-            .UseSqlServerStorage(connectionString));
+        services.AddHangfire(config =>
+        {
+            config.SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+                  .UseSimpleAssemblyNameTypeSerializer()
+                  .UseRecommendedSerializerSettings();
+
+            if (databaseProvider == "MySql")
+            {
+                var mySqlConn = configuration.GetConnectionString("MySqlConnection");
+                config.UseStorage(new Hangfire.MySql.MySqlStorage(mySqlConn, new Hangfire.MySql.MySqlStorageOptions
+                {
+                    TransactionIsolationLevel = System.Transactions.IsolationLevel.ReadCommitted,
+                    QueuePollInterval = TimeSpan.FromSeconds(15),
+                    JobExpirationCheckInterval = TimeSpan.FromHours(1),
+                    CountersAggregateInterval = TimeSpan.FromMinutes(5),
+                    PrepareSchemaIfNecessary = true,
+                    DashboardJobListLimit = 50000,
+                    TransactionTimeout = TimeSpan.FromMinutes(1),
+                    TablesPrefix = "Hangfire"
+                }));
+            }
+            else
+            {
+                var sqlConn = configuration.GetConnectionString("DefaultConnection");
+                config.UseSqlServerStorage(sqlConn);
+            }
+        });
 
         services.AddHangfireServer();
 

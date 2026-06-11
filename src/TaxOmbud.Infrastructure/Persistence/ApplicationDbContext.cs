@@ -30,7 +30,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     private readonly IMediator _mediator;
 
     public ApplicationDbContext(
-        DbContextOptions<ApplicationDbContext> options,
+        DbContextOptions options,
         ICurrentUser currentUser,
         IMediator mediator)
         : base(options)
