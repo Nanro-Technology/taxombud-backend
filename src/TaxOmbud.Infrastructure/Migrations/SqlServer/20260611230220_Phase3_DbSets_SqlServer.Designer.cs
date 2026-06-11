@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TaxOmbud.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using TaxOmbud.Infrastructure.Persistence;
 namespace TaxOmbud.Infrastructure.Migrations.SqlServer
 {
     [DbContext(typeof(SqlServerApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260611230220_Phase3_DbSets_SqlServer")]
+    partial class Phase3_DbSets_SqlServer
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
