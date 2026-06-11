@@ -1,0 +1,191 @@
+using System;
+using System.Collections.Generic;
+using TaxOmbud.Domain.Common;
+using TaxOmbud.Domain.Entities.Identity;
+using TaxOmbud.Domain.Entities.Officers;
+using TaxOmbud.Domain.Entities.Taxpayers;
+using TaxOmbud.Domain.Enums;
+using TaxOmbud.Domain.Exceptions;
+using TaxOmbud.Domain.Events.Complaints;
+
+namespace TaxOmbud.Domain.Entities.Complaints;
+
+public class Complaint : BaseAuditableEntity
+{
+    // ─── Properties ───────────────────────────────────────────────────────────
+    public string ReferenceNumber { get; private set; } = null!;
+    public string Subject { get; private set; } = null!;
+    public string Description { get; private set; } = null!;
+    public string? WhyOtoHandle { get; private set; }
+
+    public Guid TaxpayerId { get; private set; }
+    public Taxpayer Taxpayer { get; private set; } = null!;
+
+    public string TaxType { get; private set; } = null!;
+    public string TaxPeriod { get; private set; } = null!;
+    public string ComplaintCategory { get; private set; } = null!;
+    public string? TaxOfficeRef { get; private set; }
+    public string? TinNumber { get; private set; }
+
+    public string Priority { get; private set; } = "medium";
+
+    public ComplaintStatus Status { get; private set; } = ComplaintStatus.Draft;
+    public string CurrentStage { get; private set; } = "input";
+
+    public Guid? AssignedOfficerId { get; private set; }
+    public Officer? AssignedOfficer { get; private set; }
+
+    public Guid? DepartmentId { get; private set; }
+    public Department? Department { get; private set; }
+
+    public bool RequiresApprovalToClose { get; private set; } = true;
+    public DateTimeOffset? ClosedAt { get; private set; }
+    public string? WithdrawalReason { get; private set; }
+    public string? ClosureReason { get; private set; }
+
+    public ICollection<ComplaintStatusHistory> StatusHistory { get; private set; } = new List<ComplaintStatusHistory>();
+    public ICollection<ComplaintNote> Notes { get; private set; } = new List<ComplaintNote>();
+    public ICollection<ComplaintLink> Links { get; private set; } = new List<ComplaintLink>();
+
+    // ─── EF Core constructor ──────────────────────────────────────────────────
+    protected Complaint() { }
+
+    // ─── Factory ──────────────────────────────────────────────────────────────
+    public static Complaint Create(
+        Guid taxpayerId,
+        string taxType,
+        string taxPeriod,
+        string category,
+        string subject,
+        string description,
+        string referenceNumber,
+        string? taxOfficeRef = null,
+        string? tinNumber = null)
+    {
+        return new Complaint
+        {
+            Id = Guid.NewGuid(),
+            TaxpayerId = taxpayerId,
+            TaxType = taxType,
+            TaxPeriod = taxPeriod,
+            ComplaintCategory = category,
+            Subject = subject,
+            Description = description,
+            ReferenceNumber = referenceNumber,
+            TaxOfficeRef = taxOfficeRef,
+            TinNumber = tinNumber,
+            Status = ComplaintStatus.Draft,
+            CurrentStage = "input"
+        };
+    }
+
+    // ─── State Machine ────────────────────────────────────────────────────────
+    public void Submit()
+    {
+        if (Status != ComplaintStatus.Draft)
+            throw new DomainException("Only complaints in Draft status can be submitted.");
+
+        Status = ComplaintStatus.Submitted;
+        CurrentStage = "verify";
+
+        AddDomainEvent(new ComplaintSubmittedEvent(Id, ReferenceNumber, TaxpayerId, DateTimeOffset.UtcNow));
+    }
+
+    public void Assign(Guid officerId, Guid assignedByUserId)
+    {
+        if (Status == ComplaintStatus.Closed || Status == ComplaintStatus.Withdrawn)
+            throw new DomainException("Cannot assign a closed or withdrawn complaint.");
+
+        var previous = Status;
+        AssignedOfficerId = officerId;
+
+        if (Status == ComplaintStatus.Submitted)
+        {
+            Status = ComplaintStatus.UnderReview;
+            CurrentStage = "b1";
+        }
+
+        AddDomainEvent(new ComplaintStatusChangedEvent(Id, previous, Status, assignedByUserId, DateTimeOffset.UtcNow));
+    }
+
+    public void Escalate(string reason, Guid escalatedByUserId)
+    {
+        if (Status != ComplaintStatus.UnderReview)
+            throw new DomainException("Only complaints under review can be escalated.");
+
+        Status = ComplaintStatus.Escalated;
+        CurrentStage = "b2";
+
+        AddDomainEvent(new ComplaintEscalatedEvent(Id, reason, escalatedByUserId, DateTimeOffset.UtcNow));
+    }
+
+    public void Close(string reason, Guid closedByUserId)
+    {
+        if (Status == ComplaintStatus.Closed)
+            throw new DomainException("Complaint is already closed.");
+
+        var previous = Status;
+        Status = ComplaintStatus.Closed;
+        CurrentStage = "closed";
+        ClosedAt = DateTimeOffset.UtcNow;
+        ClosureReason = reason;
+
+        AddDomainEvent(new ComplaintStatusChangedEvent(Id, previous, Status, closedByUserId, DateTimeOffset.UtcNow));
+    }
+
+    public void Reopen(Guid reopenedByUserId)
+    {
+        if (Status != ComplaintStatus.Closed)
+            throw new DomainException("Only closed complaints can be reopened.");
+
+        Status = ComplaintStatus.UnderReview;
+        CurrentStage = "b1";
+        ClosedAt = null;
+        ClosureReason = null;
+
+        AddDomainEvent(new ComplaintStatusChangedEvent(Id, ComplaintStatus.Closed, Status, reopenedByUserId, DateTimeOffset.UtcNow));
+    }
+
+    public void Withdraw(string reason, Guid taxpayerUserId)
+    {
+        if (Status == ComplaintStatus.Closed || Status == ComplaintStatus.Withdrawn)
+            throw new DomainException("Complaint is already closed or withdrawn.");
+
+        var previous = Status;
+        Status = ComplaintStatus.Withdrawn;
+        CurrentStage = "closed";
+        ClosedAt = DateTimeOffset.UtcNow;
+        WithdrawalReason = reason;
+
+        AddDomainEvent(new ComplaintStatusChangedEvent(Id, previous, Status, taxpayerUserId, DateTimeOffset.UtcNow));
+    }
+
+    public void Resolve(Guid resolvedByUserId)
+    {
+        if (Status == ComplaintStatus.Closed || Status == ComplaintStatus.Withdrawn)
+            throw new DomainException("Cannot resolve a closed or withdrawn complaint.");
+
+        var previous = Status;
+        Status = ComplaintStatus.Resolved;
+        CurrentStage = "resolved";
+
+        AddDomainEvent(new ComplaintStatusChangedEvent(Id, previous, Status, resolvedByUserId, DateTimeOffset.UtcNow));
+    }
+
+    public void UpdatePriority(string priority) => Priority = priority;
+    public void UpdateStage(string stage) => CurrentStage = stage;
+    public void SetDepartment(Guid departmentId) => DepartmentId = departmentId;
+
+    public void UpdateDetails(
+        string subject, string description, string taxType, string taxPeriod,
+        string category, string? taxOfficeRef, string? tinNumber)
+    {
+        Subject = subject;
+        Description = description;
+        TaxType = taxType;
+        TaxPeriod = taxPeriod;
+        ComplaintCategory = category;
+        TaxOfficeRef = taxOfficeRef;
+        TinNumber = tinNumber;
+    }
+}

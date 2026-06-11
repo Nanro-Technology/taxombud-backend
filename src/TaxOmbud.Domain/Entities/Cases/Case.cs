@@ -1,0 +1,117 @@
+using System;
+using System.Collections.Generic;
+using TaxOmbud.Domain.Common;
+using TaxOmbud.Domain.Entities.Identity;
+using TaxOmbud.Domain.Entities.Officers;
+using TaxOmbud.Domain.Entities.Complaints;
+using TaxOmbud.Domain.Enums;
+using TaxOmbud.Domain.Exceptions;
+using TaxOmbud.Domain.Events.Cases;
+using TaxOmbud.Domain.ValueObjects;
+
+namespace TaxOmbud.Domain.Entities.Cases;
+
+public class Case : BaseAuditableEntity
+{
+    public ReferenceNumber CaseNumber { get; private set; } = null!;
+    
+    public Guid ComplaintId { get; set; }
+    public Complaint Complaint { get; set; } = null!;
+
+    public string Subject { get; set; } = null!;
+    public string? Summary { get; set; }
+    public string Priority { get; set; } = "medium"; // low, medium, high, urgent
+    
+    public CaseStatus Status { get; private set; } = CaseStatus.Open;
+    public string CurrentStage { get; private set; } = "b1"; // input, verify, b1, b2, b3, b4, approval, closed
+
+    public Guid? AssignedOfficerId { get; private set; }
+    public Officer? AssignedOfficer { get; private set; }
+
+    public Guid? DepartmentId { get; set; }
+    public Department? Department { get; set; }
+
+    public Guid AccountId { get; set; } // Workflow Lane (regional scope)
+    public Account Account { get; set; } = null!;
+
+    public DateTimeOffset? DueDate { get; set; } // SLA deadline
+    public DateTimeOffset? ClosedAt { get; private set; }
+    
+    public string? Outcome { get; private set; }
+    public string? FindingsSummary { get; private set; }
+
+    public ICollection<CaseFinding> Findings { get; set; } = new List<CaseFinding>();
+    public ICollection<CaseRecommendation> Recommendations { get; set; } = new List<CaseRecommendation>();
+    public ICollection<CaseMilestone> Milestones { get; set; } = new List<CaseMilestone>();
+    public ICollection<CaseCommunicationLog> CommunicationLogs { get; set; } = new List<CaseCommunicationLog>();
+    public ICollection<CaseStatusHistory> StatusHistory { get; set; } = new List<CaseStatusHistory>();
+
+    // Constructor for EF Core
+    protected Case() { }
+
+    public Case(Guid complaintId, string subject, Guid accountId, string priority)
+    {
+        Id = Guid.NewGuid();
+        ComplaintId = complaintId;
+        Subject = subject;
+        AccountId = accountId;
+        Priority = priority;
+        Status = CaseStatus.Open;
+        CurrentStage = "b1";
+        CreatedAt = DateTimeOffset.UtcNow;
+    }
+
+    public void Open(ReferenceNumber caseNumber)
+    {
+        if (CaseNumber != null)
+        {
+            throw new DomainException("Case number has already been assigned.");
+        }
+
+        CaseNumber = caseNumber;
+        Status = CaseStatus.Open;
+        
+        AddDomainEvent(new CaseOpenedEvent(Id, CaseNumber.Value, ComplaintId, DateTimeOffset.UtcNow));
+    }
+
+    public void Assign(Guid officerId, Guid assignedByUserId)
+    {
+        if (Status == CaseStatus.Closed)
+        {
+            throw new DomainException("Cannot assign an officer to a closed case.");
+        }
+
+        AssignedOfficerId = officerId;
+        Status = CaseStatus.InProgress;
+        CurrentStage = "b1";
+
+        AddDomainEvent(new CaseAssignedEvent(Id, officerId, assignedByUserId, DateTimeOffset.UtcNow));
+    }
+
+    public void UpdateStatus(CaseStatus newStatus, string stage, Guid changedByUserId)
+    {
+        if (Status == CaseStatus.Closed)
+        {
+            throw new DomainException("Cannot change status of a closed case.");
+        }
+
+        Status = newStatus;
+        CurrentStage = stage;
+    }
+
+    public void Close(string outcome, string findingsSummary, Guid closedByUserId)
+    {
+        if (Status == CaseStatus.Closed)
+        {
+            throw new DomainException("Case is already closed.");
+        }
+
+        Status = CaseStatus.Closed;
+        CurrentStage = "closed";
+        ClosedAt = DateTimeOffset.UtcNow;
+        Outcome = outcome;
+        FindingsSummary = findingsSummary;
+
+        AddDomainEvent(new CaseClosedEvent(Id, outcome, closedByUserId, DateTimeOffset.UtcNow));
+    }
+}

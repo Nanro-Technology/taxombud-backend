@@ -1,0 +1,118 @@
+## ─── Build outputs ────────────────────────────────────────────────────────────
+[Bb]in/
+[Oo]bj/
+out/
+publish/
+artifacts/
+
+## ─── Visual Studio ────────────────────────────────────────────────────────────
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.userprefs
+.vscode/
+
+## ─── Rider / JetBrains ───────────────────────────────────────────────────────
+.idea/
+*.sln.iml
+
+## ─── NuGet ────────────────────────────────────────────────────────────────────
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+## ─── .NET SDK ─────────────────────────────────────────────────────────────────
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+
+# Test results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+*.eto
+
+# Publish WebSite
+**/[Pp]ublish/
+[Pp]ublish/
+
+## ─── Entity Framework Migrations (keep migrations, ignore snapshots artifacts) ─
+# Keep all migrations — do NOT ignore them
+
+## ─── ASP.NET Core / Secrets ───────────────────────────────────────────────────
+**/appsettings.Production.json
+**/appsettings.Staging.json
+**/appsettings.Local.json
+**/secrets.json
+# User secrets (local dev only)
+**/Properties/launchSettings.json
+
+## ─── Certificates / Keys ──────────────────────────────────────────────────────
+*.pfx
+*.p12
+*.cer
+*.key
+*.pem
+*.der
+
+## ─── Environment / Config ─────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.env
+
+## ─── Logs ─────────────────────────────────────────────────────────────────────
+*.log
+logs/
+Logs/
+
+## ─── Temporary files ──────────────────────────────────────────────────────────
+*.tmp
+*.temp
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+## ─── Docker ───────────────────────────────────────────────────────────────────
+# Keep Dockerfile and docker-compose — only ignore local overrides
+docker-compose.override.yml
+
+## ─── Coverage / Test reports ──────────────────────────────────────────────────
+coverage/
+Coverage/
+*.coverage
+*.coveragexml
+cobertura.xml
+TestResults/
+
+## ─── Hangfire ─────────────────────────────────────────────────────────────────
+# No generated files to ignore
+
+## ─── Antigravity / AI agent scratch ─────────────────────────────────────────
+.gemini/
+
+## ─── Windows ──────────────────────────────────────────────────────────────────
+desktop.ini
+$RECYCLE.BIN/
+
+## ─── macOS ────────────────────────────────────────────────────────────────────
+.AppleDouble
+.LSOverride
+Icon
+._*
+.Spotlight-V100
+.Trashes
+
+## ─── Linux ────────────────────────────────────────────────────────────────────
+*#
