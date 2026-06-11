@@ -131,6 +131,27 @@ dotnet ef database update \
 
 ---
 
+## End-to-End Encryption (E2EE) Integration
+
+The API supports Bank-Grade End-to-End Encryption (E2EE) using a hybrid **RSA-2048 / AES-256-CBC** approach. When an Admin toggles this feature **ON**, the API will *strictly* reject any unencrypted payloads (except for bypass routes like Swagger, Health, and Public Key endpoints).
+
+### How to use E2EE as a Frontend Developer:
+
+1. **Check Status**: Ensure E2EE is enabled by calling `GET /api/v1/security/status`.
+2. **Fetch Public Key**: If enabled, fetch the server's public RSA key via `GET /api/v1/security/public-key`.
+3. **Generate Session Key**: Generate a random 32-byte AES key and 16-byte IV for the session/request.
+4. **Encrypt Payload**: Stringify your JSON request body and encrypt it using **AES-256-CBC (PKCS7)**.
+5. **Encrypt Key**: Encrypt your AES key using the server's RSA Public Key with **RSA-OAEP-SHA256**.
+6. **Send Request**:
+   - Send the AES-encrypted payload as binary (`application/octet-stream` or similar) in the body.
+   - Send the RSA-encrypted AES key (Base64) in the `X-Encryption-Key` header.
+   - Send the plain IV (Base64) in the `X-Encryption-IV` header.
+7. **Decrypt Response**: The server will respond with an AES-encrypted blob. Decrypt it using the *same* AES key and IV you generated for the request to get the final JSON response.
+
+*Note: You can easily toggle the requirement via `POST /api/v1/security/toggle` (Admin only).*
+
+---
+
 ## License
 
 Proprietary — Nanro Technology. All rights reserved.
