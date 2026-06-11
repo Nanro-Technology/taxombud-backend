@@ -6,10 +6,12 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using TaxOmbud.Application.Features.Documents.Commands.AddDocumentVersion;
+using TaxOmbud.Application.Features.Documents.Commands.ClassifyDocument;
 using TaxOmbud.Application.Features.Documents.Commands.CreateDocument;
 using TaxOmbud.Application.Features.Documents.Commands.DeleteDocument;
 using TaxOmbud.Application.Features.Documents.Queries.GetDocumentById;
 using TaxOmbud.Application.Features.Documents.Queries.GetDocuments;
+using TaxOmbud.Application.Features.Documents.Queries.GetDocumentVersions;
 using TaxOmbud.Application.Features.Documents.Queries.GetDownloadUrl;
 
 namespace TaxOmbud.Api.Controllers;
@@ -88,6 +90,16 @@ public class DocumentsController : ApiControllerBase
         return CreatedAtAction(nameof(GetDocumentById), new { id }, result.Value);
     }
 
+    /// <summary>Get all versions of a specific document.</summary>
+    [HttpGet("{id:guid}/versions")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetDocumentVersions(Guid id, CancellationToken ct)
+    {
+        var result = await _mediator.Send(new GetDocumentVersionsQuery(id), ct);
+        return ToActionResult(result);
+    }
+
     /// <summary>Get a short-lived pre-signed download URL for a document.</summary>
     [HttpGet("{id:guid}/download-url")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -95,6 +107,18 @@ public class DocumentsController : ApiControllerBase
     public async Task<IActionResult> GetDownloadUrl(Guid id, CancellationToken ct)
     {
         var result = await _mediator.Send(new GetDownloadUrlQuery(id), ct);
+        return ToActionResult(result);
+    }
+
+    /// <summary>Classify or re-classify a document (e.g. Evidence, Invoice).</summary>
+    [HttpPatch("{id:guid}/classify")]
+    [Authorize(Policy = "OfficerOrAbove")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ClassifyDocument(Guid id, [FromBody] ClassifyDocumentRequest request, CancellationToken ct)
+    {
+        var result = await _mediator.Send(new ClassifyDocumentCommand(id, request.Classification), ct);
         return ToActionResult(result);
     }
 
@@ -120,3 +144,5 @@ public record CreateDocumentRequest(
 );
 
 public record AddDocumentVersionRequest(string FilePath);
+
+public record ClassifyDocumentRequest(string Classification);

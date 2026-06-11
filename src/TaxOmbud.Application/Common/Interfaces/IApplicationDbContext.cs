@@ -54,9 +54,11 @@ public interface IApplicationDbContext
 
     // Documents
     DbSet<Document> Documents { get; }
+    DbSet<DocumentVersion> DocumentVersions { get; }
 
     // Communications
     DbSet<CommunicationLog> CommunicationLogs { get; }
+    DbSet<CommunicationTemplate> CommunicationTemplates { get; }
 
     // Appeals
     DbSet<Appeal> Appeals { get; }
@@ -67,6 +69,7 @@ public interface IApplicationDbContext
 
     // Notifications
     DbSet<Notification> Notifications { get; }
+    DbSet<NotificationPreference> NotificationPreferences { get; }
 
     // System
     DbSet<AuditLog> AuditLogs { get; }

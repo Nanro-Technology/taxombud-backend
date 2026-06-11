@@ -20,6 +20,7 @@ public static class DependencyInjection
         // ─── Options ──────────────────────────────────────────────────────────
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
         services.Configure<SmtpOptions>(configuration.GetSection(SmtpOptions.SectionName));
+        services.Configure<EncryptionOptions>(configuration.GetSection(EncryptionOptions.SectionName));
 
         // ─── Database ─────────────────────────────────────────────────────────
         var databaseProvider = configuration.GetValue<string>("DatabaseProvider");
@@ -58,7 +59,7 @@ public static class DependencyInjection
         services.AddScoped<IApplicationDbContext>(provider =>
             provider.GetRequiredService<ApplicationDbContext>());
 
-        // ─── Caching ──────────────────────────────────────────────────────────
+        // ─── Caching & Services ───────────────────────────────────────────────────
         var redisConn = configuration.GetConnectionString("Redis");
         if (!string.IsNullOrWhiteSpace(redisConn))
         {
@@ -69,6 +70,8 @@ public static class DependencyInjection
             services.AddDistributedMemoryCache(); // dev fallback
         }
         services.AddScoped<ICacheService, CacheService>();
+        services.AddSingleton<ICryptoService, CryptoService>();
+        services.AddSingleton<IEncryptionService, EncryptionService>();
 
         // ─── Hangfire Background Jobs ─────────────────────────────────────────
         services.AddHangfire(config =>

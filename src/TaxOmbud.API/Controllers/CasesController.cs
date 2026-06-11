@@ -22,6 +22,7 @@ using TaxOmbud.Application.Features.Cases.Queries.GetCaseFindings;
 using TaxOmbud.Application.Features.Cases.Queries.GetCaseMilestones;
 using TaxOmbud.Application.Features.Cases.Queries.GetCases;
 using TaxOmbud.Application.Features.Cases.Queries.GetMyCases;
+using TaxOmbud.Application.Features.Cases.Queries.GetOverdueCases;
 using TaxOmbud.Application.Features.Cases.Queries.GetQueue;
 using TaxOmbud.Domain.Common;
 
@@ -79,6 +80,19 @@ public class CasesController : ApiControllerBase
     public async Task<IActionResult> GetCaseById(Guid id, CancellationToken ct)
     {
         var result = await _mediator.Send(new GetCaseByIdQuery(id), ct);
+        return ToActionResult(result);
+    }
+
+    /// <summary>Get list of overdue cases.</summary>
+    [HttpGet("overdue")]
+    [Authorize(Policy = "OfficerOrAbove")]
+    [ProducesResponseType(typeof(PagedResult<CaseListDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetOverdueCases(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken ct = default)
+    {
+        var result = await _mediator.Send(new GetOverdueCasesQuery(page, pageSize), ct);
         return ToActionResult(result);
     }
 

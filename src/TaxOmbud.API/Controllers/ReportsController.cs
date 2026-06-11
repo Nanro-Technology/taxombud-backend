@@ -5,15 +5,19 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using TaxOmbud.Application.Features.Reports.Commands.ExportReport;
 using TaxOmbud.Application.Features.Reports.Commands.CreateScheduledReport;
 using TaxOmbud.Application.Features.Reports.Commands.DeleteScheduledReport;
 using TaxOmbud.Application.Features.Reports.Commands.ToggleScheduledReport;
+using TaxOmbud.Application.Features.Reports.Queries.GetAnnualReport;
+using TaxOmbud.Application.Features.Reports.Queries.GetComplaintsByRegion;
 using TaxOmbud.Application.Features.Reports.Queries.GetComplaintsByStage;
 using TaxOmbud.Application.Features.Reports.Queries.GetComplaintsByStatus;
 using TaxOmbud.Application.Features.Reports.Queries.GetComplaintsByTaxType;
 using TaxOmbud.Application.Features.Reports.Queries.GetDashboard;
 using TaxOmbud.Application.Features.Reports.Queries.GetMonthlyTrend;
 using TaxOmbud.Application.Features.Reports.Queries.GetOfficerWorkload;
+using TaxOmbud.Application.Features.Reports.Queries.GetResolutionTimeReport;
 using TaxOmbud.Application.Features.Reports.Queries.GetScheduledReports;
 
 namespace TaxOmbud.Api.Controllers;
@@ -77,6 +81,42 @@ public class ReportsController : ApiControllerBase
     public async Task<IActionResult> GetMonthlyTrend([FromQuery] int? year, CancellationToken ct)
     {
         var result = await _mediator.Send(new GetMonthlyTrendQuery(year), ct);
+        return ToActionResult(result);
+    }
+
+    /// <summary>Complaint volume breakdown by region.</summary>
+    [HttpGet("complaints/by-region")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetComplaintsByRegion(CancellationToken ct)
+    {
+        var result = await _mediator.Send(new GetComplaintsByRegionQuery(), ct);
+        return ToActionResult(result);
+    }
+
+    /// <summary>Case resolution time metrics.</summary>
+    [HttpGet("cases/resolution-time")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetResolutionTime([FromQuery] int? year, CancellationToken ct)
+    {
+        var result = await _mediator.Send(new GetResolutionTimeReportQuery(year), ct);
+        return ToActionResult(result);
+    }
+
+    /// <summary>Annual aggregate report.</summary>
+    [HttpGet("annual")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAnnualReport([FromQuery] int year, CancellationToken ct)
+    {
+        var result = await _mediator.Send(new GetAnnualReportQuery(year), ct);
+        return ToActionResult(result);
+    }
+
+    /// <summary>Export report data.</summary>
+    [HttpPost("export")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> ExportReport([FromBody] ExportReportRequest request, CancellationToken ct)
+    {
+        var result = await _mediator.Send(new ExportReportCommand(request.ReportType, request.Format, request.Year), ct);
         return ToActionResult(result);
     }
 
@@ -148,4 +188,10 @@ public record CreateScheduledReportRequest(
     string CronExpression,
     string[] Recipients,
     string? Format
+);
+
+public record ExportReportRequest(
+    string ReportType,
+    string Format,
+    int? Year
 );

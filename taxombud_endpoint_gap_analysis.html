@@ -1,0 +1,253 @@
+
+<style>
+.wrap { padding: 1rem 0; font-size: 14px; color: var(--color-text-primary); }
+h2 { font-size: 18px; font-weight: 500; margin: 0 0 12px; }
+.summary-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 20px; }
+.stat { background: var(--color-background-secondary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 14px 12px; text-align: center; }
+.stat-num { font-size: 28px; font-weight: 500; }
+.stat-label { font-size: 12px; color: var(--color-text-secondary); margin-top: 2px; }
+.num-spec { color: #185FA5; }
+.num-impl { color: #3B6D11; }
+.num-miss { color: #A32D2D; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead th { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--color-border-secondary); font-weight: 500; color: var(--color-text-secondary); font-size: 12px; }
+td { padding: 5px 8px; border-bottom: 0.5px solid var(--color-border-tertiary); vertical-align: top; }
+tr:last-child td { border-bottom: none; }
+.section { font-weight: 500; }
+.badge { display: inline-block; padding: 2px 7px; border-radius: 999px; font-size: 11px; font-weight: 500; }
+.b-spec { background: #E6F1FB; color: #0C447C; }
+.b-impl { background: #EAF3DE; color: #27500A; }
+.b-miss { background: #FCEBEB; color: #791F1F; }
+.b-extra { background: #FAEEDA; color: #633806; }
+.missing-list { font-size: 12px; color: var(--color-text-secondary); }
+.missing-list code { font-family: var(--font-mono); font-size: 11px; background: var(--color-background-tertiary); padding: 1px 4px; border-radius: 3px; }
+.section-row td { background: var(--color-background-tertiary); }
+.divider { height: 16px; }
+.note { background: var(--color-background-secondary); border-left: 3px solid #185FA5; padding: 10px 12px; border-radius: 0 6px 6px 0; font-size: 12px; color: var(--color-text-secondary); margin-top: 16px; }
+</style>
+<div class="wrap">
+<h2>Tax Ombud — endpoint gap analysis</h2>
+
+<div class="summary-grid">
+  <div class="stat"><div class="stat-num num-spec">181</div><div class="stat-label">Specified in .md</div></div>
+  <div class="stat"><div class="stat-num num-impl">119</div><div class="stat-label">Implemented in JSON</div></div>
+  <div class="stat"><div class="stat-num num-miss">62</div><div class="stat-label">Missing / not implemented</div></div>
+</div>
+
+<table>
+<thead><tr><th>Section</th><th>Specified</th><th>Implemented</th><th>Gap</th><th>Missing endpoints</th></tr></thead>
+<tbody>
+
+<tr class="section-row"><td class="section" colspan="5">Auth</td></tr>
+<tr>
+  <td>Auth</td>
+  <td><span class="badge b-spec">10</span></td>
+  <td><span class="badge b-impl">9</span></td>
+  <td><span class="badge b-miss">1</span></td>
+  <td class="missing-list"><code>POST /api/v1/auth/register</code> (spec calls it a separate "register" concern not listed in auth table, but JSON has it — however spec has <code>POST /api/v1/taxpayers</code> for public registration). The JSON implements a <em>register</em> endpoint the spec doesn't list in the Auth section. Net: matched.</td>
+</tr>
+
+<tr class="divider"><td colspan="5"></td></tr>
+<tr class="section-row"><td class="section" colspan="5">Users</td></tr>
+<tr>
+  <td>Users</td>
+  <td><span class="badge b-spec">11</span></td>
+  <td><span class="badge b-impl">7</span></td>
+  <td><span class="badge b-miss">4</span></td>
+  <td class="missing-list">
+    <code>PATCH /api/v1/users/{id}/activate</code><br>
+    <code>PATCH /api/v1/users/{id}/deactivate</code><br>
+    <code>PATCH /api/v1/users/{id}/roles</code> (JSON uses POST)<br>
+    <code>POST /api/v1/users/{id}/unlock</code><br>
+    JSON has <code>PUT /api/v1/users/{id}/status</code> instead of separate activate/deactivate/unlock
+  </td>
+</tr>
+
+<tr class="divider"><td colspan="5"></td></tr>
+<tr class="section-row"><td class="section" colspan="5">Taxpayers</td></tr>
+<tr>
+  <td>Taxpayers</td>
+  <td><span class="badge b-spec">9</span></td>
+  <td><span class="badge b-impl">7</span></td>
+  <td><span class="badge b-miss">2</span></td>
+  <td class="missing-list">
+    <code>GET /api/v1/taxpayers/tin/{tin}</code><br>
+    <code>POST /api/v1/taxpayers</code> (public self-registration — JSON has <code>/auth/register</code> instead)<br>
+    JSON has <code>POST /api/v1/taxpayers/verify-nin</code> (extra, not in spec table)
+  </td>
+</tr>
+
+<tr class="divider"><td colspan="5"></td></tr>
+<tr class="section-row"><td class="section" colspan="5">Officers</td></tr>
+<tr>
+  <td>Officers</td>
+  <td><span class="badge b-spec">5</span></td>
+  <td><span class="badge b-impl">4</span></td>
+  <td><span class="badge b-miss">1</span></td>
+  <td class="missing-list">
+    <code>GET /api/v1/officers/{id}/performance</code><br>
+    JSON has <code>POST /api/v1/officers</code> + <code>PUT /api/v1/officers/{id}</code> (extra — for officer profile management; not in the spec's Officers section)
+  </td>
+</tr>
+
+<tr class="divider"><td colspan="5"></td></tr>
+<tr class="section-row"><td class="section" colspan="5">Complaints</td></tr>
+<tr>
+  <td>Complaints</td>
+  <td><span class="badge b-spec">18</span></td>
+  <td><span class="badge b-impl">17</span></td>
+  <td><span class="badge b-miss">1</span></td>
+  <td class="missing-list">
+    <code>GET /api/v1/complaints/my</code> (spec has it; JSON does not — JSON has <code>GET /api/v1/cases/my</code> only)<br>
+    JSON uses <code>POST /api/v1/complaints/{id}/assign</code> where spec says <code>PATCH</code>
+  </td>
+</tr>
+
+<tr class="divider"><td colspan="5"></td></tr>
+<tr class="section-row"><td class="section" colspan="5">Cases</td></tr>
+<tr>
+  <td>Cases</td>
+  <td><span class="badge b-spec">20</span></td>
+  <td><span class="badge b-impl">13</span></td>
+  <td><span class="badge b-miss">7</span></td>
+  <td class="missing-list">
+    <code>POST /api/v1/cases</code> (create case)<br>
+    <code>PUT /api/v1/cases/{id}</code> (update case)<br>
+    <code>PATCH /api/v1/cases/{id}/status</code><br>
+    <code>PATCH /api/v1/cases/{id}/close</code><br>
+    <code>GET /api/v1/cases/{id}/recommendations</code><br>
+    <code>POST /api/v1/cases/{id}/recommendations</code><br>
+    <code>GET /api/v1/cases/overdue</code><br>
+    JSON has <code>GET /api/v1/cases/queues/{queueName}</code> + <code>POST /api/v1/cases/{id}/recommendation</code> + <code>POST /api/v1/cases/{id}/approvals</code> (extra, not in spec) and uses <code>POST /api/v1/cases/{id}/transition</code> instead of status/close
+  </td>
+</tr>
+
+<tr class="divider"><td colspan="5"></td></tr>
+<tr class="section-row"><td class="section" colspan="5">Documents</td></tr>
+<tr>
+  <td>Documents</td>
+  <td><span class="badge b-spec">8</span></td>
+  <td><span class="badge b-impl">5</span></td>
+  <td><span class="badge b-miss">3</span></td>
+  <td class="missing-list">
+    <code>GET /api/v1/documents/{id}/download</code> — JSON has <code>/download-url</code> (different semantic)<br>
+    <code>GET /api/v1/documents/{id}/versions</code><br>
+    <code>PATCH /api/v1/documents/{id}/classify</code>
+  </td>
+</tr>
+
+<tr class="divider"><td colspan="5"></td></tr>
+<tr class="section-row"><td class="section" colspan="5">Communications</td></tr>
+<tr>
+  <td>Communications</td>
+  <td><span class="badge b-spec">7</span></td>
+  <td><span class="badge b-impl">3</span></td>
+  <td><span class="badge b-miss">4</span></td>
+  <td class="missing-list">
+    <code>POST /api/v1/communications/{id}/send</code><br>
+    <code>PATCH /api/v1/communications/{id}/acknowledge</code><br>
+    <code>GET /api/v1/communications/templates</code><br>
+    <code>POST /api/v1/communications/templates/{templateId}/render</code>
+  </td>
+</tr>
+
+<tr class="divider"><td colspan="5"></td></tr>
+<tr class="section-row"><td class="section" colspan="5">Appeals</td></tr>
+<tr>
+  <td>Appeals</td>
+  <td><span class="badge b-spec">8</span></td>
+  <td><span class="badge b-impl">4</span></td>
+  <td><span class="badge b-miss">4</span></td>
+  <td class="missing-list">
+    <code>PATCH /api/v1/appeals/{id}/uphold</code><br>
+    <code>PATCH /api/v1/appeals/{id}/dismiss</code><br>
+    JSON uses <code>POST /api/v1/appeals/{id}/review</code> where spec says <code>PATCH</code><br>
+    Spec has uphold/dismiss as separate endpoints; JSON merges into review action
+  </td>
+</tr>
+
+<tr class="divider"><td colspan="5"></td></tr>
+<tr class="section-row"><td class="section" colspan="5">Appointments</td></tr>
+<tr>
+  <td>Appointments</td>
+  <td><span class="badge b-spec">9</span></td>
+  <td><span class="badge b-impl">6</span></td>
+  <td><span class="badge b-miss">3</span></td>
+  <td class="missing-list">
+    <code>PUT /api/v1/appointments/{id}</code> (update)<br>
+    <code>PATCH /api/v1/appointments/{id}/confirm</code><br>
+    <code>PATCH /api/v1/appointments/{id}/cancel</code><br>
+    <code>PATCH /api/v1/appointments/{id}/complete</code><br>
+    JSON has <code>PUT /api/v1/appointments/{id}/status</code> (merges confirm/cancel/complete into one endpoint)
+  </td>
+</tr>
+
+<tr class="divider"><td colspan="5"></td></tr>
+<tr class="section-row"><td class="section" colspan="5">Notifications</td></tr>
+<tr>
+  <td>Notifications</td>
+  <td><span class="badge b-spec">7</span></td>
+  <td><span class="badge b-impl">5</span></td>
+  <td><span class="badge b-miss">2</span></td>
+  <td class="missing-list">
+    <code>GET /api/v1/notifications/unread-count</code><br>
+    <code>GET /api/v1/notifications/preferences</code><br>
+    <code>PUT /api/v1/notifications/preferences</code><br>
+    JSON uses <code>PUT</code> for read (spec says <code>PATCH</code>); also has extra <code>POST /notifications</code> (admin send)
+  </td>
+</tr>
+
+<tr class="divider"><td colspan="5"></td></tr>
+<tr class="section-row"><td class="section" colspan="5">Reports</td></tr>
+<tr>
+  <td>Reports</td>
+  <td><span class="badge b-spec">12</span></td>
+  <td><span class="badge b-impl">9</span></td>
+  <td><span class="badge b-miss">3</span></td>
+  <td class="missing-list">
+    <code>GET /api/v1/reports/complaints/summary</code><br>
+    <code>GET /api/v1/reports/complaints/by-region</code><br>
+    <code>GET /api/v1/reports/cases/resolution-time</code><br>
+    <code>GET /api/v1/reports/cases/outcomes</code><br>
+    <code>GET /api/v1/reports/officers/performance</code><br>
+    <code>GET /api/v1/reports/annual</code><br>
+    <code>POST /api/v1/reports/export</code><br>
+    JSON has <code>GET /reports/complaints/by-tax-type</code>, <code>by-status</code>, <code>by-stage</code>, <code>monthly-trend</code>, <code>officers/workload</code> (different naming/structure from spec)
+  </td>
+</tr>
+
+<tr class="divider"><td colspan="5"></td></tr>
+<tr class="section-row"><td class="section" colspan="5">Search</td></tr>
+<tr>
+  <td>Search</td>
+  <td><span class="badge b-spec">6</span></td>
+  <td><span class="badge b-impl">1</span></td>
+  <td><span class="badge b-miss">5</span></td>
+  <td class="missing-list">
+    <code>GET /api/v1/search/complaints</code><br>
+    <code>GET /api/v1/search/cases</code><br>
+    <code>GET /api/v1/search/taxpayers</code><br>
+    <code>GET /api/v1/search/documents</code><br>
+    <code>GET /api/v1/search/suggestions</code>
+  </td>
+</tr>
+
+<tr class="divider"><td colspan="5"></td></tr>
+<tr class="section-row"><td class="section" colspan="5">Roles, Lookups, Audit Logs, Settings, Webhooks, Health</td></tr>
+<tr>
+  <td>Roles (8), Lookups (16), Audit Logs (4), Settings (11), Webhooks (8), Health (4)</td>
+  <td><span class="badge b-spec">51</span></td>
+  <td><span class="badge b-impl">~38</span></td>
+  <td><span class="badge b-miss">~13</span></td>
+  <td class="missing-list">
+    Spec specifies 51 across these six sections but the .md says "implement all as specified" without listing them individually. Based on JSON count, most are partially covered. Lookups only has 1 endpoint (<code>GET /lookups/{type}</code>). Audit logs has 2 (vs 4 spec). Settings has ~5 (vs 11). HR endpoints (staff, leave, payroll, pay grades) appear in JSON but are NOT in the spec's controller endpoint tables — these are extra additions.
+  </td>
+</tr>
+
+</tbody>
+</table>
+
+<div class="note">
+  <strong>Additional JSON endpoints not in the spec:</strong> <code>/api/v1/auth/register</code>, <code>POST /api/v1/officers</code>, <code>PUT /api/v1/officers/{id}</code>, <code>POST /taxpayers/verify-nin</code>, <code>GET /cases/queues/{queueName}</code>, <code>POST /cases/{id}/approvals</code>, the entire <code>/api/v1/hr/*</code> group (staff, leave, wallet, loans, payroll, pay grades), and <code>/api/Security/*</code> (public-key, status, toggle). These represent implementation additions beyond what the prompt specified.
+</div>
+</div>
