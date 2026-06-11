@@ -1,24 +1,31 @@
 using MediatR;
 using TaxOmbud.Application.Common.Models;
-using System.Collections.Generic;
+using TaxOmbud.Application.Common.Interfaces;
+using TaxOmbud.Domain.Entities.Hr;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace TaxOmbud.Application.Features.Payroll.Commands.CreateSalaryProfile;
 
-public record CreateSalaryProfileCommands : IRequest<Result<CreateSalaryProfileResponse>>
-{
-}
+public record CreateSalaryProfileCommands(Guid StaffId, decimal BaseSalary) : IRequest<Result<Guid>>;
 
-public class CreateSalaryProfileResponse
+public class CreateSalaryProfileCommandsHandler : IRequestHandler<CreateSalaryProfileCommands, Result<Guid>>
 {
-    public bool Success { get; set; }
-}
+    private readonly IApplicationDbContext _context;
+    public CreateSalaryProfileCommandsHandler(IApplicationDbContext context) => _context = context;
 
-public class CreateSalaryProfileCommandsHandler : IRequestHandler<CreateSalaryProfileCommands, Result<CreateSalaryProfileResponse>>
-{
-    public async Task<Result<CreateSalaryProfileResponse>> Handle(CreateSalaryProfileCommands request, CancellationToken cancellationToken)
+    public async Task<Result<Guid>> Handle(CreateSalaryProfileCommands request, CancellationToken cancellationToken)
     {
-        await Task.CompletedTask; return Result<CreateSalaryProfileResponse>.Success(new CreateSalaryProfileResponse { Success = true });
+        var entity = new SalaryProfile
+        {
+            Id = Guid.NewGuid(),
+            UserId = request.StaffId,
+            Basic = request.BaseSalary,
+            EffectiveFrom = DateTime.UtcNow
+        };
+        _context.SalaryProfiles.Add(entity);
+        await _context.SaveChangesAsync(cancellationToken);
+        return Result<Guid>.Success(entity.Id);
     }
 }

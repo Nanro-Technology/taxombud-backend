@@ -92,6 +92,16 @@ public interface IApplicationDbContext
     DbSet<EwaRequest> EwaRequests { get; }
     DbSet<LeaveRequest> LeaveRequests { get; }
 
+        DbSet<TaxOmbud.Domain.Entities.Operations.Project> Projects { get; }
+    DbSet<TaxOmbud.Domain.Entities.Operations.ProjectTask> ProjectTasks { get; }
+    DbSet<TaxOmbud.Domain.Entities.Operations.InventoryItem> InventoryItems { get; }
+    DbSet<TaxOmbud.Domain.Entities.Operations.VendorContact> VendorContacts { get; }
+    DbSet<TaxOmbud.Domain.Entities.Finance.Quote> Quotes { get; }
+    DbSet<TaxOmbud.Domain.Entities.Finance.Contract> Contracts { get; }
+    DbSet<TaxOmbud.Domain.Entities.Finance.Invoice> Invoices { get; }
+    DbSet<TaxOmbud.Domain.Entities.Finance.InvoiceItem> InvoiceItems { get; }
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
+
 

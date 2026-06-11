@@ -1,25 +1,24 @@
 using MediatR;
 using TaxOmbud.Application.Common.Models;
+using TaxOmbud.Application.Common.Interfaces;
+using TaxOmbud.Domain.Entities.Operations;
+using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace TaxOmbud.Application.Features.Operations.Queries.GetInventoryItems;
 
-public record GetInventoryItemsQueries : IRequest<Result<GetInventoryItemsResponse>>
-{
-}
+public record GetInventoryItemsQueries : IRequest<Result<List<InventoryItem>>> { }
 
-public class GetInventoryItemsResponse
+public class GetInventoryItemsQueriesHandler : IRequestHandler<GetInventoryItemsQueries, Result<List<InventoryItem>>>
 {
-    public bool Success { get; set; }
-}
+    private readonly IApplicationDbContext _context;
+    public GetInventoryItemsQueriesHandler(IApplicationDbContext context) => _context = context;
 
-public class GetInventoryItemsQueriesHandler : IRequestHandler<GetInventoryItemsQueries, Result<GetInventoryItemsResponse>>
-{
-    public async Task<Result<GetInventoryItemsResponse>> Handle(GetInventoryItemsQueries request, CancellationToken cancellationToken)
+    public async Task<Result<List<InventoryItem>>> Handle(GetInventoryItemsQueries request, CancellationToken cancellationToken)
     {
-        await Task.CompletedTask;
-        return Result<GetInventoryItemsResponse>.Success(new GetInventoryItemsResponse { Success = true });
+        var list = await _context.InventoryItems.ToListAsync(cancellationToken);
+        return Result<List<InventoryItem>>.Success(list);
     }
 }

@@ -1,24 +1,40 @@
 using MediatR;
 using TaxOmbud.Application.Common.Models;
-using System.Collections.Generic;
+using TaxOmbud.Application.Common.Interfaces;
+using Microsoft.EntityFrameworkCore;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace TaxOmbud.Application.Features.Wallet.Commands.ProcessWithdrawal;
 
-public record ProcessWithdrawalCommands : IRequest<Result<ProcessWithdrawalResponse>>
-{
-}
+public record ProcessWithdrawalCommands(Guid TransactionId, bool Approved) : IRequest<Result<bool>>;
 
-public class ProcessWithdrawalResponse
+public class ProcessWithdrawalCommandsHandler : IRequestHandler<ProcessWithdrawalCommands, Result<bool>>
 {
-    public bool Success { get; set; }
-}
+    private readonly IApplicationDbContext _context;
+    public ProcessWithdrawalCommandsHandler(IApplicationDbContext context) => _context = context;
 
-public class ProcessWithdrawalCommandsHandler : IRequestHandler<ProcessWithdrawalCommands, Result<ProcessWithdrawalResponse>>
-{
-    public async Task<Result<ProcessWithdrawalResponse>> Handle(ProcessWithdrawalCommands request, CancellationToken cancellationToken)
+    public async Task<Result<bool>> Handle(ProcessWithdrawalCommands request, CancellationToken cancellationToken)
     {
-        await Task.CompletedTask; return Result<ProcessWithdrawalResponse>.Success(new ProcessWithdrawalResponse { Success = true });
+        var tx = await _context.WalletTransactions.FirstOrDefaultAsync(x => x.Id == request.TransactionId, cancellationToken);
+        if (tx == null) return Result<bool>.NotFound("Transaction not found.");
+
+        if (request.Approved)
+        {
+            
+            var wallet = await _context.EmployeeWallets.FindAsync(new object[] { tx.WalletId }, cancellationToken);
+            if(wallet != null) 
+            {
+                wallet.BalanceNgn += tx.Amount; // amount is already negative
+            }
+        }
+        else
+        {
+            
+        }
+        
+        await _context.SaveChangesAsync(cancellationToken);
+        return Result<bool>.Success(true);
     }
 }

@@ -1,24 +1,24 @@
 using MediatR;
 using TaxOmbud.Application.Common.Models;
+using TaxOmbud.Application.Common.Interfaces;
+using TaxOmbud.Domain.Entities.Hr;
+using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace TaxOmbud.Application.Features.Payroll.Queries.GetRemittances;
 
-public record GetRemittancesQueries : IRequest<Result<GetRemittancesResponse>>
-{
-}
+public record GetRemittancesQueries : IRequest<Result<List<Remittance>>> { }
 
-public class GetRemittancesResponse
+public class GetRemittancesQueriesHandler : IRequestHandler<GetRemittancesQueries, Result<List<Remittance>>>
 {
-    public bool Success { get; set; }
-}
+    private readonly IApplicationDbContext _context;
+    public GetRemittancesQueriesHandler(IApplicationDbContext context) => _context = context;
 
-public class GetRemittancesQueriesHandler : IRequestHandler<GetRemittancesQueries, Result<GetRemittancesResponse>>
-{
-    public async Task<Result<GetRemittancesResponse>> Handle(GetRemittancesQueries request, CancellationToken cancellationToken)
+    public async Task<Result<List<Remittance>>> Handle(GetRemittancesQueries request, CancellationToken cancellationToken)
     {
-        await Task.CompletedTask; return Result<GetRemittancesResponse>.Success(new GetRemittancesResponse { Success = true });
+        var list = await _context.Remittances.ToListAsync(cancellationToken);
+        return Result<List<Remittance>>.Success(list);
     }
 }

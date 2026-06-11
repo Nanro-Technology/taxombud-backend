@@ -1,24 +1,38 @@
 using MediatR;
 using TaxOmbud.Application.Common.Models;
-using System.Collections.Generic;
+using TaxOmbud.Application.Common.Interfaces;
+using TaxOmbud.Domain.Entities.Hr;
+using Microsoft.EntityFrameworkCore;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace TaxOmbud.Application.Features.Wallet.Commands.RequestWithdrawal;
 
-public record RequestWithdrawalCommands : IRequest<Result<RequestWithdrawalResponse>>
-{
-}
+public record RequestWithdrawalCommands(Guid WalletId, decimal Amount) : IRequest<Result<Guid>>;
 
-public class RequestWithdrawalResponse
+public class RequestWithdrawalCommandsHandler : IRequestHandler<RequestWithdrawalCommands, Result<Guid>>
 {
-    public bool Success { get; set; }
-}
+    private readonly IApplicationDbContext _context;
+    public RequestWithdrawalCommandsHandler(IApplicationDbContext context) => _context = context;
 
-public class RequestWithdrawalCommandsHandler : IRequestHandler<RequestWithdrawalCommands, Result<RequestWithdrawalResponse>>
-{
-    public async Task<Result<RequestWithdrawalResponse>> Handle(RequestWithdrawalCommands request, CancellationToken cancellationToken)
+    public async Task<Result<Guid>> Handle(RequestWithdrawalCommands request, CancellationToken cancellationToken)
     {
-        await Task.CompletedTask; return Result<RequestWithdrawalResponse>.Success(new RequestWithdrawalResponse { Success = true });
+        var wallet = await _context.EmployeeWallets.FirstOrDefaultAsync(x => x.Id == request.WalletId, cancellationToken);
+        if (wallet == null) return Result<Guid>.NotFound("Wallet not found.");
+        if (wallet.BalanceNgn < request.Amount) return Result<Guid>.Failure("Insufficient balance.");
+        
+        var tx = new WalletTransaction
+        {
+            Id = Guid.NewGuid(),
+            WalletId = request.WalletId,
+            Amount = -request.Amount,
+            Type = "debit", Reference = "WithdrawalRequest",
+            
+            
+        };
+        _context.WalletTransactions.Add(tx);
+        await _context.SaveChangesAsync(cancellationToken);
+        return Result<Guid>.Success(tx.Id);
     }
 }

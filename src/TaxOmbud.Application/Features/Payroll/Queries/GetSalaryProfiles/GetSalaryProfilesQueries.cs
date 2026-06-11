@@ -1,24 +1,24 @@
 using MediatR;
 using TaxOmbud.Application.Common.Models;
+using TaxOmbud.Application.Common.Interfaces;
+using TaxOmbud.Domain.Entities.Hr;
+using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace TaxOmbud.Application.Features.Payroll.Queries.GetSalaryProfiles;
 
-public record GetSalaryProfilesQueries : IRequest<Result<GetSalaryProfilesResponse>>
-{
-}
+public record GetSalaryProfilesQueries : IRequest<Result<List<SalaryProfile>>> { }
 
-public class GetSalaryProfilesResponse
+public class GetSalaryProfilesQueriesHandler : IRequestHandler<GetSalaryProfilesQueries, Result<List<SalaryProfile>>>
 {
-    public bool Success { get; set; }
-}
+    private readonly IApplicationDbContext _context;
+    public GetSalaryProfilesQueriesHandler(IApplicationDbContext context) => _context = context;
 
-public class GetSalaryProfilesQueriesHandler : IRequestHandler<GetSalaryProfilesQueries, Result<GetSalaryProfilesResponse>>
-{
-    public async Task<Result<GetSalaryProfilesResponse>> Handle(GetSalaryProfilesQueries request, CancellationToken cancellationToken)
+    public async Task<Result<List<SalaryProfile>>> Handle(GetSalaryProfilesQueries request, CancellationToken cancellationToken)
     {
-        await Task.CompletedTask; return Result<GetSalaryProfilesResponse>.Success(new GetSalaryProfilesResponse { Success = true });
+        var list = await _context.SalaryProfiles.ToListAsync(cancellationToken);
+        return Result<List<SalaryProfile>>.Success(list);
     }
 }

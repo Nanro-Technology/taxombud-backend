@@ -1,24 +1,25 @@
 using MediatR;
 using TaxOmbud.Application.Common.Models;
-using System.Collections.Generic;
+using TaxOmbud.Application.Common.Interfaces;
+using TaxOmbud.Domain.Entities.Hr;
+using Microsoft.EntityFrameworkCore;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace TaxOmbud.Application.Features.Wallet.Queries.GetWalletBalance;
 
-public record GetWalletBalanceQueries : IRequest<Result<GetWalletBalanceResponse>>
-{
-}
+public record GetWalletBalanceQueries(Guid UserId) : IRequest<Result<EmployeeWallet>>;
 
-public class GetWalletBalanceResponse
+public class GetWalletBalanceQueriesHandler : IRequestHandler<GetWalletBalanceQueries, Result<EmployeeWallet>>
 {
-    public bool Success { get; set; }
-}
+    private readonly IApplicationDbContext _context;
+    public GetWalletBalanceQueriesHandler(IApplicationDbContext context) => _context = context;
 
-public class GetWalletBalanceQueriesHandler : IRequestHandler<GetWalletBalanceQueries, Result<GetWalletBalanceResponse>>
-{
-    public async Task<Result<GetWalletBalanceResponse>> Handle(GetWalletBalanceQueries request, CancellationToken cancellationToken)
+    public async Task<Result<EmployeeWallet>> Handle(GetWalletBalanceQueries request, CancellationToken cancellationToken)
     {
-        await Task.CompletedTask; return Result<GetWalletBalanceResponse>.Success(new GetWalletBalanceResponse { Success = true });
+        var wallet = await _context.EmployeeWallets.FirstOrDefaultAsync(x => x.UserId == request.UserId, cancellationToken);
+        if (wallet == null) return Result<EmployeeWallet>.NotFound("Wallet not found.");
+        return Result<EmployeeWallet>.Success(wallet);
     }
 }

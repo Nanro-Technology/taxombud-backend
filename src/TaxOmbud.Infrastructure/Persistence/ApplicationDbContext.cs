@@ -109,6 +109,16 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<EwaRequest> EwaRequests => Set<EwaRequest>();
     public DbSet<LeaveRequest> LeaveRequests => Set<LeaveRequest>();
 
+    // ─── Operations & Finance ─────────────────────────────────────────────────
+    public DbSet<TaxOmbud.Domain.Entities.Operations.Project> Projects => Set<TaxOmbud.Domain.Entities.Operations.Project>();
+    public DbSet<TaxOmbud.Domain.Entities.Operations.ProjectTask> ProjectTasks => Set<TaxOmbud.Domain.Entities.Operations.ProjectTask>();
+    public DbSet<TaxOmbud.Domain.Entities.Operations.InventoryItem> InventoryItems => Set<TaxOmbud.Domain.Entities.Operations.InventoryItem>();
+    public DbSet<TaxOmbud.Domain.Entities.Operations.VendorContact> VendorContacts => Set<TaxOmbud.Domain.Entities.Operations.VendorContact>();
+    public DbSet<TaxOmbud.Domain.Entities.Finance.Quote> Quotes => Set<TaxOmbud.Domain.Entities.Finance.Quote>();
+    public DbSet<TaxOmbud.Domain.Entities.Finance.Contract> Contracts => Set<TaxOmbud.Domain.Entities.Finance.Contract>();
+    public DbSet<TaxOmbud.Domain.Entities.Finance.Invoice> Invoices => Set<TaxOmbud.Domain.Entities.Finance.Invoice>();
+    public DbSet<TaxOmbud.Domain.Entities.Finance.InvoiceItem> InvoiceItems => Set<TaxOmbud.Domain.Entities.Finance.InvoiceItem>();
+
     // ─── EF Model ─────────────────────────────────────────────────────────────
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -197,4 +207,6 @@ public class ReferenceNumberValueConverter : ValueConverter<ReferenceNumber, str
     {
     }
 }
+
+
 

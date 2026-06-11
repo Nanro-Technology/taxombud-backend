@@ -1,24 +1,24 @@
 using MediatR;
 using TaxOmbud.Application.Common.Models;
+using TaxOmbud.Application.Common.Interfaces;
+using TaxOmbud.Domain.Entities.Hr;
+using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace TaxOmbud.Application.Features.HrRequests.Queries.GetEwaRequests;
 
-public record GetEwaRequestsQueries : IRequest<Result<GetEwaRequestsResponse>>
-{
-}
+public record GetEwaRequestsQueries : IRequest<Result<List<EwaRequest>>> { }
 
-public class GetEwaRequestsResponse
+public class GetEwaRequestsQueriesHandler : IRequestHandler<GetEwaRequestsQueries, Result<List<EwaRequest>>>
 {
-    public bool Success { get; set; }
-}
+    private readonly IApplicationDbContext _context;
+    public GetEwaRequestsQueriesHandler(IApplicationDbContext context) => _context = context;
 
-public class GetEwaRequestsQueriesHandler : IRequestHandler<GetEwaRequestsQueries, Result<GetEwaRequestsResponse>>
-{
-    public async Task<Result<GetEwaRequestsResponse>> Handle(GetEwaRequestsQueries request, CancellationToken cancellationToken)
+    public async Task<Result<List<EwaRequest>>> Handle(GetEwaRequestsQueries request, CancellationToken cancellationToken)
     {
-        await Task.CompletedTask; return Result<GetEwaRequestsResponse>.Success(new GetEwaRequestsResponse { Success = true });
+        var list = await _context.EwaRequests.ToListAsync(cancellationToken);
+        return Result<List<EwaRequest>>.Success(list);
     }
 }

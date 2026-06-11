@@ -1,25 +1,28 @@
 using MediatR;
 using TaxOmbud.Application.Common.Models;
-using System.Collections.Generic;
+using TaxOmbud.Application.Common.Interfaces;
+using Microsoft.EntityFrameworkCore;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace TaxOmbud.Application.Features.Operations.Commands.UpdateProjectStatus;
 
-public record UpdateProjectStatusCommands : IRequest<Result<UpdateProjectStatusResponse>>
-{
-}
+public record UpdateProjectStatusCommands(Guid Id, string Status) : IRequest<Result<bool>>;
 
-public class UpdateProjectStatusResponse
+public class UpdateProjectStatusCommandsHandler : IRequestHandler<UpdateProjectStatusCommands, Result<bool>>
 {
-    public bool Success { get; set; }
-}
+    private readonly IApplicationDbContext _context;
+    public UpdateProjectStatusCommandsHandler(IApplicationDbContext context) => _context = context;
 
-public class UpdateProjectStatusCommandsHandler : IRequestHandler<UpdateProjectStatusCommands, Result<UpdateProjectStatusResponse>>
-{
-    public async Task<Result<UpdateProjectStatusResponse>> Handle(UpdateProjectStatusCommands request, CancellationToken cancellationToken)
+    public async Task<Result<bool>> Handle(UpdateProjectStatusCommands request, CancellationToken cancellationToken)
     {
-        await Task.CompletedTask;
-        return Result<UpdateProjectStatusResponse>.Success(new UpdateProjectStatusResponse { Success = true });
+        var entity = await _context.Projects.FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken);
+        if(entity == null) return Result<bool>.NotFound($"Project {request.Id} not found.");
+        
+        entity.Status = request.Status;
+        entity.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync(cancellationToken);
+        return Result<bool>.Success(true);
     }
 }

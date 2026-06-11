@@ -1,25 +1,24 @@
 using MediatR;
 using TaxOmbud.Application.Common.Models;
+using TaxOmbud.Application.Common.Interfaces;
+using TaxOmbud.Domain.Entities.Operations;
+using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace TaxOmbud.Application.Features.Operations.Queries.GetProjects;
 
-public record GetProjectsQueries : IRequest<Result<GetProjectsResponse>>
-{
-}
+public record GetProjectsQueries : IRequest<Result<List<Project>>> { }
 
-public class GetProjectsResponse
+public class GetProjectsQueriesHandler : IRequestHandler<GetProjectsQueries, Result<List<Project>>>
 {
-    public bool Success { get; set; }
-}
+    private readonly IApplicationDbContext _context;
+    public GetProjectsQueriesHandler(IApplicationDbContext context) => _context = context;
 
-public class GetProjectsQueriesHandler : IRequestHandler<GetProjectsQueries, Result<GetProjectsResponse>>
-{
-    public async Task<Result<GetProjectsResponse>> Handle(GetProjectsQueries request, CancellationToken cancellationToken)
+    public async Task<Result<List<Project>>> Handle(GetProjectsQueries request, CancellationToken cancellationToken)
     {
-        await Task.CompletedTask;
-        return Result<GetProjectsResponse>.Success(new GetProjectsResponse { Success = true });
+        var list = await _context.Projects.ToListAsync(cancellationToken);
+        return Result<List<Project>>.Success(list);
     }
 }

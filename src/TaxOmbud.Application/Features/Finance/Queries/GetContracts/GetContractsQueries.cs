@@ -1,25 +1,24 @@
 using MediatR;
 using TaxOmbud.Application.Common.Models;
+using TaxOmbud.Application.Common.Interfaces;
+using TaxOmbud.Domain.Entities.Finance;
+using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace TaxOmbud.Application.Features.Finance.Queries.GetContracts;
 
-public record GetContractsQueries : IRequest<Result<GetContractsResponse>>
-{
-}
+public record GetContractsQueries : IRequest<Result<List<Contract>>> { }
 
-public class GetContractsResponse
+public class GetContractsQueriesHandler : IRequestHandler<GetContractsQueries, Result<List<Contract>>>
 {
-    public bool Success { get; set; }
-}
+    private readonly IApplicationDbContext _context;
+    public GetContractsQueriesHandler(IApplicationDbContext context) => _context = context;
 
-public class GetContractsQueriesHandler : IRequestHandler<GetContractsQueries, Result<GetContractsResponse>>
-{
-    public async Task<Result<GetContractsResponse>> Handle(GetContractsQueries request, CancellationToken cancellationToken)
+    public async Task<Result<List<Contract>>> Handle(GetContractsQueries request, CancellationToken cancellationToken)
     {
-        await Task.CompletedTask;
-        return Result<GetContractsResponse>.Success(new GetContractsResponse { Success = true });
+        var list = await _context.Contracts.ToListAsync(cancellationToken);
+        return Result<List<Contract>>.Success(list);
     }
 }

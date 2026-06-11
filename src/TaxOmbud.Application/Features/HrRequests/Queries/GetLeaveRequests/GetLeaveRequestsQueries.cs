@@ -1,24 +1,24 @@
 using MediatR;
 using TaxOmbud.Application.Common.Models;
+using TaxOmbud.Application.Common.Interfaces;
+using TaxOmbud.Domain.Entities.Hr;
+using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace TaxOmbud.Application.Features.HrRequests.Queries.GetLeaveRequests;
 
-public record GetLeaveRequestsQueries : IRequest<Result<GetLeaveRequestsResponse>>
-{
-}
+public record GetLeaveRequestsQueries : IRequest<Result<List<LeaveRequest>>> { }
 
-public class GetLeaveRequestsResponse
+public class GetLeaveRequestsQueriesHandler : IRequestHandler<GetLeaveRequestsQueries, Result<List<LeaveRequest>>>
 {
-    public bool Success { get; set; }
-}
+    private readonly IApplicationDbContext _context;
+    public GetLeaveRequestsQueriesHandler(IApplicationDbContext context) => _context = context;
 
-public class GetLeaveRequestsQueriesHandler : IRequestHandler<GetLeaveRequestsQueries, Result<GetLeaveRequestsResponse>>
-{
-    public async Task<Result<GetLeaveRequestsResponse>> Handle(GetLeaveRequestsQueries request, CancellationToken cancellationToken)
+    public async Task<Result<List<LeaveRequest>>> Handle(GetLeaveRequestsQueries request, CancellationToken cancellationToken)
     {
-        await Task.CompletedTask; return Result<GetLeaveRequestsResponse>.Success(new GetLeaveRequestsResponse { Success = true });
+        var list = await _context.LeaveRequests.ToListAsync(cancellationToken);
+        return Result<List<LeaveRequest>>.Success(list);
     }
 }

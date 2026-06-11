@@ -1,25 +1,32 @@
 using MediatR;
 using TaxOmbud.Application.Common.Models;
-using System.Collections.Generic;
+using TaxOmbud.Application.Common.Interfaces;
+using TaxOmbud.Domain.Entities.Operations;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace TaxOmbud.Application.Features.Operations.Commands.AddInventoryItem;
 
-public record AddInventoryItemCommands : IRequest<Result<AddInventoryItemResponse>>
-{
-}
+public record AddInventoryItemCommands(string Name, string SKU, int Quantity) : IRequest<Result<Guid>>;
 
-public class AddInventoryItemResponse
+public class AddInventoryItemCommandsHandler : IRequestHandler<AddInventoryItemCommands, Result<Guid>>
 {
-    public bool Success { get; set; }
-}
+    private readonly IApplicationDbContext _context;
+    public AddInventoryItemCommandsHandler(IApplicationDbContext context) => _context = context;
 
-public class AddInventoryItemCommandsHandler : IRequestHandler<AddInventoryItemCommands, Result<AddInventoryItemResponse>>
-{
-    public async Task<Result<AddInventoryItemResponse>> Handle(AddInventoryItemCommands request, CancellationToken cancellationToken)
+    public async Task<Result<Guid>> Handle(AddInventoryItemCommands request, CancellationToken cancellationToken)
     {
-        await Task.CompletedTask;
-        return Result<AddInventoryItemResponse>.Success(new AddInventoryItemResponse { Success = true });
+        var entity = new InventoryItem
+        {
+            Id = Guid.NewGuid(),
+            Name = request.Name,
+            SKU = request.SKU,
+            Quantity = request.Quantity,
+            CreatedAt = DateTime.UtcNow
+        };
+        _context.InventoryItems.Add(entity);
+        await _context.SaveChangesAsync(cancellationToken);
+        return Result<Guid>.Success(entity.Id);
     }
 }

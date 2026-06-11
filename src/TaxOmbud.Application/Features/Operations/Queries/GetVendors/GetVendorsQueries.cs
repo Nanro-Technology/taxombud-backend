@@ -1,25 +1,24 @@
 using MediatR;
 using TaxOmbud.Application.Common.Models;
+using TaxOmbud.Application.Common.Interfaces;
+using TaxOmbud.Domain.Entities.Operations;
+using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace TaxOmbud.Application.Features.Operations.Queries.GetVendors;
 
-public record GetVendorsQueries : IRequest<Result<GetVendorsResponse>>
-{
-}
+public record GetVendorsQueries : IRequest<Result<List<VendorContact>>> { }
 
-public class GetVendorsResponse
+public class GetVendorsQueriesHandler : IRequestHandler<GetVendorsQueries, Result<List<VendorContact>>>
 {
-    public bool Success { get; set; }
-}
+    private readonly IApplicationDbContext _context;
+    public GetVendorsQueriesHandler(IApplicationDbContext context) => _context = context;
 
-public class GetVendorsQueriesHandler : IRequestHandler<GetVendorsQueries, Result<GetVendorsResponse>>
-{
-    public async Task<Result<GetVendorsResponse>> Handle(GetVendorsQueries request, CancellationToken cancellationToken)
+    public async Task<Result<List<VendorContact>>> Handle(GetVendorsQueries request, CancellationToken cancellationToken)
     {
-        await Task.CompletedTask;
-        return Result<GetVendorsResponse>.Success(new GetVendorsResponse { Success = true });
+        var list = await _context.VendorContacts.ToListAsync(cancellationToken);
+        return Result<List<VendorContact>>.Success(list);
     }
 }
