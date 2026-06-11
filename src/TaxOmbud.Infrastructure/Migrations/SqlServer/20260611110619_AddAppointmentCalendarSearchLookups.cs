@@ -1811,7 +1811,7 @@ namespace TaxOmbud.Infrastructure.Migrations.SqlServer
                 column: "ApproverUserId",
                 principalTable: "Users",
                 principalColumn: "Id",
-                onDelete: ReferentialAction.SetNull);
+                onDelete: ReferentialAction.Restrict);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_OfficerPerformanceRecords_Officers_OfficerId",

@@ -27,6 +27,6 @@ public class GetPayrollPeriodsQueryHandler : IRequestHandler<GetPayrollPeriodsQu
     public async Task<Result<IEnumerable<PayrollPeriod>>> Handle(GetPayrollPeriodsQuery request, CancellationToken cancellationToken)
     {
         var periods = await _context.PayrollPeriods.AsNoTracking().ToListAsync(cancellationToken);
-        return Result<IEnumerable<PayrollPeriod>>.Success(periods);
+        await Task.CompletedTask; return Result<IEnumerable<PayrollPeriod>>.Success(periods);
     }
 }

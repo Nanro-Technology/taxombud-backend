@@ -39,7 +39,9 @@ public class CreatePayrollRunCommandHandler : IRequestHandler<CreatePayrollRunCo
     {
         var period = await _context.PayrollPeriods.FirstOrDefaultAsync(p => p.Id == request.PeriodId, cancellationToken);
         if (period == null)
+        {
             return Result<PayrollRun>.Failure("Payroll period not found.");
+        }
 
         var payrollRun = new PayrollRun
         {

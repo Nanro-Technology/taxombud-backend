@@ -253,6 +253,6 @@ public class LeaveRequestConfiguration : IEntityTypeConfiguration<LeaveRequest>
         builder.HasOne(lr => lr.ApproverUser)
             .WithMany()
             .HasForeignKey(lr => lr.ApproverUserId)
-            .OnDelete(DeleteBehavior.SetNull);
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }
