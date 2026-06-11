@@ -167,6 +167,7 @@ try
     app.UseHttpsRedirection();
     app.UseCors("TaxOmbudCors");
     app.UseRateLimiter();
+    app.UseMiddleware<E2eeMiddleware>();
     app.UseAuthentication();
     app.UseAuthorization();
     app.UseHangfireDashboard();

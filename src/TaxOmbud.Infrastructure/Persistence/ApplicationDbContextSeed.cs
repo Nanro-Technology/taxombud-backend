@@ -14,6 +14,7 @@ public static class ApplicationDbContextSeed
     {
         await SeedRolesAndPermissionsAsync(context, logger);
         await SeedDefaultAdminAsync(context, logger);
+        await SeedSettingsAsync(context, logger);
     }
 
     // ─── Roles & Permissions ──────────────────────────────────────────────────
@@ -129,5 +130,31 @@ public static class ApplicationDbContextSeed
 
         logger.LogInformation("✓ Default SuperAdmin seeded: {Email}", adminEmail);
         logger.LogWarning("⚠ Change the default admin password immediately after first login!");
+    }
+
+    // ─── Default System Settings ──────────────────────────────────────────────
+    private static async Task SeedSettingsAsync(ApplicationDbContext context, ILogger logger)
+    {
+        var settings = new[]
+        {
+            new TaxOmbud.Domain.Entities.System.SystemSetting
+            {
+                Id = Guid.NewGuid(),
+                Key = "Security:E2EE_Enabled",
+                Value = "false", // Default to false
+                Description = "Toggles End-to-End Encryption (E2EE) for the API"
+            }
+        };
+
+        foreach (var setting in settings)
+        {
+            if (!await context.SystemSettings.AnyAsync(s => s.Key == setting.Key))
+            {
+                context.SystemSettings.Add(setting);
+            }
+        }
+
+        await context.SaveChangesAsync();
+        logger.LogInformation("✓ System settings seeded");
     }
 }
