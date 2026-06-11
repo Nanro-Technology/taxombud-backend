@@ -118,6 +118,10 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<TaxOmbud.Domain.Entities.Finance.Contract> Contracts => Set<TaxOmbud.Domain.Entities.Finance.Contract>();
     public DbSet<TaxOmbud.Domain.Entities.Finance.Invoice> Invoices => Set<TaxOmbud.Domain.Entities.Finance.Invoice>();
     public DbSet<TaxOmbud.Domain.Entities.Finance.InvoiceItem> InvoiceItems => Set<TaxOmbud.Domain.Entities.Finance.InvoiceItem>();
+    public DbSet<TaxOmbud.Domain.Entities.System.Announcement> Announcements => Set<TaxOmbud.Domain.Entities.System.Announcement>();
+    public DbSet<TaxOmbud.Domain.Entities.Appointments.CalendarEvent> CalendarEvents => Set<TaxOmbud.Domain.Entities.Appointments.CalendarEvent>();
+    public DbSet<TaxOmbud.Domain.Entities.Communications.AgentChat> AgentChats => Set<TaxOmbud.Domain.Entities.Communications.AgentChat>();
+    public DbSet<TaxOmbud.Domain.Entities.Communications.AgentChatMessage> AgentChatMessages => Set<TaxOmbud.Domain.Entities.Communications.AgentChatMessage>();
 
     // ─── EF Model ─────────────────────────────────────────────────────────────
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -207,6 +211,7 @@ public class ReferenceNumberValueConverter : ValueConverter<ReferenceNumber, str
     {
     }
 }
+
 
 
 

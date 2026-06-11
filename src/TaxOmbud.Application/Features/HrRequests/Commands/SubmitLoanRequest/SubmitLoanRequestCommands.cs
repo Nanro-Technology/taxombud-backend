@@ -8,7 +8,15 @@ using System.Threading.Tasks;
 
 namespace TaxOmbud.Application.Features.HrRequests.Commands.SubmitLoanRequest;
 
-public record SubmitLoanRequestCommands(Guid StaffId, decimal Amount, int RepaymentMonths) : IRequest<Result<Guid>>;
+public record SubmitLoanRequestCommands(
+    Guid StaffId, 
+    decimal Amount, 
+    int RepaymentMonths,
+    string Purpose,
+    string? DisburseTo,
+    string? PayoutReference,
+    string? ActionNote
+) : IRequest<Result<Guid>>;
 
 public class SubmitLoanRequestCommandsHandler : IRequestHandler<SubmitLoanRequestCommands, Result<Guid>>
 {
@@ -23,8 +31,12 @@ public class SubmitLoanRequestCommandsHandler : IRequestHandler<SubmitLoanReques
             UserId = request.StaffId,
             Amount = request.Amount,
             TermMonths = request.RepaymentMonths,
+            Purpose = request.Purpose,
+            DisburseTo = request.DisburseTo,
+            PayoutReference = request.PayoutReference,
+            ActionNote = request.ActionNote,
             Status = "Pending",
-            
+            CreatedAt = DateTime.UtcNow
         };
         _context.LoanRequests.Add(entity);
         await _context.SaveChangesAsync(cancellationToken);

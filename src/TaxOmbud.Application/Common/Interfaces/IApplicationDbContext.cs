@@ -100,8 +100,13 @@ public interface IApplicationDbContext
     DbSet<TaxOmbud.Domain.Entities.Finance.Contract> Contracts { get; }
     DbSet<TaxOmbud.Domain.Entities.Finance.Invoice> Invoices { get; }
     DbSet<TaxOmbud.Domain.Entities.Finance.InvoiceItem> InvoiceItems { get; }
+    DbSet<TaxOmbud.Domain.Entities.System.Announcement> Announcements { get; }
+    DbSet<TaxOmbud.Domain.Entities.Appointments.CalendarEvent> CalendarEvents { get; }
+    DbSet<TaxOmbud.Domain.Entities.Communications.AgentChat> AgentChats { get; }
+    DbSet<TaxOmbud.Domain.Entities.Communications.AgentChatMessage> AgentChatMessages { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
+
 
 
