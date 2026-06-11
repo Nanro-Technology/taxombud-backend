@@ -14,6 +14,8 @@ public class Document : BaseAuditableEntity
     
     public DocumentEntityType EntityType { get; set; }
     public Guid EntityId { get; set; }
+    
+    public string? Classification { get; set; }
 
     public ICollection<DocumentVersion> Versions { get; set; } = new List<DocumentVersion>();
 }

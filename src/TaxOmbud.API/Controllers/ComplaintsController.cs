@@ -20,6 +20,7 @@ using TaxOmbud.Application.Features.Complaints.Queries.GetComplaintDocuments;
 using TaxOmbud.Application.Features.Complaints.Queries.GetComplaintNotes;
 using TaxOmbud.Application.Features.Complaints.Queries.GetComplaintTimeline;
 using TaxOmbud.Application.Features.Complaints.Queries.GetComplaints;
+using TaxOmbud.Application.Features.Complaints.Queries.GetMyComplaints;
 using TaxOmbud.Application.Features.Complaints.Queries.GetRelatedComplaints;
 using TaxOmbud.Domain.Enums;
 
@@ -223,6 +224,20 @@ public class ComplaintsController : ApiControllerBase
     {
         var result = await _mediator.Send(new GetComplaintNotesQuery(id), ct);
         return ToActionResult(result);
+    }
+
+    /// <summary>Get paginated list of complaints lodged by the current taxpayer.</summary>
+    [HttpGet("my")]
+    [Authorize]
+    public async Task<IActionResult> GetMyComplaints(
+        [FromQuery] string? search,
+        [FromQuery] string? status,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken ct = default)
+    {
+        var result = await _mediator.Send(new GetMyComplaintsQuery(search, status, page, pageSize), ct);
+        return Ok(result);
     }
 
     /// <summary>Add a note to a complaint.</summary>

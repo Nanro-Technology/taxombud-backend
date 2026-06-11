@@ -5,6 +5,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TaxOmbud.Application.Features.Appointments.Commands.BookAppointment;
+using TaxOmbud.Application.Features.Appointments.Commands.UpdateAppointment;
 using TaxOmbud.Application.Features.Appointments.Commands.UpdateAppointmentStatus;
 using TaxOmbud.Application.Features.Appointments.Queries.GetAppointmentById;
 using TaxOmbud.Application.Features.Appointments.Queries.GetAppointments;
@@ -66,6 +67,21 @@ public class AppointmentsController : ApiControllerBase
         return CreatedAtAction(nameof(GetAppointmentById), new { id = result.Value!.Id }, result.Value);
     }
 
+    /// <summary>Update an existing appointment details.</summary>
+    [HttpPut("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateAppointment(Guid id, [FromBody] UpdateAppointmentRequest request, CancellationToken ct)
+    {
+        var command = new UpdateAppointmentCommand(
+            id, request.Title, request.Description, request.StartTime, request.EndTime,
+            request.Location, request.MeetingUrl);
+            
+        var result = await _mediator.Send(command, ct);
+        return ToActionResult(result);
+    }
+
     /// <summary>Update appointment status (Confirm, Cancel, Reject, Reschedule).</summary>
     [HttpPut("{id:guid}/status")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -111,6 +127,15 @@ public record BookAppointmentRequest(
     DateTimeOffset EndTime,
     Guid? TaxpayerId,
     Guid? OfficerId,
+    string? Location,
+    string? MeetingUrl
+);
+
+public record UpdateAppointmentRequest(
+    string Title,
+    string? Description,
+    DateTimeOffset StartTime,
+    DateTimeOffset EndTime,
     string? Location,
     string? MeetingUrl
 );

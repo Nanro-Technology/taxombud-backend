@@ -9,6 +9,7 @@ using TaxOmbud.Application.Features.Taxpayers.Commands.UpdateTaxpayer;
 using TaxOmbud.Application.Features.Taxpayers.Commands.VerifyTaxpayer;
 using TaxOmbud.Application.Features.Taxpayers.Queries.GetCurrentTaxpayer;
 using TaxOmbud.Application.Features.Taxpayers.Queries.GetTaxpayerById;
+using TaxOmbud.Application.Features.Taxpayers.Queries.GetTaxpayerByTin;
 using TaxOmbud.Application.Features.Taxpayers.Queries.GetTaxpayerComplaints;
 using TaxOmbud.Application.Features.Taxpayers.Queries.GetTaxpayers;
 using TaxOmbud.Application.Features.Taxpayers.Queries.VerifyNin;
@@ -52,6 +53,17 @@ public class TaxpayersController : ApiControllerBase
     public async Task<IActionResult> GetTaxpayerById(Guid id, CancellationToken ct)
     {
         var result = await _mediator.Send(new GetTaxpayerByIdQuery(id), ct);
+        return ToActionResult(result);
+    }
+
+    /// <summary>Get a single taxpayer profile by TIN.</summary>
+    [HttpGet("tin/{tin}")]
+    [Authorize(Policy = "OfficerOrAbove")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetTaxpayerByTin(string tin, CancellationToken ct)
+    {
+        var result = await _mediator.Send(new GetTaxpayerByTinQuery(tin), ct);
         return ToActionResult(result);
     }
 

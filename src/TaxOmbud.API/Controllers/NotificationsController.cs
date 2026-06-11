@@ -9,7 +9,10 @@ using TaxOmbud.Application.Features.Notifications.Commands.DeleteNotification;
 using TaxOmbud.Application.Features.Notifications.Commands.MarkAllAsRead;
 using TaxOmbud.Application.Features.Notifications.Commands.MarkAsRead;
 using TaxOmbud.Application.Features.Notifications.Commands.SendNotification;
+using TaxOmbud.Application.Features.Notifications.Commands.UpdateNotificationPreferences;
 using TaxOmbud.Application.Features.Notifications.Queries.GetMyNotifications;
+using TaxOmbud.Application.Features.Notifications.Queries.GetNotificationPreferences;
+using TaxOmbud.Application.Features.Notifications.Queries.GetUnreadNotificationCount;
 
 namespace TaxOmbud.Api.Controllers;
 
@@ -81,6 +84,35 @@ public class NotificationsController : ApiControllerBase
 
         return CreatedAtAction(null, result.Value);
     }
+
+    /// <summary>Get the number of unread notifications for the user.</summary>
+    [HttpGet("unread-count")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetUnreadCount(CancellationToken ct)
+    {
+        var result = await _mediator.Send(new GetUnreadNotificationCountQuery(), ct);
+        return ToActionResult(result);
+    }
+
+    /// <summary>Get the authenticated user's notification preferences.</summary>
+    [HttpGet("preferences")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetPreferences(CancellationToken ct)
+    {
+        var result = await _mediator.Send(new GetNotificationPreferencesQuery(), ct);
+        return ToActionResult(result);
+    }
+
+    /// <summary>Update the authenticated user's notification preferences.</summary>
+    [HttpPut("preferences")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> UpdatePreferences([FromBody] UpdateNotificationPreferencesRequest request, CancellationToken ct)
+    {
+        var result = await _mediator.Send(new UpdateNotificationPreferencesCommand(request.Preferences), ct);
+        return ToActionResult(result);
+    }
 }
 
 public record SendNotificationRequest(Guid UserId, string Title, string Message);
+
+public record UpdateNotificationPreferencesRequest(System.Collections.Generic.List<PreferenceUpdateDto> Preferences);

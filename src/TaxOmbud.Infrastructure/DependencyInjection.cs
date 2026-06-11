@@ -71,6 +71,7 @@ public static class DependencyInjection
         }
         services.AddScoped<ICacheService, CacheService>();
         services.AddSingleton<ICryptoService, CryptoService>();
+        services.AddSingleton<IEncryptionService, EncryptionService>();
 
         // ─── Hangfire Background Jobs ─────────────────────────────────────────
         services.AddHangfire(config =>

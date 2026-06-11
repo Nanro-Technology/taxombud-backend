@@ -71,9 +71,11 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
 
     // ─── Documents ────────────────────────────────────────────────────────────
     public DbSet<Document> Documents => Set<Document>();
+    public DbSet<DocumentVersion> DocumentVersions => Set<DocumentVersion>();
 
     // ─── Communications ───────────────────────────────────────────────────────
     public DbSet<CommunicationLog> CommunicationLogs => Set<CommunicationLog>();
+    public DbSet<CommunicationTemplate> CommunicationTemplates => Set<CommunicationTemplate>();
 
     // ─── Appeals ──────────────────────────────────────────────────────────────
     public DbSet<Appeal> Appeals => Set<Appeal>();
@@ -84,6 +86,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
 
     // ─── Notifications ────────────────────────────────────────────────────────
     public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
 
     // ─── System ───────────────────────────────────────────────────────────────
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();

@@ -1,6 +1,6 @@
 using System;
 using System.IO;
-using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
@@ -12,118 +12,145 @@ namespace TaxOmbud.Api.Middleware;
 public class E2eeMiddleware
 {
     private readonly RequestDelegate _next;
-    private static readonly string[] BypassPaths = { "/swagger", "/health", "/api/v1/security", "/hangfire" };
 
     public E2eeMiddleware(RequestDelegate next)
     {
         _next = next;
     }
 
-    public async Task InvokeAsync(HttpContext context, ICryptoService cryptoService, ICacheService cache, IApplicationDbContext dbContext)
+    public async Task InvokeAsync(HttpContext context, ICacheService cache, IApplicationDbContext dbContext, IEncryptionService encryptionService)
     {
-        var path = context.Request.Path.Value ?? string.Empty;
-        if (BypassPaths.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase)))
+        // 1. Check if E2EE is globally enabled
+        var isEnabledStr = await cache.GetAsync<string>("E2EE_ENABLED");
+        if (isEnabledStr == null)
+        {
+            var setting = await dbContext.SystemSettings.FirstOrDefaultAsync(s => s.Key == "E2EE_ENABLED");
+            isEnabledStr = setting?.Value ?? "false";
+            await cache.SetAsync("E2EE_ENABLED", isEnabledStr, TimeSpan.FromMinutes(5));
+        }
+
+        if (!bool.TryParse(isEnabledStr, out var isEnabled) || !isEnabled)
         {
             await _next(context);
             return;
         }
 
-        bool isE2eeEnabled = await GetE2eeStatusAsync(cache, dbContext, context.RequestAborted);
-        if (!isE2eeEnabled)
+        // Exclude Swagger, public key endpoint, and static files
+        var path = context.Request.Path.Value ?? "";
+        if (path.StartsWith("/swagger") || path.Contains("/encryption/public-key"))
         {
             await _next(context);
             return;
         }
 
-        // --- INBOUND (Decryption) ---
-        if (!context.Request.Headers.TryGetValue("X-Encryption-Key", out var encKeyHeader) ||
-            !context.Request.Headers.TryGetValue("X-Encryption-IV", out var ivHeader))
+        // We skip multipart/form-data for E2EE (file uploads) as requested
+        var isMultipart = context.Request.HasFormContentType;
+        if (isMultipart)
         {
-            context.Response.StatusCode = StatusCodes.Status400BadRequest;
-            context.Response.ContentType = "application/json";
-            await context.Response.WriteAsync("{\"error\": \"End-to-End Encryption is strictly enforced. Missing X-Encryption-Key or X-Encryption-IV headers.\"}");
+            await _next(context);
             return;
         }
 
-        byte[] aesKey;
-        byte[] aesIv;
-        try
-        {
-            var rsaEncryptedAesKey = Convert.FromBase64String(encKeyHeader.ToString());
-            aesKey = cryptoService.DecryptRsa(rsaEncryptedAesKey);
-            aesIv = Convert.FromBase64String(ivHeader.ToString());
-        }
-        catch (Exception)
-        {
-            context.Response.StatusCode = StatusCodes.Status400BadRequest;
-            context.Response.ContentType = "application/json";
-            await context.Response.WriteAsync("{\"error\": \"Invalid encryption key or IV format.\"}");
-            return;
-        }
+        byte[]? aesSessionKey = null;
 
-        // If request has a body, decrypt it
-        if (context.Request.ContentLength > 0 || context.Request.Headers.TransferEncoding.Contains("chunked"))
+        // 2. Decrypt Incoming Request Body
+        if (context.Request.ContentLength > 0 && context.Request.Method != HttpMethods.Get)
         {
+            var keyHeader = context.Request.Headers["X-E2EE-Key"].ToString();
+            var ivHeader = context.Request.Headers["X-E2EE-IV"].ToString();
+            var tagHeader = context.Request.Headers["X-E2EE-Tag"].ToString();
+
+            if (string.IsNullOrEmpty(keyHeader) || string.IsNullOrEmpty(ivHeader) || string.IsNullOrEmpty(tagHeader))
+            {
+                context.Response.StatusCode = StatusCodes.Status400BadRequest;
+                await context.Response.WriteAsync("Missing E2EE headers.");
+                return;
+            }
+
             try
             {
-                using var ms = new MemoryStream();
-                await context.Request.Body.CopyToAsync(ms);
-                var encryptedBody = ms.ToArray();
+                aesSessionKey = encryptionService.DecryptRsa(Convert.FromBase64String(keyHeader));
+                var iv = Convert.FromBase64String(ivHeader);
+                var tag = Convert.FromBase64String(tagHeader);
 
-                if (encryptedBody.Length > 0)
-                {
-                    var decryptedBody = cryptoService.DecryptAes(encryptedBody, aesKey, aesIv);
-                    context.Request.Body = new MemoryStream(decryptedBody);
-                    // Ensure downstream middleware reads this properly
-                    context.Request.ContentLength = decryptedBody.Length;
-                }
+                using var reader = new StreamReader(context.Request.Body);
+                var encryptedBodyBase64 = await reader.ReadToEndAsync();
+                var encryptedBodyBytes = Convert.FromBase64String(encryptedBodyBase64);
+
+                var decryptedBytes = encryptionService.DecryptAesGcm(encryptedBodyBytes, aesSessionKey, iv, tag);
+                var decryptedJson = Encoding.UTF8.GetString(decryptedBytes);
+
+                var requestStream = new MemoryStream(Encoding.UTF8.GetBytes(decryptedJson));
+                context.Request.Body = requestStream;
+                context.Request.ContentType = "application/json"; // Restore content type
             }
             catch (Exception)
             {
                 context.Response.StatusCode = StatusCodes.Status400BadRequest;
-                context.Response.ContentType = "application/json";
-                await context.Response.WriteAsync("{\"error\": \"Failed to decrypt payload.\"}");
+                await context.Response.WriteAsync("Failed to decrypt request payload.");
+                return;
+            }
+        }
+        else
+        {
+            // For GET requests, client must still provide X-E2EE-Key to receive encrypted response
+            var keyHeader = context.Request.Headers["X-E2EE-Key"].ToString();
+            if (!string.IsNullOrEmpty(keyHeader))
+            {
+                try
+                {
+                    aesSessionKey = encryptionService.DecryptRsa(Convert.FromBase64String(keyHeader));
+                }
+                catch
+                {
+                    context.Response.StatusCode = StatusCodes.Status400BadRequest;
+                    await context.Response.WriteAsync("Invalid X-E2EE-Key.");
+                    return;
+                }
+            }
+            else
+            {
+                context.Response.StatusCode = StatusCodes.Status400BadRequest;
+                await context.Response.WriteAsync("Missing X-E2EE-Key header for response encryption.");
                 return;
             }
         }
 
-        // --- OUTBOUND (Encryption) ---
-        var originalResponseBodyStream = context.Response.Body;
-        using var responseMemoryStream = new MemoryStream();
-        context.Response.Body = responseMemoryStream;
+        // 3. Intercept Outgoing Response
+        var originalBodyStream = context.Response.Body;
+        using var responseBody = new MemoryStream();
+        context.Response.Body = responseBody;
 
-        try
+        await _next(context);
+
+        responseBody.Seek(0, SeekOrigin.Begin);
+
+        // 4. Encrypt Response Body if it is JSON
+        if (responseBody.Length > 0 && context.Response.ContentType?.Contains("application/json") == true && aesSessionKey != null)
         {
-            await _next(context);
+            var plainTextResponse = responseBody.ToArray();
+            
+            var responseIv = new byte[12];
+            RandomNumberGenerator.Fill(responseIv);
+            
+            byte[] responseTag;
+            var encryptedResponseBytes = encryptionService.EncryptAesGcm(plainTextResponse, aesSessionKey, responseIv, out responseTag);
+            
+            var encryptedResponseBase64 = Convert.ToBase64String(encryptedResponseBytes);
+            var encryptedResponseOutput = Encoding.UTF8.GetBytes(encryptedResponseBase64);
 
-            responseMemoryStream.Seek(0, SeekOrigin.Begin);
-            if (responseMemoryStream.Length > 0)
-            {
-                var responseBytes = responseMemoryStream.ToArray();
-                var encryptedResponse = cryptoService.EncryptAes(responseBytes, aesKey, aesIv);
-                
-                context.Response.ContentLength = encryptedResponse.Length;
-                context.Response.ContentType = "application/octet-stream"; // Client expects encrypted blob
-                
-                await originalResponseBodyStream.WriteAsync(encryptedResponse, 0, encryptedResponse.Length);
-            }
+            context.Response.Headers["X-E2EE-IV"] = Convert.ToBase64String(responseIv);
+            context.Response.Headers["X-E2EE-Tag"] = Convert.ToBase64String(responseTag);
+            // Even though original was application/json, the body is now a base64 string
+            context.Response.ContentType = "text/plain"; 
+            context.Response.ContentLength = encryptedResponseOutput.Length;
+
+            await originalBodyStream.WriteAsync(encryptedResponseOutput, 0, encryptedResponseOutput.Length);
         }
-        finally
+        else
         {
-            // Restore original stream just in case
-            context.Response.Body = originalResponseBodyStream;
+            // Just copy over non-JSON responses (like file downloads or empty responses)
+            await responseBody.CopyToAsync(originalBodyStream);
         }
-    }
-
-    private async Task<bool> GetE2eeStatusAsync(ICacheService cache, IApplicationDbContext dbContext, CancellationToken ct)
-    {
-        var cached = await cache.GetAsync<string>("E2EE_Enabled", ct);
-        if (cached != null) return cached == "true";
-
-        var setting = await dbContext.SystemSettings.FirstOrDefaultAsync(s => s.Key == "Security:E2EE_Enabled", ct);
-        var isEnabled = setting?.Value == "true";
-        
-        await cache.SetAsync("E2EE_Enabled", isEnabled ? "true" : "false", TimeSpan.FromMinutes(5), ct);
-        return isEnabled;
     }
 }

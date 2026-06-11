@@ -10,6 +10,7 @@ using TaxOmbud.Application.Features.Officers.Commands.UpdateOfficerProfile;
 using TaxOmbud.Application.Features.Officers.Queries.GetAvailableOfficers;
 using TaxOmbud.Application.Features.Officers.Queries.GetOfficerById;
 using TaxOmbud.Application.Features.Officers.Queries.GetOfficerCaseloads;
+using TaxOmbud.Application.Features.Officers.Queries.GetOfficerPerformance;
 using TaxOmbud.Application.Features.Officers.Queries.GetOfficers;
 
 namespace TaxOmbud.Api.Controllers;
@@ -97,6 +98,16 @@ public class OfficersController : ApiControllerBase
     public async Task<IActionResult> GetCaseloads(Guid id, [FromQuery] bool? activeOnly, CancellationToken ct)
     {
         var result = await _mediator.Send(new GetOfficerCaseloadsQuery(id, activeOnly), ct);
+        return ToActionResult(result);
+    }
+
+    /// <summary>Get performance metrics for a specific officer.</summary>
+    [HttpGet("{id:guid}/performance")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetOfficerPerformance(Guid id, CancellationToken ct)
+    {
+        var result = await _mediator.Send(new GetOfficerPerformanceQuery(id), ct);
         return ToActionResult(result);
     }
 
