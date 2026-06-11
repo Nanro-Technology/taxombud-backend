@@ -14,7 +14,7 @@ namespace TaxOmbud.Application.Features.Users.Queries.GetAuditLog;
 // ─── Query ───────────────────────────────────────────────────────────────────
 
 public record GetAuditLogQuery(
-    Guid? UserId,
+    Guid UserId,
     string? EntityType,
     string? Action,
     DateTimeOffset? From,
@@ -52,8 +52,8 @@ public class GetAuditLogQueryHandler : IRequestHandler<GetAuditLogQuery, Result<
     {
         var query = _context.AuditLogs.AsNoTracking();
 
-        if (request.UserId.HasValue)
-            query = query.Where(a => a.UserId == request.UserId.Value);
+        if (request.UserId != Guid.Empty)
+            query = query.Where(a => a.UserId == request.UserId);
 
         if (!string.IsNullOrWhiteSpace(request.EntityType))
             query = query.Where(a => a.EntityType == request.EntityType);

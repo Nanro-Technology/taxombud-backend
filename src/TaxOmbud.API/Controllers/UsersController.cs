@@ -135,11 +135,11 @@ public class UsersController : ApiControllerBase
         return ToActionResult(result);
     }
 
-    /// <summary>Get the system audit log (admin only).</summary>
-    [HttpGet("audit-log")]
+    /// <summary>Get the audit log for a specific user (admin only).</summary>
+    [HttpGet("{id:guid}/audit-log")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAuditLog(
-        [FromQuery] Guid? userId,
+        Guid id,
         [FromQuery] string? entityType,
         [FromQuery] string? action,
         [FromQuery] DateTimeOffset? from,
@@ -149,7 +149,7 @@ public class UsersController : ApiControllerBase
         CancellationToken ct = default)
     {
         var result = await _mediator.Send(
-            new GetAuditLogQuery(userId, entityType, action, from, to, page, pageSize), ct);
+            new GetAuditLogQuery(id, entityType, action, from, to, page, pageSize), ct);
         return ToActionResult(result);
     }
 }

@@ -24,6 +24,7 @@ public record DisableMfaRequest(string Password);
 /// <summary>
 /// Handles taxpayer self-registration, login and token refresh.
 /// </summary>
+[Route("api/v1/auth")]
 public class AuthController : ApiControllerBase
 {
     private readonly IMediator _mediator;

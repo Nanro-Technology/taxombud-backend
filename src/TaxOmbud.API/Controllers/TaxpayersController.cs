@@ -116,8 +116,9 @@ public class TaxpayersController : ApiControllerBase
         return ToActionResult(result);
     }
 
-    /// <summary>Deactivate a taxpayer profile (soft delete).</summary>
-    [HttpDelete("{id:guid}")]
+    /// <summary>Deactivate (soft-delete) a taxpayer account (Admin only).</summary>
+    [HttpPatch("{id:guid}/deactivate")]
+    [Authorize(Policy = "AdminOnly")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeactivateTaxpayer(Guid id, CancellationToken ct)

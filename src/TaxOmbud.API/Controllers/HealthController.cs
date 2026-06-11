@@ -13,6 +13,15 @@ namespace TaxOmbud.Api.Controllers;
 [Route("api/v1/health")]
 public class HealthController : ControllerBase
 {
+    /// <summary>Root liveness probe (GET /api/v1/health) — 200 OK or 503.</summary>
+    [HttpGet]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public IActionResult LivenessRoot()
+    {
+        return Ok(new { status = "Healthy", timestamp = DateTimeOffset.UtcNow });
+    }
+
     /// <summary>Basic liveness check.</summary>
     [HttpGet("liveness")]
     [AllowAnonymous]
@@ -22,14 +31,21 @@ public class HealthController : ControllerBase
         return Ok(new { status = "Healthy", timestamp = DateTimeOffset.UtcNow });
     }
 
+    /// <summary>Readiness probe (Kubernetes-compatible path).</summary>
+    [HttpGet("ready")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public IActionResult Ready()
+    {
+        return Ok(new { status = "Ready", timestamp = DateTimeOffset.UtcNow });
+    }
+
     /// <summary>Readiness check (DB connections, external APIs).</summary>
     [HttpGet("readiness")]
     [AllowAnonymous]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public IActionResult Readiness()
     {
-        // In a real scenario, this might check Database connections via IApplicationDbContext.
-        // For now, return OK indicating the app is ready to accept traffic.
         return Ok(new { status = "Ready", timestamp = DateTimeOffset.UtcNow });
     }
 
