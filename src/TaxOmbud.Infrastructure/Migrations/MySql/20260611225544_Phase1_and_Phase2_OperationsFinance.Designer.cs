@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TaxOmbud.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using TaxOmbud.Infrastructure.Persistence;
 namespace TaxOmbud.Infrastructure.Migrations.MySql
 {
     [DbContext(typeof(MySqlApplicationDbContext))]
-    partial class MySqlApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260611225544_Phase1_and_Phase2_OperationsFinance")]
+    partial class Phase1_and_Phase2_OperationsFinance
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
