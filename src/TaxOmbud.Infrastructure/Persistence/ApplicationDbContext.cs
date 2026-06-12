@@ -136,6 +136,12 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<TaxOmbud.Domain.Entities.Hr.EmployeeBenefit> EmployeeBenefits => Set<TaxOmbud.Domain.Entities.Hr.EmployeeBenefit>();
     public DbSet<TaxOmbud.Domain.Entities.Hr.LeaveTypeEntity> LeaveTypeEntities => Set<TaxOmbud.Domain.Entities.Hr.LeaveTypeEntity>();
     public DbSet<TaxOmbud.Domain.Entities.Hr.LeaveBalance> LeaveBalances => Set<TaxOmbud.Domain.Entities.Hr.LeaveBalance>();
+    public DbSet<TaxOmbud.Domain.Entities.Hr.StatutoryDeduction> StatutoryDeductions => Set<TaxOmbud.Domain.Entities.Hr.StatutoryDeduction>();
+    public DbSet<TaxOmbud.Domain.Entities.Hr.StatutoryRule> StatutoryRules => Set<TaxOmbud.Domain.Entities.Hr.StatutoryRule>();
+    public DbSet<TaxOmbud.Domain.Entities.Hr.PayoutProvider> PayoutProviders => Set<TaxOmbud.Domain.Entities.Hr.PayoutProvider>();
+    public DbSet<TaxOmbud.Domain.Entities.Operations.ProjectMember> ProjectMembers => Set<TaxOmbud.Domain.Entities.Operations.ProjectMember>();
+    public DbSet<TaxOmbud.Domain.Entities.Operations.Ticket> Tickets => Set<TaxOmbud.Domain.Entities.Operations.Ticket>();
+    public DbSet<TaxOmbud.Domain.Entities.Operations.Visitor> Visitors => Set<TaxOmbud.Domain.Entities.Operations.Visitor>();
     public DbSet<TaxOmbud.Domain.Entities.Hr.AttendanceLog> AttendanceLogs => Set<TaxOmbud.Domain.Entities.Hr.AttendanceLog>();
     public DbSet<TaxOmbud.Domain.Entities.Hr.Holiday> Holidays => Set<TaxOmbud.Domain.Entities.Hr.Holiday>();
     public DbSet<TaxOmbud.Domain.Entities.Communications.AgentChatMessage> AgentChatMessages => Set<TaxOmbud.Domain.Entities.Communications.AgentChatMessage>();
@@ -228,6 +234,7 @@ public class ReferenceNumberValueConverter : ValueConverter<ReferenceNumber, str
     {
     }
 }
+
 
 
 

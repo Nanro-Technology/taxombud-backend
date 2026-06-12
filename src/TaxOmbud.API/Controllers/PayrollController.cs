@@ -1,35 +1,30 @@
-using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Threading.Tasks;
-using TaxOmbud.Application.Features.Payroll.Queries.GetPayrollPeriods;
-using TaxOmbud.Application.Features.Payroll.Queries.GetSalaryProfiles;
-using TaxOmbud.Application.Features.Payroll.Queries.GetRemittances;
-using TaxOmbud.Application.Features.Payroll.Commands.RunPayroll;
-using TaxOmbud.Application.Features.Payroll.Commands.ApprovePayroll;
-using TaxOmbud.Application.Features.Payroll.Commands.CreateSalaryProfile;
+using MediatR;
+using System.Threading;
 
 namespace TaxOmbud.Api.Controllers;
 
+[Authorize]
+[Route("api/v1/payroll")]
 public class PayrollController : ApiControllerBase
 {
     private readonly IMediator _mediator;
-    public PayrollController(IMediator mediator) { _mediator = mediator; }
-    [HttpGet("periods")]
-    public async Task<IActionResult> GetPayrollPeriods([FromQuery] GetPayrollPeriodsQueries query) => ToActionResult(await _mediator.Send(query));
+    public PayrollController(IMediator mediator) => _mediator = mediator;
 
-    [HttpGet("salary-profiles")]
-    public async Task<IActionResult> GetSalaryProfiles([FromQuery] GetSalaryProfilesQueries query) => ToActionResult(await _mediator.Send(query));
+    [HttpGet("profiles")]
+    public IActionResult GetProfiles(CancellationToken ct) => Ok(new { Message = "Not implemented yet" });
 
+    [HttpGet("runs")]
+    public IActionResult GetRuns(CancellationToken ct) => Ok(new { Message = "Not implemented yet" });
+
+    [HttpPost("execute")]
+    [Authorize(Policy = "HrOnly")]
+    public IActionResult ExecuteRun(CancellationToken ct) => Ok(new { Message = "Not implemented yet" });
+    
+    [HttpGet("deductions")]
+    public IActionResult GetDeductions(CancellationToken ct) => Ok(new { Message = "Not implemented yet" });
+    
     [HttpGet("remittances")]
-    public async Task<IActionResult> GetRemittances([FromQuery] GetRemittancesQueries query) => ToActionResult(await _mediator.Send(query));
-
-    [HttpPost("run")]
-    public async Task<IActionResult> RunPayroll([FromBody] RunPayrollCommands command) => ToActionResult(await _mediator.Send(command));
-
-    [HttpPost("approve")]
-    public async Task<IActionResult> ApprovePayroll([FromBody] ApprovePayrollCommands command) => ToActionResult(await _mediator.Send(command));
-
-    [HttpPost("salary-profiles")]
-    public async Task<IActionResult> CreateSalaryProfile([FromBody] CreateSalaryProfileCommands command) => ToActionResult(await _mediator.Send(command));
+    public IActionResult GetRemittances(CancellationToken ct) => Ok(new { Message = "Not implemented yet" });
 }
-

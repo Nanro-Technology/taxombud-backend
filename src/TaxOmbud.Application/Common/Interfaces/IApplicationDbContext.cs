@@ -118,12 +118,19 @@ public interface IApplicationDbContext
     DbSet<TaxOmbud.Domain.Entities.Hr.EmployeeBenefit> EmployeeBenefits { get; }
     DbSet<TaxOmbud.Domain.Entities.Hr.LeaveTypeEntity> LeaveTypeEntities { get; }
     DbSet<TaxOmbud.Domain.Entities.Hr.LeaveBalance> LeaveBalances { get; }
+    DbSet<TaxOmbud.Domain.Entities.Hr.StatutoryDeduction> StatutoryDeductions { get; }
+    DbSet<TaxOmbud.Domain.Entities.Hr.StatutoryRule> StatutoryRules { get; }
+    DbSet<TaxOmbud.Domain.Entities.Hr.PayoutProvider> PayoutProviders { get; }
+    DbSet<TaxOmbud.Domain.Entities.Operations.ProjectMember> ProjectMembers { get; }
+    DbSet<TaxOmbud.Domain.Entities.Operations.Ticket> Tickets { get; }
+    DbSet<TaxOmbud.Domain.Entities.Operations.Visitor> Visitors { get; }
     DbSet<TaxOmbud.Domain.Entities.Hr.AttendanceLog> AttendanceLogs { get; }
     DbSet<TaxOmbud.Domain.Entities.Hr.Holiday> Holidays { get; }
     DbSet<TaxOmbud.Domain.Entities.Communications.AgentChatMessage> AgentChatMessages { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
+
 
 
 

@@ -16,4 +16,11 @@ public class SalaryProfile : BaseAuditableEntity
 
     public DateTimeOffset EffectiveFrom { get; set; }
     public DateTimeOffset? EffectiveTo { get; set; }
+    
+    // Extensions for Phase 9
+    public Guid? PayGradeId { get; set; }
+    public PayGrade? PayGrade { get; set; }
+    
+    public string Currency { get; set; } = "NGN";
+    public string Status { get; set; } = "Active";
 }
