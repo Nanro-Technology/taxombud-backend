@@ -121,6 +121,12 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<TaxOmbud.Domain.Entities.System.Announcement> Announcements => Set<TaxOmbud.Domain.Entities.System.Announcement>();
     public DbSet<TaxOmbud.Domain.Entities.Appointments.CalendarEvent> CalendarEvents => Set<TaxOmbud.Domain.Entities.Appointments.CalendarEvent>();
     public DbSet<TaxOmbud.Domain.Entities.Communications.AgentChat> AgentChats => Set<TaxOmbud.Domain.Entities.Communications.AgentChat>();
+    public DbSet<TaxOmbud.Domain.Entities.System.AnnouncementReadReceipt> AnnouncementReadReceipts => Set<TaxOmbud.Domain.Entities.System.AnnouncementReadReceipt>();
+    public DbSet<TaxOmbud.Domain.Entities.System.DashboardWidget> DashboardWidgets => Set<TaxOmbud.Domain.Entities.System.DashboardWidget>();
+    public DbSet<TaxOmbud.Domain.Entities.System.UserDashboardLayout> UserDashboardLayouts => Set<TaxOmbud.Domain.Entities.System.UserDashboardLayout>();
+    public DbSet<TaxOmbud.Domain.Entities.Communications.MailboxMessage> MailboxMessages => Set<TaxOmbud.Domain.Entities.Communications.MailboxMessage>();
+    public DbSet<TaxOmbud.Domain.Entities.Communications.MailboxRecipient> MailboxRecipients => Set<TaxOmbud.Domain.Entities.Communications.MailboxRecipient>();
+    public DbSet<TaxOmbud.Domain.Entities.Communications.MailboxAttachment> MailboxAttachments => Set<TaxOmbud.Domain.Entities.Communications.MailboxAttachment>();
     public DbSet<TaxOmbud.Domain.Entities.Communications.AgentChatMessage> AgentChatMessages => Set<TaxOmbud.Domain.Entities.Communications.AgentChatMessage>();
 
     // ─── EF Model ─────────────────────────────────────────────────────────────
@@ -211,6 +217,7 @@ public class ReferenceNumberValueConverter : ValueConverter<ReferenceNumber, str
     {
     }
 }
+
 
 
 

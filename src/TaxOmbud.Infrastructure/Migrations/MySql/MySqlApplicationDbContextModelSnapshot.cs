@@ -1034,6 +1034,158 @@ namespace TaxOmbud.Infrastructure.Migrations.MySql
                     b.ToTable("CommunicationTemplates", (string)null);
                 });
 
+            modelBuilder.Entity("TaxOmbud.Domain.Entities.Communications.MailboxAttachment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<long>("FileSize")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("FileUrl")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<Guid>("MessageId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MessageId");
+
+                    b.ToTable("MailboxAttachments");
+                });
+
+            modelBuilder.Entity("TaxOmbud.Domain.Entities.Communications.MailboxMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("BodyText")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsDraft")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<Guid>("SenderId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("MailboxMessages");
+                });
+
+            modelBuilder.Entity("TaxOmbud.Domain.Entities.Communications.MailboxRecipient", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Folder")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsStarred")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<Guid>("MessageId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("RecipientId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MessageId");
+
+                    b.ToTable("MailboxRecipients");
+                });
+
             modelBuilder.Entity("TaxOmbud.Domain.Entities.Complaints.Complaint", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3345,6 +3497,49 @@ namespace TaxOmbud.Infrastructure.Migrations.MySql
                     b.ToTable("Announcements");
                 });
 
+            modelBuilder.Entity("TaxOmbud.Domain.Entities.System.AnnouncementReadReceipt", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("AnnouncementId")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime>("ReadAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AnnouncementId");
+
+                    b.ToTable("AnnouncementReadReceipts");
+                });
+
             modelBuilder.Entity("TaxOmbud.Domain.Entities.System.AuditLog", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3399,6 +3594,56 @@ namespace TaxOmbud.Infrastructure.Migrations.MySql
                     b.HasKey("Id");
 
                     b.ToTable("AuditLogs", (string)null);
+                });
+
+            modelBuilder.Entity("TaxOmbud.Domain.Entities.System.DashboardWidget", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("ComponentName")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("RequiredPermission")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("DashboardWidgets");
                 });
 
             modelBuilder.Entity("TaxOmbud.Domain.Entities.System.FeatureFlag", b =>
@@ -3553,6 +3798,45 @@ namespace TaxOmbud.Infrastructure.Migrations.MySql
                         .IsUnique();
 
                     b.ToTable("SystemSettings", (string)null);
+                });
+
+            modelBuilder.Entity("TaxOmbud.Domain.Entities.System.UserDashboardLayout", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("LayoutJson")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("char(36)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("UserDashboardLayouts");
                 });
 
             modelBuilder.Entity("TaxOmbud.Domain.Entities.System.WebhookDelivery", b =>
@@ -4143,6 +4427,28 @@ namespace TaxOmbud.Infrastructure.Migrations.MySql
                     b.Navigation("Chat");
                 });
 
+            modelBuilder.Entity("TaxOmbud.Domain.Entities.Communications.MailboxAttachment", b =>
+                {
+                    b.HasOne("TaxOmbud.Domain.Entities.Communications.MailboxMessage", "Message")
+                        .WithMany("Attachments")
+                        .HasForeignKey("MessageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Message");
+                });
+
+            modelBuilder.Entity("TaxOmbud.Domain.Entities.Communications.MailboxRecipient", b =>
+                {
+                    b.HasOne("TaxOmbud.Domain.Entities.Communications.MailboxMessage", "Message")
+                        .WithMany("Recipients")
+                        .HasForeignKey("MessageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Message");
+                });
+
             modelBuilder.Entity("TaxOmbud.Domain.Entities.Complaints.Complaint", b =>
                 {
                     b.HasOne("TaxOmbud.Domain.Entities.Officers.Officer", "AssignedOfficer")
@@ -4579,6 +4885,17 @@ namespace TaxOmbud.Infrastructure.Migrations.MySql
                     b.Navigation("Project");
                 });
 
+            modelBuilder.Entity("TaxOmbud.Domain.Entities.System.AnnouncementReadReceipt", b =>
+                {
+                    b.HasOne("TaxOmbud.Domain.Entities.System.Announcement", "Announcement")
+                        .WithMany()
+                        .HasForeignKey("AnnouncementId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Announcement");
+                });
+
             modelBuilder.Entity("TaxOmbud.Domain.Entities.System.WebhookDelivery", b =>
                 {
                     b.HasOne("TaxOmbud.Domain.Entities.System.WebhookSubscription", "Subscription")
@@ -4655,6 +4972,13 @@ namespace TaxOmbud.Infrastructure.Migrations.MySql
             modelBuilder.Entity("TaxOmbud.Domain.Entities.Communications.AgentChat", b =>
                 {
                     b.Navigation("Messages");
+                });
+
+            modelBuilder.Entity("TaxOmbud.Domain.Entities.Communications.MailboxMessage", b =>
+                {
+                    b.Navigation("Attachments");
+
+                    b.Navigation("Recipients");
                 });
 
             modelBuilder.Entity("TaxOmbud.Domain.Entities.Complaints.Complaint", b =>

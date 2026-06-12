@@ -103,10 +103,17 @@ public interface IApplicationDbContext
     DbSet<TaxOmbud.Domain.Entities.System.Announcement> Announcements { get; }
     DbSet<TaxOmbud.Domain.Entities.Appointments.CalendarEvent> CalendarEvents { get; }
     DbSet<TaxOmbud.Domain.Entities.Communications.AgentChat> AgentChats { get; }
+    DbSet<TaxOmbud.Domain.Entities.System.AnnouncementReadReceipt> AnnouncementReadReceipts { get; }
+    DbSet<TaxOmbud.Domain.Entities.System.DashboardWidget> DashboardWidgets { get; }
+    DbSet<TaxOmbud.Domain.Entities.System.UserDashboardLayout> UserDashboardLayouts { get; }
+    DbSet<TaxOmbud.Domain.Entities.Communications.MailboxMessage> MailboxMessages { get; }
+    DbSet<TaxOmbud.Domain.Entities.Communications.MailboxRecipient> MailboxRecipients { get; }
+    DbSet<TaxOmbud.Domain.Entities.Communications.MailboxAttachment> MailboxAttachments { get; }
     DbSet<TaxOmbud.Domain.Entities.Communications.AgentChatMessage> AgentChatMessages { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
+
 
 
 
