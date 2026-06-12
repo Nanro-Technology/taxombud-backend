@@ -3,17 +3,20 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TaxOmbud.Infrastructure.Persistence;
 
 #nullable disable
 
-namespace TaxOmbud.Infrastructure.Migrations.MySql
+namespace TaxOmbud.Infrastructure.Persistence.Migrations.SqlServer
 {
     [DbContext(typeof(MySqlApplicationDbContext))]
-    partial class MySqlApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260612110505_Phase8_TimeManagement_Expansion")]
+    partial class Phase8_TimeManagement_Expansion
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

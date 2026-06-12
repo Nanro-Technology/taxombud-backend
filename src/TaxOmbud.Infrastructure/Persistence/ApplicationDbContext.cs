@@ -134,6 +134,10 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<TaxOmbud.Domain.Entities.Hr.ExitRecord> ExitRecords => Set<TaxOmbud.Domain.Entities.Hr.ExitRecord>();
     public DbSet<TaxOmbud.Domain.Entities.Hr.BenefitType> BenefitTypes => Set<TaxOmbud.Domain.Entities.Hr.BenefitType>();
     public DbSet<TaxOmbud.Domain.Entities.Hr.EmployeeBenefit> EmployeeBenefits => Set<TaxOmbud.Domain.Entities.Hr.EmployeeBenefit>();
+    public DbSet<TaxOmbud.Domain.Entities.Hr.LeaveTypeEntity> LeaveTypeEntities => Set<TaxOmbud.Domain.Entities.Hr.LeaveTypeEntity>();
+    public DbSet<TaxOmbud.Domain.Entities.Hr.LeaveBalance> LeaveBalances => Set<TaxOmbud.Domain.Entities.Hr.LeaveBalance>();
+    public DbSet<TaxOmbud.Domain.Entities.Hr.AttendanceLog> AttendanceLogs => Set<TaxOmbud.Domain.Entities.Hr.AttendanceLog>();
+    public DbSet<TaxOmbud.Domain.Entities.Hr.Holiday> Holidays => Set<TaxOmbud.Domain.Entities.Hr.Holiday>();
     public DbSet<TaxOmbud.Domain.Entities.Communications.AgentChatMessage> AgentChatMessages => Set<TaxOmbud.Domain.Entities.Communications.AgentChatMessage>();
 
     // ─── EF Model ─────────────────────────────────────────────────────────────
@@ -224,6 +228,7 @@ public class ReferenceNumberValueConverter : ValueConverter<ReferenceNumber, str
     {
     }
 }
+
 
 
 
