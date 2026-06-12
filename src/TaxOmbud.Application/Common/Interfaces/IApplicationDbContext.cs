@@ -98,6 +98,8 @@ public interface IApplicationDbContext
     DbSet<TaxOmbud.Domain.Entities.Operations.VendorContact> VendorContacts { get; }
     DbSet<TaxOmbud.Domain.Entities.Finance.Quote> Quotes { get; }
     DbSet<TaxOmbud.Domain.Entities.Finance.Contract> Contracts { get; }
+    DbSet<TaxOmbud.Domain.Entities.Finance.QuoteItem> QuoteItems { get; }
+    DbSet<TaxOmbud.Domain.Entities.Finance.ContractReview> ContractReviews { get; }
     DbSet<TaxOmbud.Domain.Entities.Finance.Invoice> Invoices { get; }
     DbSet<TaxOmbud.Domain.Entities.Finance.InvoiceItem> InvoiceItems { get; }
     DbSet<TaxOmbud.Domain.Entities.System.Announcement> Announcements { get; }
@@ -130,6 +132,7 @@ public interface IApplicationDbContext
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
+
 
 
 

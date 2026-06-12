@@ -116,6 +116,8 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<TaxOmbud.Domain.Entities.Operations.VendorContact> VendorContacts => Set<TaxOmbud.Domain.Entities.Operations.VendorContact>();
     public DbSet<TaxOmbud.Domain.Entities.Finance.Quote> Quotes => Set<TaxOmbud.Domain.Entities.Finance.Quote>();
     public DbSet<TaxOmbud.Domain.Entities.Finance.Contract> Contracts => Set<TaxOmbud.Domain.Entities.Finance.Contract>();
+    public DbSet<TaxOmbud.Domain.Entities.Finance.QuoteItem> QuoteItems => Set<TaxOmbud.Domain.Entities.Finance.QuoteItem>();
+    public DbSet<TaxOmbud.Domain.Entities.Finance.ContractReview> ContractReviews => Set<TaxOmbud.Domain.Entities.Finance.ContractReview>();
     public DbSet<TaxOmbud.Domain.Entities.Finance.Invoice> Invoices => Set<TaxOmbud.Domain.Entities.Finance.Invoice>();
     public DbSet<TaxOmbud.Domain.Entities.Finance.InvoiceItem> InvoiceItems => Set<TaxOmbud.Domain.Entities.Finance.InvoiceItem>();
     public DbSet<TaxOmbud.Domain.Entities.System.Announcement> Announcements => Set<TaxOmbud.Domain.Entities.System.Announcement>();
@@ -234,6 +236,7 @@ public class ReferenceNumberValueConverter : ValueConverter<ReferenceNumber, str
     {
     }
 }
+
 
 
 
