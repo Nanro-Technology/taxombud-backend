@@ -109,10 +109,18 @@ public interface IApplicationDbContext
     DbSet<TaxOmbud.Domain.Entities.Communications.MailboxMessage> MailboxMessages { get; }
     DbSet<TaxOmbud.Domain.Entities.Communications.MailboxRecipient> MailboxRecipients { get; }
     DbSet<TaxOmbud.Domain.Entities.Communications.MailboxAttachment> MailboxAttachments { get; }
+    DbSet<TaxOmbud.Domain.Entities.Hr.PerformanceCycle> PerformanceCycles { get; }
+    DbSet<TaxOmbud.Domain.Entities.Hr.PerformanceGoal> PerformanceGoals { get; }
+    DbSet<TaxOmbud.Domain.Entities.Hr.PerformanceReview> PerformanceReviews { get; }
+    DbSet<TaxOmbud.Domain.Entities.Hr.DisciplinaryCase> DisciplinaryCases { get; }
+    DbSet<TaxOmbud.Domain.Entities.Hr.ExitRecord> ExitRecords { get; }
+    DbSet<TaxOmbud.Domain.Entities.Hr.BenefitType> BenefitTypes { get; }
+    DbSet<TaxOmbud.Domain.Entities.Hr.EmployeeBenefit> EmployeeBenefits { get; }
     DbSet<TaxOmbud.Domain.Entities.Communications.AgentChatMessage> AgentChatMessages { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
+
 
 
 

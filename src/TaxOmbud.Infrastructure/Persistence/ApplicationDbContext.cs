@@ -127,6 +127,13 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<TaxOmbud.Domain.Entities.Communications.MailboxMessage> MailboxMessages => Set<TaxOmbud.Domain.Entities.Communications.MailboxMessage>();
     public DbSet<TaxOmbud.Domain.Entities.Communications.MailboxRecipient> MailboxRecipients => Set<TaxOmbud.Domain.Entities.Communications.MailboxRecipient>();
     public DbSet<TaxOmbud.Domain.Entities.Communications.MailboxAttachment> MailboxAttachments => Set<TaxOmbud.Domain.Entities.Communications.MailboxAttachment>();
+    public DbSet<TaxOmbud.Domain.Entities.Hr.PerformanceCycle> PerformanceCycles => Set<TaxOmbud.Domain.Entities.Hr.PerformanceCycle>();
+    public DbSet<TaxOmbud.Domain.Entities.Hr.PerformanceGoal> PerformanceGoals => Set<TaxOmbud.Domain.Entities.Hr.PerformanceGoal>();
+    public DbSet<TaxOmbud.Domain.Entities.Hr.PerformanceReview> PerformanceReviews => Set<TaxOmbud.Domain.Entities.Hr.PerformanceReview>();
+    public DbSet<TaxOmbud.Domain.Entities.Hr.DisciplinaryCase> DisciplinaryCases => Set<TaxOmbud.Domain.Entities.Hr.DisciplinaryCase>();
+    public DbSet<TaxOmbud.Domain.Entities.Hr.ExitRecord> ExitRecords => Set<TaxOmbud.Domain.Entities.Hr.ExitRecord>();
+    public DbSet<TaxOmbud.Domain.Entities.Hr.BenefitType> BenefitTypes => Set<TaxOmbud.Domain.Entities.Hr.BenefitType>();
+    public DbSet<TaxOmbud.Domain.Entities.Hr.EmployeeBenefit> EmployeeBenefits => Set<TaxOmbud.Domain.Entities.Hr.EmployeeBenefit>();
     public DbSet<TaxOmbud.Domain.Entities.Communications.AgentChatMessage> AgentChatMessages => Set<TaxOmbud.Domain.Entities.Communications.AgentChatMessage>();
 
     // ─── EF Model ─────────────────────────────────────────────────────────────
@@ -217,6 +224,7 @@ public class ReferenceNumberValueConverter : ValueConverter<ReferenceNumber, str
     {
     }
 }
+
 
 
 
