@@ -24,4 +24,10 @@ public class AgentChatMessage : BaseAuditableEntity
     public string Content { get; set; } = null!;
     
     public bool IsPinned { get; set; } = false;
+
+    public string? AttachmentUrl { get; set; }
+    public string? AttachmentFileName { get; set; }
+    
+    // JSON array of objects: { "UserId": "guid", "ReadAt": "datetime" }
+    public string ReadReceipts { get; set; } = "[]";
 }

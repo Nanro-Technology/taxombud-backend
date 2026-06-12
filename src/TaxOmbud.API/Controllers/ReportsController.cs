@@ -181,8 +181,73 @@ public class ReportsController : ApiControllerBase
         var result = await _mediator.Send(new DeleteScheduledReportCommand(id), ct);
         return ToActionResult(result);
     }
-}
 
+    // ─── CRM & Omni Reports (Phase 15) ──────────────────────────────────────────
+
+    [HttpGet("cases")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetCaseReports([FromQuery] DateTimeOffset? startDate, [FromQuery] DateTimeOffset? endDate)
+    {
+        var result = await _mediator.Send(new TaxOmbud.Application.Features.Reports.Queries.GetCaseReports.GetCaseReportsQuery { StartDate = startDate, EndDate = endDate });
+        return Ok(result);
+    }
+
+    [HttpGet("agents")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAgentReports([FromQuery] DateTimeOffset? startDate, [FromQuery] DateTimeOffset? endDate)
+    {
+        var result = await _mediator.Send(new TaxOmbud.Application.Features.Reports.Queries.GetAgentReports.GetAgentReportsQuery { StartDate = startDate, EndDate = endDate });
+        return Ok(result);
+    }
+
+    [HttpGet("tasks")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetTaskReports([FromQuery] DateTimeOffset? startDate, [FromQuery] DateTimeOffset? endDate)
+    {
+        var result = await _mediator.Send(new TaxOmbud.Application.Features.Reports.Queries.GetTaskReports.GetTaskReportsQuery { StartDate = startDate, EndDate = endDate });
+        return Ok(result);
+    }
+
+    [HttpGet("interactions")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetInteractionReports([FromQuery] DateTimeOffset? startDate, [FromQuery] DateTimeOffset? endDate)
+    {
+        var result = await _mediator.Send(new TaxOmbud.Application.Features.Reports.Queries.GetInteractionReports.GetInteractionReportsQuery { StartDate = startDate, EndDate = endDate });
+        return Ok(result);
+    }
+
+    [HttpGet("sla")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetSlaReports([FromQuery] DateTimeOffset? startDate, [FromQuery] DateTimeOffset? endDate)
+    {
+        var result = await _mediator.Send(new TaxOmbud.Application.Features.Reports.Queries.GetSlaReports.GetSlaReportsQuery { StartDate = startDate, EndDate = endDate });
+        return Ok(result);
+    }
+
+    [HttpGet("hr")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetHrReports([FromQuery] DateTimeOffset? startDate, [FromQuery] DateTimeOffset? endDate)
+    {
+        var result = await _mediator.Send(new TaxOmbud.Application.Features.Reports.Queries.GetHrReports.GetHrReportsQuery { StartDate = startDate, EndDate = endDate });
+        return Ok(result);
+    }
+
+    [HttpGet("erp")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetErpReports([FromQuery] DateTimeOffset? startDate, [FromQuery] DateTimeOffset? endDate)
+    {
+        var result = await _mediator.Send(new TaxOmbud.Application.Features.Reports.Queries.GetErpReports.GetErpReportsQuery { StartDate = startDate, EndDate = endDate });
+        return Ok(result);
+    }
+
+    [HttpGet("time-tracking")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetTimeTrackingReports([FromQuery] DateTimeOffset? startDate, [FromQuery] DateTimeOffset? endDate)
+    {
+        var result = await _mediator.Send(new TaxOmbud.Application.Features.Reports.Queries.GetTimeTrackingReports.GetTimeTrackingReportsQuery { StartDate = startDate, EndDate = endDate });
+        return Ok(result);
+    }
+}
 public record CreateScheduledReportRequest(
     string ReportName,
     string CronExpression,

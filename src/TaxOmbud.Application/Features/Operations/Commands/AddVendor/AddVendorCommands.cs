@@ -8,7 +8,16 @@ using System.Threading.Tasks;
 
 namespace TaxOmbud.Application.Features.Operations.Commands.AddVendor;
 
-public record AddVendorCommands(string Name, string Company, string Email, string Phone) : IRequest<Result<Guid>>;
+public record AddVendorCommands(
+    string Name, 
+    string Company, 
+    string Email, 
+    string Phone,
+    string? Designation,
+    string? Scope,
+    string? ScopeTarget,
+    string? Notes
+) : IRequest<Result<Guid>>;
 
 public class AddVendorCommandsHandler : IRequestHandler<AddVendorCommands, Result<Guid>>
 {
@@ -19,12 +28,14 @@ public class AddVendorCommandsHandler : IRequestHandler<AddVendorCommands, Resul
     {
         var entity = new VendorContact
         {
-            Id = Guid.NewGuid(),
             Name = request.Name,
             Company = request.Company,
             Email = request.Email,
             Phone = request.Phone,
-            CreatedAt = DateTime.UtcNow
+            Designation = request.Designation,
+            Scope = request.Scope,
+            ScopeTarget = request.ScopeTarget,
+            Notes = request.Notes
         };
         _context.VendorContacts.Add(entity);
         await _context.SaveChangesAsync(cancellationToken);

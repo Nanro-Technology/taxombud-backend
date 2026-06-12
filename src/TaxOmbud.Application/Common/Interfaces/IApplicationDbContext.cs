@@ -51,6 +51,7 @@ public interface IApplicationDbContext
     DbSet<CaseFinding> CaseFindings { get; }
     DbSet<CaseMilestone> CaseMilestones { get; }
     DbSet<CaseCommunicationLog> CaseCommunicationLogs { get; }
+    DbSet<CaseTask> CaseTasks { get; }
 
     // Documents
     DbSet<Document> Documents { get; }
@@ -129,6 +130,12 @@ public interface IApplicationDbContext
     DbSet<TaxOmbud.Domain.Entities.Hr.AttendanceLog> AttendanceLogs { get; }
     DbSet<TaxOmbud.Domain.Entities.Hr.Holiday> Holidays { get; }
     DbSet<TaxOmbud.Domain.Entities.Communications.AgentChatMessage> AgentChatMessages { get; }
+    DbSet<TaxOmbud.Domain.Entities.Communications.AgentChatPreference> AgentChatPreferences { get; }
+    DbSet<TaxOmbud.Domain.Entities.Communications.SmsMessage> SmsMessages { get; }
+    DbSet<TaxOmbud.Domain.Entities.Crm.Organization> Organizations { get; }
+    DbSet<TaxOmbud.Domain.Entities.Crm.Interaction> Interactions { get; }
+    DbSet<TaxOmbud.Domain.Entities.Crm.Call> Calls { get; }
+    DbSet<TaxOmbud.Domain.Entities.Hr.TimeLog> TimeLogs { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

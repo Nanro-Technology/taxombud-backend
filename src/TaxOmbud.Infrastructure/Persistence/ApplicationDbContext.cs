@@ -68,6 +68,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<CaseFinding> CaseFindings => Set<CaseFinding>();
     public DbSet<CaseMilestone> CaseMilestones => Set<CaseMilestone>();
     public DbSet<CaseCommunicationLog> CaseCommunicationLogs => Set<CaseCommunicationLog>();
+    public DbSet<CaseTask> CaseTasks => Set<CaseTask>();
 
     // ─── Documents ────────────────────────────────────────────────────────────
     public DbSet<Document> Documents => Set<Document>();
@@ -147,6 +148,12 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<TaxOmbud.Domain.Entities.Hr.AttendanceLog> AttendanceLogs => Set<TaxOmbud.Domain.Entities.Hr.AttendanceLog>();
     public DbSet<TaxOmbud.Domain.Entities.Hr.Holiday> Holidays => Set<TaxOmbud.Domain.Entities.Hr.Holiday>();
     public DbSet<TaxOmbud.Domain.Entities.Communications.AgentChatMessage> AgentChatMessages => Set<TaxOmbud.Domain.Entities.Communications.AgentChatMessage>();
+    public DbSet<TaxOmbud.Domain.Entities.Communications.AgentChatPreference> AgentChatPreferences => Set<TaxOmbud.Domain.Entities.Communications.AgentChatPreference>();
+    public DbSet<TaxOmbud.Domain.Entities.Communications.SmsMessage> SmsMessages => Set<TaxOmbud.Domain.Entities.Communications.SmsMessage>();
+    public DbSet<TaxOmbud.Domain.Entities.Crm.Organization> Organizations => Set<TaxOmbud.Domain.Entities.Crm.Organization>();
+    public DbSet<TaxOmbud.Domain.Entities.Crm.Interaction> Interactions => Set<TaxOmbud.Domain.Entities.Crm.Interaction>();
+    public DbSet<TaxOmbud.Domain.Entities.Crm.Call> Calls => Set<TaxOmbud.Domain.Entities.Crm.Call>();
+    public DbSet<TaxOmbud.Domain.Entities.Hr.TimeLog> TimeLogs => Set<TaxOmbud.Domain.Entities.Hr.TimeLog>();
 
     // ─── EF Model ─────────────────────────────────────────────────────────────
     protected override void OnModelCreating(ModelBuilder modelBuilder)
