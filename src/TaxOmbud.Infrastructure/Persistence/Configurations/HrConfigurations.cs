@@ -14,10 +14,12 @@ public class StaffProfileConfiguration : IEntityTypeConfiguration<StaffProfile>
         builder.Property(sp => sp.EmploymentStatus).HasMaxLength(50).IsRequired();
         builder.Property(sp => sp.Nationality).HasMaxLength(100).IsRequired();
         builder.Property(sp => sp.MaritalStatus).HasMaxLength(50).IsRequired();
-        builder.Property(sp => sp.EmergencyContact).HasMaxLength(500).IsRequired();
+        builder.Property(sp => sp.EmergencyContactName).HasMaxLength(200);
+        builder.Property(sp => sp.EmergencyContactPhone).HasMaxLength(50);
         builder.Property(sp => sp.BankAccountNo).HasMaxLength(50).IsRequired();
         builder.Property(sp => sp.BankId).HasMaxLength(50).IsRequired();
-        builder.Property(sp => sp.NextOfKin).HasMaxLength(500).IsRequired();
+        builder.Property(sp => sp.NextOfKinName).HasMaxLength(200);
+        builder.Property(sp => sp.NextOfKinPhone).HasMaxLength(50);
 
         builder.HasQueryFilter(sp => !sp.IsDeleted);
 

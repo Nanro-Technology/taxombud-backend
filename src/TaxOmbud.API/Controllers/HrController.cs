@@ -67,15 +67,29 @@ public class HrController : ApiControllerBase
     {
         var result = await _mediator.Send(new SaveStaffProfileCommand(
             request.UserId,
+            request.EmployeeCode,
+            request.Title,
+            request.SupervisorId,
             request.HireDate,
             request.EmploymentStatus,
             request.DateOfBirth,
             request.Nationality,
             request.MaritalStatus,
-            request.EmergencyContact,
+            request.EducationLevel,
+            request.EducationDetails,
+            request.AddressLine1,
+            request.AddressLine2,
+            request.City,
+            request.State,
+            request.Country,
+            request.EmergencyContactName,
+            request.EmergencyContactPhone,
             request.BankAccountNo,
             request.BankId,
-            request.NextOfKin
+            request.NextOfKinName,
+            request.NextOfKinRelationship,
+            request.NextOfKinPhone,
+            request.NextOfKinAddress
         ), ct);
 
         return ToActionResult(result);
@@ -188,15 +202,29 @@ public class HrController : ApiControllerBase
 
 public record SaveStaffProfileRequest(
     Guid UserId,
+    string? EmployeeCode,
+    string? Title,
+    Guid? SupervisorId,
     DateTimeOffset HireDate,
     string EmploymentStatus,
     DateTimeOffset DateOfBirth,
     string Nationality,
     string MaritalStatus,
-    string EmergencyContact,
+    string? EducationLevel,
+    string? EducationDetails,
+    string? AddressLine1,
+    string? AddressLine2,
+    string? City,
+    string? State,
+    string? Country,
+    string? EmergencyContactName,
+    string? EmergencyContactPhone,
     string BankAccountNo,
     string BankId,
-    string NextOfKin
+    string? NextOfKinName,
+    string? NextOfKinRelationship,
+    string? NextOfKinPhone,
+    string? NextOfKinAddress
 );
 
 public record RequestLeaveRequest(string LeaveType, DateTimeOffset StartDate, DateTimeOffset EndDate);

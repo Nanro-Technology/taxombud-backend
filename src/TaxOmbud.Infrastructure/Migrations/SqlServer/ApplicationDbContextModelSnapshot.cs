@@ -1544,6 +1544,55 @@ namespace TaxOmbud.Infrastructure.Migrations.SqlServer
                     b.ToTable("Quotes");
                 });
 
+            modelBuilder.Entity("TaxOmbud.Domain.Entities.Hr.DepartmentMovement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("FromDepartmentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("MovementDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Reason")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("StaffProfileId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ToDepartmentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StaffProfileId");
+
+                    b.ToTable("DepartmentMovement");
+                });
+
             modelBuilder.Entity("TaxOmbud.Domain.Entities.Hr.EmployeeWallet", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2112,11 +2161,109 @@ namespace TaxOmbud.Infrastructure.Migrations.SqlServer
                     b.ToTable("SalaryProfiles", (string)null);
                 });
 
+            modelBuilder.Entity("TaxOmbud.Domain.Entities.Hr.StaffDocument", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("DocumentType")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("FileUrl")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("StaffProfileId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StaffProfileId");
+
+                    b.ToTable("StaffDocument");
+                });
+
+            modelBuilder.Entity("TaxOmbud.Domain.Entities.Hr.StaffNote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AddedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Note")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("StaffProfileId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StaffProfileId");
+
+                    b.ToTable("StaffNote");
+                });
+
             modelBuilder.Entity("TaxOmbud.Domain.Entities.Hr.StaffProfile", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AddressLine1")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("AddressLine2")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("BankAccountNo")
                         .IsRequired()
@@ -2127,6 +2274,12 @@ namespace TaxOmbud.Infrastructure.Migrations.SqlServer
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("City")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Country")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
@@ -2143,10 +2296,22 @@ namespace TaxOmbud.Infrastructure.Migrations.SqlServer
                     b.Property<Guid?>("DeletedBy")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("EmergencyContact")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                    b.Property<string>("EducationDetails")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("EducationLevel")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("EmergencyContactName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("EmergencyContactPhone")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("EmployeeCode")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("EmploymentStatus")
                         .IsRequired()
@@ -2169,10 +2334,28 @@ namespace TaxOmbud.Infrastructure.Migrations.SqlServer
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
-                    b.Property<string>("NextOfKin")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                    b.Property<string>("NextOfKinAddress")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("NextOfKinName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("NextOfKinPhone")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("NextOfKinRelationship")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("State")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("SupervisorId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Title")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("datetimeoffset");
@@ -4048,6 +4231,17 @@ namespace TaxOmbud.Infrastructure.Migrations.SqlServer
                     b.Navigation("Invoice");
                 });
 
+            modelBuilder.Entity("TaxOmbud.Domain.Entities.Hr.DepartmentMovement", b =>
+                {
+                    b.HasOne("TaxOmbud.Domain.Entities.Hr.StaffProfile", "StaffProfile")
+                        .WithMany("Movements")
+                        .HasForeignKey("StaffProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("StaffProfile");
+                });
+
             modelBuilder.Entity("TaxOmbud.Domain.Entities.Hr.EmployeeWallet", b =>
                 {
                     b.HasOne("TaxOmbud.Domain.Entities.Identity.User", "User")
@@ -4163,6 +4357,28 @@ namespace TaxOmbud.Infrastructure.Migrations.SqlServer
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("TaxOmbud.Domain.Entities.Hr.StaffDocument", b =>
+                {
+                    b.HasOne("TaxOmbud.Domain.Entities.Hr.StaffProfile", "StaffProfile")
+                        .WithMany("Documents")
+                        .HasForeignKey("StaffProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("StaffProfile");
+                });
+
+            modelBuilder.Entity("TaxOmbud.Domain.Entities.Hr.StaffNote", b =>
+                {
+                    b.HasOne("TaxOmbud.Domain.Entities.Hr.StaffProfile", "StaffProfile")
+                        .WithMany("Notes")
+                        .HasForeignKey("StaffProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("StaffProfile");
                 });
 
             modelBuilder.Entity("TaxOmbud.Domain.Entities.Hr.StaffProfile", b =>
@@ -4463,6 +4679,15 @@ namespace TaxOmbud.Infrastructure.Migrations.SqlServer
             modelBuilder.Entity("TaxOmbud.Domain.Entities.Hr.EmployeeWallet", b =>
                 {
                     b.Navigation("Transactions");
+                });
+
+            modelBuilder.Entity("TaxOmbud.Domain.Entities.Hr.StaffProfile", b =>
+                {
+                    b.Navigation("Documents");
+
+                    b.Navigation("Movements");
+
+                    b.Navigation("Notes");
                 });
 
             modelBuilder.Entity("TaxOmbud.Domain.Entities.Identity.Role", b =>
