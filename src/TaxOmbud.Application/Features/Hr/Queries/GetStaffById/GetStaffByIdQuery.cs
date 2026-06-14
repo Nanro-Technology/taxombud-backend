@@ -26,11 +26,12 @@ public record StaffDetailDto(
     string EmploymentStatus,
     DateTimeOffset DateOfBirth,
     string Nationality,
-    string MaritalStatus,
-    string EmergencyContact,
+    string? EmergencyContactName,
+    string? EmergencyContactPhone,
     string BankAccountNo,
     string BankId,
-    string NextOfKin
+    string? NextOfKinName,
+    string? NextOfKinPhone
 );
 
 public record StaffDepartmentDto(Guid Id, string Name);
@@ -71,11 +72,12 @@ public class GetStaffByIdQueryHandler : IRequestHandler<GetStaffByIdQuery, Resul
             staff.EmploymentStatus,
             staff.DateOfBirth,
             staff.Nationality,
-            staff.MaritalStatus,
-            staff.EmergencyContact,
+            staff.EmergencyContactName,
+            staff.EmergencyContactPhone,
             staff.BankAccountNo,
             staff.BankId,
-            staff.NextOfKin
+            staff.NextOfKinName,
+            staff.NextOfKinPhone
         );
 
         return Result<StaffDetailDto>.Success(dto);

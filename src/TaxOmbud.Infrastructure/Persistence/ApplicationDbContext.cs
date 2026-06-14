@@ -68,6 +68,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<CaseFinding> CaseFindings => Set<CaseFinding>();
     public DbSet<CaseMilestone> CaseMilestones => Set<CaseMilestone>();
     public DbSet<CaseCommunicationLog> CaseCommunicationLogs => Set<CaseCommunicationLog>();
+    public DbSet<CaseTask> CaseTasks => Set<CaseTask>();
 
     // ─── Documents ────────────────────────────────────────────────────────────
     public DbSet<Document> Documents => Set<Document>();
@@ -108,6 +109,51 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<LoanRequest> LoanRequests => Set<LoanRequest>();
     public DbSet<EwaRequest> EwaRequests => Set<EwaRequest>();
     public DbSet<LeaveRequest> LeaveRequests => Set<LeaveRequest>();
+
+    // ─── Operations & Finance ─────────────────────────────────────────────────
+    public DbSet<TaxOmbud.Domain.Entities.Operations.Project> Projects => Set<TaxOmbud.Domain.Entities.Operations.Project>();
+    public DbSet<TaxOmbud.Domain.Entities.Operations.ProjectTask> ProjectTasks => Set<TaxOmbud.Domain.Entities.Operations.ProjectTask>();
+    public DbSet<TaxOmbud.Domain.Entities.Operations.InventoryItem> InventoryItems => Set<TaxOmbud.Domain.Entities.Operations.InventoryItem>();
+    public DbSet<TaxOmbud.Domain.Entities.Operations.VendorContact> VendorContacts => Set<TaxOmbud.Domain.Entities.Operations.VendorContact>();
+    public DbSet<TaxOmbud.Domain.Entities.Finance.Quote> Quotes => Set<TaxOmbud.Domain.Entities.Finance.Quote>();
+    public DbSet<TaxOmbud.Domain.Entities.Finance.Contract> Contracts => Set<TaxOmbud.Domain.Entities.Finance.Contract>();
+    public DbSet<TaxOmbud.Domain.Entities.Finance.QuoteItem> QuoteItems => Set<TaxOmbud.Domain.Entities.Finance.QuoteItem>();
+    public DbSet<TaxOmbud.Domain.Entities.Finance.ContractReview> ContractReviews => Set<TaxOmbud.Domain.Entities.Finance.ContractReview>();
+    public DbSet<TaxOmbud.Domain.Entities.Finance.Invoice> Invoices => Set<TaxOmbud.Domain.Entities.Finance.Invoice>();
+    public DbSet<TaxOmbud.Domain.Entities.Finance.InvoiceItem> InvoiceItems => Set<TaxOmbud.Domain.Entities.Finance.InvoiceItem>();
+    public DbSet<TaxOmbud.Domain.Entities.System.Announcement> Announcements => Set<TaxOmbud.Domain.Entities.System.Announcement>();
+    public DbSet<TaxOmbud.Domain.Entities.Appointments.CalendarEvent> CalendarEvents => Set<TaxOmbud.Domain.Entities.Appointments.CalendarEvent>();
+    public DbSet<TaxOmbud.Domain.Entities.Communications.AgentChat> AgentChats => Set<TaxOmbud.Domain.Entities.Communications.AgentChat>();
+    public DbSet<TaxOmbud.Domain.Entities.System.AnnouncementReadReceipt> AnnouncementReadReceipts => Set<TaxOmbud.Domain.Entities.System.AnnouncementReadReceipt>();
+    public DbSet<TaxOmbud.Domain.Entities.System.DashboardWidget> DashboardWidgets => Set<TaxOmbud.Domain.Entities.System.DashboardWidget>();
+    public DbSet<TaxOmbud.Domain.Entities.System.UserDashboardLayout> UserDashboardLayouts => Set<TaxOmbud.Domain.Entities.System.UserDashboardLayout>();
+    public DbSet<TaxOmbud.Domain.Entities.Communications.MailboxMessage> MailboxMessages => Set<TaxOmbud.Domain.Entities.Communications.MailboxMessage>();
+    public DbSet<TaxOmbud.Domain.Entities.Communications.MailboxRecipient> MailboxRecipients => Set<TaxOmbud.Domain.Entities.Communications.MailboxRecipient>();
+    public DbSet<TaxOmbud.Domain.Entities.Communications.MailboxAttachment> MailboxAttachments => Set<TaxOmbud.Domain.Entities.Communications.MailboxAttachment>();
+    public DbSet<TaxOmbud.Domain.Entities.Hr.PerformanceCycle> PerformanceCycles => Set<TaxOmbud.Domain.Entities.Hr.PerformanceCycle>();
+    public DbSet<TaxOmbud.Domain.Entities.Hr.PerformanceGoal> PerformanceGoals => Set<TaxOmbud.Domain.Entities.Hr.PerformanceGoal>();
+    public DbSet<TaxOmbud.Domain.Entities.Hr.PerformanceReview> PerformanceReviews => Set<TaxOmbud.Domain.Entities.Hr.PerformanceReview>();
+    public DbSet<TaxOmbud.Domain.Entities.Hr.DisciplinaryCase> DisciplinaryCases => Set<TaxOmbud.Domain.Entities.Hr.DisciplinaryCase>();
+    public DbSet<TaxOmbud.Domain.Entities.Hr.ExitRecord> ExitRecords => Set<TaxOmbud.Domain.Entities.Hr.ExitRecord>();
+    public DbSet<TaxOmbud.Domain.Entities.Hr.BenefitType> BenefitTypes => Set<TaxOmbud.Domain.Entities.Hr.BenefitType>();
+    public DbSet<TaxOmbud.Domain.Entities.Hr.EmployeeBenefit> EmployeeBenefits => Set<TaxOmbud.Domain.Entities.Hr.EmployeeBenefit>();
+    public DbSet<TaxOmbud.Domain.Entities.Hr.LeaveTypeEntity> LeaveTypeEntities => Set<TaxOmbud.Domain.Entities.Hr.LeaveTypeEntity>();
+    public DbSet<TaxOmbud.Domain.Entities.Hr.LeaveBalance> LeaveBalances => Set<TaxOmbud.Domain.Entities.Hr.LeaveBalance>();
+    public DbSet<TaxOmbud.Domain.Entities.Hr.StatutoryDeduction> StatutoryDeductions => Set<TaxOmbud.Domain.Entities.Hr.StatutoryDeduction>();
+    public DbSet<TaxOmbud.Domain.Entities.Hr.StatutoryRule> StatutoryRules => Set<TaxOmbud.Domain.Entities.Hr.StatutoryRule>();
+    public DbSet<TaxOmbud.Domain.Entities.Hr.PayoutProvider> PayoutProviders => Set<TaxOmbud.Domain.Entities.Hr.PayoutProvider>();
+    public DbSet<TaxOmbud.Domain.Entities.Operations.ProjectMember> ProjectMembers => Set<TaxOmbud.Domain.Entities.Operations.ProjectMember>();
+    public DbSet<TaxOmbud.Domain.Entities.Operations.Ticket> Tickets => Set<TaxOmbud.Domain.Entities.Operations.Ticket>();
+    public DbSet<TaxOmbud.Domain.Entities.Operations.Visitor> Visitors => Set<TaxOmbud.Domain.Entities.Operations.Visitor>();
+    public DbSet<TaxOmbud.Domain.Entities.Hr.AttendanceLog> AttendanceLogs => Set<TaxOmbud.Domain.Entities.Hr.AttendanceLog>();
+    public DbSet<TaxOmbud.Domain.Entities.Hr.Holiday> Holidays => Set<TaxOmbud.Domain.Entities.Hr.Holiday>();
+    public DbSet<TaxOmbud.Domain.Entities.Communications.AgentChatMessage> AgentChatMessages => Set<TaxOmbud.Domain.Entities.Communications.AgentChatMessage>();
+    public DbSet<TaxOmbud.Domain.Entities.Communications.AgentChatPreference> AgentChatPreferences => Set<TaxOmbud.Domain.Entities.Communications.AgentChatPreference>();
+    public DbSet<TaxOmbud.Domain.Entities.Communications.SmsMessage> SmsMessages => Set<TaxOmbud.Domain.Entities.Communications.SmsMessage>();
+    public DbSet<TaxOmbud.Domain.Entities.Crm.Organization> Organizations => Set<TaxOmbud.Domain.Entities.Crm.Organization>();
+    public DbSet<TaxOmbud.Domain.Entities.Crm.Interaction> Interactions => Set<TaxOmbud.Domain.Entities.Crm.Interaction>();
+    public DbSet<TaxOmbud.Domain.Entities.Crm.Call> Calls => Set<TaxOmbud.Domain.Entities.Crm.Call>();
+    public DbSet<TaxOmbud.Domain.Entities.Hr.TimeLog> TimeLogs => Set<TaxOmbud.Domain.Entities.Hr.TimeLog>();
 
     // ─── EF Model ─────────────────────────────────────────────────────────────
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -197,3 +243,13 @@ public class ReferenceNumberValueConverter : ValueConverter<ReferenceNumber, str
     {
     }
 }
+
+
+
+
+
+
+
+
+
+

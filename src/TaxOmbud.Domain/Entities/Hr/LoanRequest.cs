@@ -12,6 +12,9 @@ public class LoanRequest : BaseAuditableEntity
     public decimal Amount { get; set; }
     public int TermMonths { get; set; }
     public string Purpose { get; set; } = null!;
+    public string? DisburseTo { get; set; } // Bank Account, Wallet, etc.
+    public string? PayoutReference { get; set; }
+    public string? ActionNote { get; set; }
 
     public string Status { get; set; } = "pending"; // pending, approved, rejected, disbursed, paid_off
     

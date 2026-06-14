@@ -51,6 +51,7 @@ public interface IApplicationDbContext
     DbSet<CaseFinding> CaseFindings { get; }
     DbSet<CaseMilestone> CaseMilestones { get; }
     DbSet<CaseCommunicationLog> CaseCommunicationLogs { get; }
+    DbSet<CaseTask> CaseTasks { get; }
 
     // Documents
     DbSet<Document> Documents { get; }
@@ -92,5 +93,58 @@ public interface IApplicationDbContext
     DbSet<EwaRequest> EwaRequests { get; }
     DbSet<LeaveRequest> LeaveRequests { get; }
 
+        DbSet<TaxOmbud.Domain.Entities.Operations.Project> Projects { get; }
+    DbSet<TaxOmbud.Domain.Entities.Operations.ProjectTask> ProjectTasks { get; }
+    DbSet<TaxOmbud.Domain.Entities.Operations.InventoryItem> InventoryItems { get; }
+    DbSet<TaxOmbud.Domain.Entities.Operations.VendorContact> VendorContacts { get; }
+    DbSet<TaxOmbud.Domain.Entities.Finance.Quote> Quotes { get; }
+    DbSet<TaxOmbud.Domain.Entities.Finance.Contract> Contracts { get; }
+    DbSet<TaxOmbud.Domain.Entities.Finance.QuoteItem> QuoteItems { get; }
+    DbSet<TaxOmbud.Domain.Entities.Finance.ContractReview> ContractReviews { get; }
+    DbSet<TaxOmbud.Domain.Entities.Finance.Invoice> Invoices { get; }
+    DbSet<TaxOmbud.Domain.Entities.Finance.InvoiceItem> InvoiceItems { get; }
+    DbSet<TaxOmbud.Domain.Entities.System.Announcement> Announcements { get; }
+    DbSet<TaxOmbud.Domain.Entities.Appointments.CalendarEvent> CalendarEvents { get; }
+    DbSet<TaxOmbud.Domain.Entities.Communications.AgentChat> AgentChats { get; }
+    DbSet<TaxOmbud.Domain.Entities.System.AnnouncementReadReceipt> AnnouncementReadReceipts { get; }
+    DbSet<TaxOmbud.Domain.Entities.System.DashboardWidget> DashboardWidgets { get; }
+    DbSet<TaxOmbud.Domain.Entities.System.UserDashboardLayout> UserDashboardLayouts { get; }
+    DbSet<TaxOmbud.Domain.Entities.Communications.MailboxMessage> MailboxMessages { get; }
+    DbSet<TaxOmbud.Domain.Entities.Communications.MailboxRecipient> MailboxRecipients { get; }
+    DbSet<TaxOmbud.Domain.Entities.Communications.MailboxAttachment> MailboxAttachments { get; }
+    DbSet<TaxOmbud.Domain.Entities.Hr.PerformanceCycle> PerformanceCycles { get; }
+    DbSet<TaxOmbud.Domain.Entities.Hr.PerformanceGoal> PerformanceGoals { get; }
+    DbSet<TaxOmbud.Domain.Entities.Hr.PerformanceReview> PerformanceReviews { get; }
+    DbSet<TaxOmbud.Domain.Entities.Hr.DisciplinaryCase> DisciplinaryCases { get; }
+    DbSet<TaxOmbud.Domain.Entities.Hr.ExitRecord> ExitRecords { get; }
+    DbSet<TaxOmbud.Domain.Entities.Hr.BenefitType> BenefitTypes { get; }
+    DbSet<TaxOmbud.Domain.Entities.Hr.EmployeeBenefit> EmployeeBenefits { get; }
+    DbSet<TaxOmbud.Domain.Entities.Hr.LeaveTypeEntity> LeaveTypeEntities { get; }
+    DbSet<TaxOmbud.Domain.Entities.Hr.LeaveBalance> LeaveBalances { get; }
+    DbSet<TaxOmbud.Domain.Entities.Hr.StatutoryDeduction> StatutoryDeductions { get; }
+    DbSet<TaxOmbud.Domain.Entities.Hr.StatutoryRule> StatutoryRules { get; }
+    DbSet<TaxOmbud.Domain.Entities.Hr.PayoutProvider> PayoutProviders { get; }
+    DbSet<TaxOmbud.Domain.Entities.Operations.ProjectMember> ProjectMembers { get; }
+    DbSet<TaxOmbud.Domain.Entities.Operations.Ticket> Tickets { get; }
+    DbSet<TaxOmbud.Domain.Entities.Operations.Visitor> Visitors { get; }
+    DbSet<TaxOmbud.Domain.Entities.Hr.AttendanceLog> AttendanceLogs { get; }
+    DbSet<TaxOmbud.Domain.Entities.Hr.Holiday> Holidays { get; }
+    DbSet<TaxOmbud.Domain.Entities.Communications.AgentChatMessage> AgentChatMessages { get; }
+    DbSet<TaxOmbud.Domain.Entities.Communications.AgentChatPreference> AgentChatPreferences { get; }
+    DbSet<TaxOmbud.Domain.Entities.Communications.SmsMessage> SmsMessages { get; }
+    DbSet<TaxOmbud.Domain.Entities.Crm.Organization> Organizations { get; }
+    DbSet<TaxOmbud.Domain.Entities.Crm.Interaction> Interactions { get; }
+    DbSet<TaxOmbud.Domain.Entities.Crm.Call> Calls { get; }
+    DbSet<TaxOmbud.Domain.Entities.Hr.TimeLog> TimeLogs { get; }
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
+
+
+
+
+
+
+
+
+

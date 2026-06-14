@@ -14,15 +14,29 @@ namespace TaxOmbud.Application.Features.Hr.Commands.SaveStaffProfile;
 
 public record SaveStaffProfileCommand(
     Guid UserId,
+    string? EmployeeCode,
+    string? Title,
+    Guid? SupervisorId,
     DateTimeOffset HireDate,
     string EmploymentStatus,
     DateTimeOffset DateOfBirth,
     string Nationality,
     string MaritalStatus,
-    string EmergencyContact,
+    string? EducationLevel,
+    string? EducationDetails,
+    string? AddressLine1,
+    string? AddressLine2,
+    string? City,
+    string? State,
+    string? Country,
+    string? EmergencyContactName,
+    string? EmergencyContactPhone,
     string BankAccountNo,
     string BankId,
-    string NextOfKin
+    string? NextOfKinName,
+    string? NextOfKinRelationship,
+    string? NextOfKinPhone,
+    string? NextOfKinAddress
 ) : IRequest<Result<StaffProfile>>;
 
 // ─── Validator ────────────────────────────────────────────────────────────────
@@ -35,10 +49,8 @@ public class SaveStaffProfileCommandValidator : AbstractValidator<SaveStaffProfi
         RuleFor(x => x.EmploymentStatus).NotEmpty().MaximumLength(50);
         RuleFor(x => x.Nationality).NotEmpty().MaximumLength(100);
         RuleFor(x => x.MaritalStatus).NotEmpty().MaximumLength(50);
-        RuleFor(x => x.EmergencyContact).NotEmpty().MaximumLength(200);
         RuleFor(x => x.BankAccountNo).NotEmpty().MaximumLength(30);
         RuleFor(x => x.BankId).NotEmpty().MaximumLength(50);
-        RuleFor(x => x.NextOfKin).NotEmpty().MaximumLength(200);
     }
 }
 
@@ -67,15 +79,29 @@ public class SaveStaffProfileCommandHandler : IRequestHandler<SaveStaffProfileCo
             isNew = true;
         }
 
+        staff.EmployeeCode = request.EmployeeCode;
+        staff.Title = request.Title;
+        staff.SupervisorId = request.SupervisorId;
         staff.HireDate = request.HireDate;
         staff.EmploymentStatus = request.EmploymentStatus;
         staff.DateOfBirth = request.DateOfBirth;
         staff.Nationality = request.Nationality;
         staff.MaritalStatus = request.MaritalStatus;
-        staff.EmergencyContact = request.EmergencyContact;
+        staff.EducationLevel = request.EducationLevel;
+        staff.EducationDetails = request.EducationDetails;
+        staff.AddressLine1 = request.AddressLine1;
+        staff.AddressLine2 = request.AddressLine2;
+        staff.City = request.City;
+        staff.State = request.State;
+        staff.Country = request.Country;
+        staff.EmergencyContactName = request.EmergencyContactName;
+        staff.EmergencyContactPhone = request.EmergencyContactPhone;
         staff.BankAccountNo = request.BankAccountNo;
         staff.BankId = request.BankId;
-        staff.NextOfKin = request.NextOfKin;
+        staff.NextOfKinName = request.NextOfKinName;
+        staff.NextOfKinRelationship = request.NextOfKinRelationship;
+        staff.NextOfKinPhone = request.NextOfKinPhone;
+        staff.NextOfKinAddress = request.NextOfKinAddress;
 
         if (isNew)
             _context.StaffProfiles.Add(staff);

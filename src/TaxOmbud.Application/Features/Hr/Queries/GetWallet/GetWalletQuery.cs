@@ -71,6 +71,6 @@ public class GetWalletQueryHandler : IRequestHandler<GetWalletQuery, Result<Wall
             ))
         );
 
-        return Result<WalletDto>.Success(dto);
+        await Task.CompletedTask; return Result<WalletDto>.Success(dto);
     }
 }

@@ -1,0 +1,336 @@
+(() => {
+  const api = (typeof apiEndpoints === 'function') ? apiEndpoints() : {};
+  const apiUrl = api.announcementsIndex || ((typeof url_root !== 'undefined' ? url_root : '../') + 'api/modules/announcements/index');
+  const listEl = document.getElementById('announcementList');
+  const unreadBadge = document.getElementById('announcementUnreadBadge');
+  const markAllBtn = document.getElementById('announcementMarkAll');
+  const tabButtons = Array.from(document.querySelectorAll('[data-scope]'));
+
+  const viewModalEl = document.getElementById('announcementViewModal');
+  const viewModal = viewModalEl && typeof bootstrap !== 'undefined' ? bootstrap.Modal.getOrCreateInstance(viewModalEl) : null;
+  const viewTitle = document.getElementById('announcementViewTitle');
+  const viewMeta = document.getElementById('announcementViewMeta');
+  const viewBody = document.getElementById('announcementViewBody');
+
+  const cfg = window.announcementConfig || {};
+  let currentScope = 'unread';
+  let cache = [];
+  let quill = null;
+
+  function confirmAction(opts) {
+    const title = (opts && opts.title) ? String(opts.title) : 'Confirm';
+    const body = (opts && opts.body) ? String(opts.body) : 'Are you sure?';
+    const confirmText = (opts && opts.confirmText) ? String(opts.confirmText) : 'Confirm';
+    const confirmClass = (opts && opts.confirmClass) ? String(opts.confirmClass) : 'btn-danger';
+    let variant = 'danger';
+    if (confirmClass.indexOf('btn-primary') !== -1) variant = 'primary';
+    if (confirmClass.indexOf('btn-success') !== -1) variant = 'success';
+    if (confirmClass.indexOf('btn-warning') !== -1) variant = 'warning';
+    if (confirmClass.indexOf('btn-secondary') !== -1 || confirmClass.indexOf('btn-light') !== -1) variant = 'secondary';
+
+    return window.crmUiConfirm(body, title, {
+      okText: confirmText,
+      cancelText: 'Cancel',
+      variant: variant,
+      icon: 'warning'
+    });
+  }
+
+  function stripHtml(html) {
+    const div = document.createElement('div');
+    div.innerHTML = html || '';
+    return div.textContent || div.innerText || '';
+  }
+
+  function setUnreadBadge(count) {
+    if (!unreadBadge) return;
+    const cnt = parseInt(count || 0, 10);
+    if (cnt > 0) {
+      unreadBadge.textContent = `${cnt} unread`;
+      unreadBadge.style.display = 'inline-block';
+    } else {
+      unreadBadge.style.display = 'none';
+    }
+  }
+
+  function renderList(items) {
+    if (!listEl) return;
+    if (!items || !items.length) {
+      listEl.innerHTML = `<div class="announcement-empty text-center text-muted">No announcements found.</div>`;
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    items.forEach((row) => {
+      const card = document.createElement('div');
+      const isRead = !!row.read_at;
+      const created = row.sent_at || row.created_at;
+      const meta = created ? new Date(created).toLocaleString() : '—';
+      const rawPreview = stripHtml(row.body || '');
+      const preview = rawPreview.length > 33 ? `${rawPreview.slice(0, 30)}...` : (rawPreview || 'You have a new assignment.');
+      const scope = row.scope_type || 'all';
+      let scopeLabel = 'All Staff';
+      if (scope === 'department') {
+        scopeLabel = row.department_name ? `Dept: ${row.department_name}` : 'Department';
+      } else if (scope === 'users') {
+        let userCount = 0;
+        if (row.target_users) {
+          try {
+            const parsed = typeof row.target_users === 'string' ? JSON.parse(row.target_users) : row.target_users;
+            if (Array.isArray(parsed)) userCount = parsed.length;
+          } catch (e) {}
+        }
+        scopeLabel = userCount ? `Users: ${userCount}` : 'Selected users';
+      }
+      const createdBy = row.created_by_name ? `By ${row.created_by_name}` : '';
+      const badgeClass = isRead ? 'bg-light text-muted' : 'bg-danger-subtle text-danger';
+      card.className = 'card announcement-card';
+      card.innerHTML = `
+        <div class="card-body">
+          <div class="d-flex align-items-start">
+            <div class="flex-grow-1">
+              <h5 class="mb-1">${row.title || 'Announcement'}</h5>
+              <div class="announcement-meta text-muted mb-2">
+                <span class="me-2"><i class="ri-time-line me-1"></i>${meta}</span>
+                <span class="me-2">${scopeLabel}</span>
+                ${createdBy ? `<span class="me-2">${createdBy}</span>` : ''}
+                <span class="badge ${badgeClass}">${isRead ? 'Read' : 'Unread'}</span>
+              </div>
+              <div class="announcement-body">${preview}</div>
+            </div>
+            <div class="ms-3 d-flex align-items-center gap-2 announcement-actions">
+              <button class="btn btn-sm btn-outline-primary announcement-open" data-id="${row.id}"><i class="ri-eye-line me-1"></i>Open</button>
+              ${cfg.canDelete ? `<button class="btn btn-sm btn-soft-danger announcement-delete" data-id="${row.id}"><i class="ri-delete-bin-line me-1"></i>Delete</button>` : ''}
+            </div>
+          </div>
+        </div>
+      `;
+      frag.appendChild(card);
+    });
+    listEl.innerHTML = '';
+    listEl.appendChild(frag);
+  }
+
+  function load(scope = 'unread') {
+    currentScope = scope;
+    if (!listEl) return;
+    listEl.innerHTML = '<div class="text-center text-muted py-4">Loading...</div>';
+    fetch(`${apiUrl}?scope=${encodeURIComponent(scope)}&limit=50`, { credentials: 'same-origin' })
+      .then((r) => r.json())
+      .then((data) => {
+        cache = Array.isArray(data?.data) ? data.data : [];
+        renderList(cache);
+        setUnreadBadge(data?.unread_count || 0);
+      })
+      .catch(() => {
+        listEl.innerHTML = '<div class="text-center text-muted py-4">Unable to load announcements.</div>';
+      });
+  }
+
+  function markRead(ids, markAll = false) {
+    return fetch(apiUrl, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(markAll ? { mark_all: true } : { ids })
+    }).then((r) => r.json());
+  }
+
+  function deleteAnnouncement(id) {
+    return fetch(`${apiUrl}?id=${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      credentials: 'same-origin'
+    }).then((r) => r.json());
+  }
+
+  function openAnnouncement(id) {
+    const row = cache.find((r) => String(r.id) === String(id));
+    if (!row) return;
+    if (viewTitle) viewTitle.textContent = row.title || 'Announcement';
+    if (viewMeta) {
+      const created = row.sent_at || row.created_at;
+      let scopeLabel = row.scope_type || 'all';
+      if (row.scope_type === 'department') {
+        scopeLabel = row.department_name ? `Dept: ${row.department_name}` : 'Department';
+      } else if (row.scope_type === 'users') {
+        scopeLabel = 'Selected users';
+      } else if (row.scope_type === 'all') {
+        scopeLabel = 'All staff';
+      }
+      const byLine = row.created_by_name ? ` · By ${row.created_by_name}` : '';
+      viewMeta.textContent = created ? `Sent ${new Date(created).toLocaleString()} · ${scopeLabel}${byLine}` : '';
+    }
+    if (viewBody) viewBody.innerHTML = row.body || '<p class="text-muted">No content.</p>';
+    if (viewModal) viewModal.show();
+    if (!row.read_at) {
+      markRead([row.id]).then(() => load(currentScope));
+    }
+  }
+
+  function initCreateForm() {
+    const modalEl = document.getElementById('announcementCreateModal');
+    if (!modalEl || !cfg.canCreate) return;
+    const scopeSel = document.getElementById('announcementScope');
+    const deptWrap = document.getElementById('announcementDeptWrap');
+    const usersWrap = document.getElementById('announcementUsersWrap');
+    const deptSel = document.getElementById('announcementDepartment');
+    const usersSel = document.getElementById('announcementUsers');
+    const titleInput = document.getElementById('announcementTitle');
+    const sendBtn = document.getElementById('announcementSendBtn');
+    const $users = (window.jQuery && window.jQuery.fn && usersSel) ? window.jQuery(usersSel) : null;
+    let usersSelect2Ready = false;
+
+    quill = new Quill('#announcementEditor', {
+      theme: 'snow',
+      modules: {
+        toolbar: [
+          [{ header: [1, 2, false] }],
+          ['bold', 'italic', 'underline'],
+          [{ list: 'ordered' }, { list: 'bullet' }],
+          ['link'],
+          ['clean']
+        ]
+      }
+    });
+
+    function ensureUsersSelect2() {
+      if (!usersSel || !$users || typeof $users.select2 !== 'function') return;
+      if ($users.data('select2')) return;
+      $users.select2({
+        width: '100%',
+        placeholder: 'Select users',
+        allowClear: false,
+        closeOnSelect: false,
+        dropdownParent: modalEl
+      });
+      usersSelect2Ready = true;
+    }
+
+    function resetUsersSelection() {
+      if (usersSel) usersSel.selectedIndex = -1;
+      if ($users && $users.data('select2')) {
+        $users.val(null).trigger('change');
+      }
+    }
+
+    const toggleScope = () => {
+      const scope = scopeSel ? scopeSel.value : 'all';
+      if (deptWrap) deptWrap.style.display = scope === 'department' ? '' : 'none';
+      if (usersWrap) usersWrap.style.display = scope === 'users' ? '' : 'none';
+      if (scope === 'users') {
+        ensureUsersSelect2();
+      } else if (usersSelect2Ready && $users && $users.data('select2')) {
+        $users.select2('close');
+      }
+    };
+    toggleScope();
+    if (scopeSel) scopeSel.addEventListener('change', toggleScope);
+    if (modalEl) {
+      modalEl.addEventListener('shown.bs.modal', () => {
+        if (scopeSel && scopeSel.value === 'users') {
+          ensureUsersSelect2();
+        }
+      });
+    }
+
+    if (sendBtn) {
+      sendBtn.addEventListener('click', () => {
+        const scope = scopeSel ? scopeSel.value : 'all';
+        const bodyHtml = quill ? quill.root.innerHTML.trim() : '';
+        const payload = {
+          title: titleInput ? titleInput.value.trim() : '',
+          body: bodyHtml,
+          scope_type: scope
+        };
+        if (scope === 'department') {
+          payload.department_id = deptSel ? deptSel.value : '';
+        }
+        if (scope === 'users') {
+          const selected = $users && $users.data('select2')
+            ? ($users.val() || [])
+            : Array.from(usersSel ? usersSel.selectedOptions : []).map(o => o.value);
+          payload.user_ids = selected;
+        }
+        if (!payload.body || payload.body === '<p><br></p>') {
+          window.crmUiAlert('Please enter announcement message.');
+          return;
+        }
+        confirmAction({
+          title: 'Send Announcement',
+          body: 'Send this announcement now? This cannot be undone.',
+          confirmText: 'Send Now',
+          confirmClass: 'btn-primary'
+        }).then((ok) => {
+          if (!ok) return;
+          toggleButtonLoading(sendBtn, true, 'Sending...');
+          fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify(payload)
+          })
+            .then((r) => r.json())
+            .then((data) => {
+              if (data?.error) {
+                window.crmUiAlert(data.error);
+                return;
+              }
+              if (titleInput) titleInput.value = '';
+              if (deptSel) deptSel.value = '';
+              resetUsersSelection();
+              if (quill) quill.setText('');
+              const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+              modal.hide();
+              load(currentScope);
+            })
+            .catch(() => {
+              window.crmUiAlert('Unable to send announcement.');
+            })
+            .finally(() => toggleButtonLoading(sendBtn, false));
+        });
+      });
+    }
+  }
+
+  if (listEl) {
+    listEl.addEventListener('click', (e) => {
+      const openBtn = e.target.closest('.announcement-open');
+      const delBtn = e.target.closest('.announcement-delete');
+      if (openBtn) {
+        e.preventDefault();
+        openAnnouncement(openBtn.getAttribute('data-id'));
+        return;
+      }
+      if (delBtn) {
+        e.preventDefault();
+        const id = delBtn.getAttribute('data-id');
+        confirmAction({
+          title: 'Delete Announcement',
+          body: 'Delete this announcement? This cannot be undone.',
+          confirmText: 'Delete',
+          confirmClass: 'btn-danger'
+        }).then((ok) => {
+          if (!ok) return;
+          deleteAnnouncement(id).then(() => load(currentScope));
+        });
+      }
+    });
+  }
+
+  if (markAllBtn) {
+    markAllBtn.addEventListener('click', () => {
+      markRead([], true).then(() => load(currentScope));
+    });
+  }
+
+  tabButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      tabButtons.forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      const scope = btn.getAttribute('data-scope') || 'unread';
+      load(scope);
+    });
+  });
+
+  initCreateForm();
+  load(currentScope);
+})();

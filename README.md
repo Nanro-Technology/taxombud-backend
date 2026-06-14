@@ -23,6 +23,7 @@ Built with **Clean Architecture**, **CQRS via MediatR**, and **Entity Framework 
 | Docs | Swashbuckle (Swagger/OpenAPI) |
 | Logging | Serilog (Console + File sinks) |
 | Storage | Pluggable `IFileStorageService` |
+| Real-Time | ASP.NET Core SignalR |
 
 ---
 
@@ -38,7 +39,7 @@ TaxOmbud.KeyGenerator    ← Utility to generate JWT signing keys
 
 ---
 
-## Endpoints Summary (155 total)
+## Endpoints Summary (159 total)
 
 | Controller | Count |
 |---|---|
@@ -64,7 +65,8 @@ TaxOmbud.KeyGenerator    ← Utility to generate JWT signing keys
 | Health | 4 |
 | Search | 1 |
 | Lookups | 1 |
-| **TOTAL** | **155** |
+| Chats | 4 |
+| **TOTAL** | **159** |
 
 Full OpenAPI documentation available at `/swagger` when running in Development.
 

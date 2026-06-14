@@ -1,0 +1,50 @@
+/* Minimal Bootstrap 5 skin for DataTables */
+@charset "UTF-8";
+table.dataTable {
+  width: 100% !important;
+  margin: 0 auto;
+  clear: both;
+  border-collapse: collapse !important;
+}
+.dataTables_wrapper .dataTables_length,
+.dataTables_wrapper .dataTables_filter {
+  margin-bottom: 0.5rem;
+}
+.dataTables_wrapper .dataTables_filter {
+  text-align: right;
+}
+.dataTables_wrapper .dataTables_filter input {
+  margin-left: 0.5em;
+  display: inline-block;
+  width: auto;
+}
+.dataTables_wrapper .dataTables_paginate {
+  margin-top: 0.75rem;
+  text-align: right;
+}
+.dataTables_wrapper .dataTables_paginate .paginate_button {
+  padding: 0.25rem 0.5rem;
+  margin-left: 0.1rem;
+  border: 1px solid #dee2e6;
+  border-radius: 0.25rem;
+  color: #0d6efd !important;
+  background: #fff;
+}
+.dataTables_wrapper .dataTables_paginate .paginate_button.current,
+.dataTables_wrapper .dataTables_paginate .paginate_button.current:hover {
+  color: #fff !important;
+  background: #0d6efd !important;
+  border-color: #0d6efd !important;
+}
+.dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+  color: #0a58ca !important;
+  background: #e9ecef !important;
+  border-color: #adb5bd !important;
+}
+.dataTables_wrapper .dataTables_info {
+  padding-top: 0.5rem;
+}
+.dataTables_wrapper .dataTables_length select {
+  width: auto;
+  display: inline-block;
+}

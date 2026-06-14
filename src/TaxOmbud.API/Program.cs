@@ -39,6 +39,7 @@ try
     // ─── API Services ─────────────────────────────────────────────────────────
     builder.Services.AddHttpContextAccessor();
     builder.Services.AddScoped<ICurrentUser, CurrentUserService>();
+    builder.Services.AddSignalR();
 
     builder.Services.AddControllers()
         .AddJsonOptions(o =>
@@ -134,7 +135,7 @@ try
         {
             if (db.Database.IsRelational())
             {
-                await db.Database.MigrateAsync();
+                // await db.Database.MigrateAsync();
             }
             else
             {
@@ -173,6 +174,7 @@ try
     app.UseHangfireDashboard();
 
     app.MapControllers();
+    app.MapHub<TaxOmbud.API.Hubs.ChatHub>("/hubs/chat");
     app.MapHealthChecks("/health");
 
     Log.Information("Tax Ombud API started successfully.");
