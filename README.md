@@ -39,7 +39,7 @@ TaxOmbud.KeyGenerator    ← Utility to generate JWT signing keys
 
 ---
 
-## Endpoints Summary (159 total)
+## Endpoints Summary (165 total)
 
 | Controller | Count |
 |---|---|
@@ -66,7 +66,8 @@ TaxOmbud.KeyGenerator    ← Utility to generate JWT signing keys
 | Search | 1 |
 | Lookups | 1 |
 | Chats | 4 |
-| **TOTAL** | **159** |
+| Public UI Endpoints | 6 |
+| **TOTAL** | **165** |
 
 Full OpenAPI documentation available at `/swagger` when running in Development.
 
