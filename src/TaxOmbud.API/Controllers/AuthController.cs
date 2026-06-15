@@ -37,6 +37,7 @@ public class AuthController : ApiControllerBase
     /// <summary>Register a new taxpayer portal account.</summary>
     [AllowAnonymous]
     [HttpPost("register")]
+    [HttpPost("/api/modules/auth/signup")]
     [ProducesResponseType(typeof(RegisterResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
@@ -52,6 +53,7 @@ public class AuthController : ApiControllerBase
     /// <summary>Authenticate and receive JWT + refresh token.</summary>
     [AllowAnonymous]
     [HttpPost("login")]
+    [HttpPost("/api/modules/auth/signin")]
     [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Login([FromBody] LoginCommand command, CancellationToken ct)
