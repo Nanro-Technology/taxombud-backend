@@ -27,7 +27,6 @@ public abstract class ApiControllerBase : ControllerBase
 
         if (result.IsValidationFailure)
             return UnprocessableEntity(new { errors = result.Errors });
-
         return BadRequest(new { errors = result.Errors });
     }
 
