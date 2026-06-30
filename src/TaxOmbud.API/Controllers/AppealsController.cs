@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Mvc;
 using TaxOmbud.Application.Appeals.DTOs;
 using TaxOmbud.Application.Interfaces.Services;
 
-
 namespace TaxOmbud.Api.Controllers;
 
 /// <summary>
@@ -21,8 +20,6 @@ public class AppealsController : ControllerBase
     {
         _appealsService = appealsService;
     }
-
-
 
     /// <summary>List all submitted taxpayer decision appeals (Officer and above only).</summary>
     [HttpGet]
@@ -99,5 +96,3 @@ public class AppealsController : ControllerBase
     }
 }
 
-public record FileAppealRequest(Guid CaseId, string Reason);
-public record ReviewAppealRequest(string Action, string Notes);

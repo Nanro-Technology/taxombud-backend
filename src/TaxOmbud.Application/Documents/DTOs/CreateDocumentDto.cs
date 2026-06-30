@@ -25,3 +25,6 @@ public record CreatedDocumentResponse(
     string ContentType,
     long FileSize
 );
+
+public record CreateDocumentRequest(
+    string FileName, string FilePath, string ContentType, long FileSize, string EntityType, Guid EntityId);

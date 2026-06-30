@@ -8,19 +8,6 @@ using TaxOmbud.Domain.Common;
 
 namespace TaxOmbud.Api.Controllers;
 
-public record UpdateUserRequest(
-    string FirstName,
-    string LastName,
-    string? Phone,
-    string? JobTitle,
-    string? EmploymentType,
-    Guid? DepartmentId
-);
-public record UpdateUserStatusRequest(bool Activate);
-public record AssignRolesRequest(Guid[] RoleIds);
-public record PermissionOverridesRequest(PermissionOverrideDto[] Overrides);
-public record UpdateCurrentUserRequest(string FirstName, string LastName, string? Phone, string? JobTitle);
-
 /// <summary>
 /// Manage user accounts, role assignments, department mappings, and permission overrides.
 /// </summary>

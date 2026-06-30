@@ -8,10 +8,6 @@ using TaxOmbud.Common.Responses;
 
 namespace TaxOmbud.Api.Controllers;
 
-public record ChangePasswordRequest(string CurrentPassword, string NewPassword);
-public record VerifyMfaRequest(string TotpCode);
-public record DisableMfaRequest(string Password);
-
 /// <summary>
 /// Handles taxpayer self-registration, login and token refresh.
 /// </summary>

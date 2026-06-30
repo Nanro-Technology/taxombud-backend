@@ -9,3 +9,5 @@ using TaxOmbud.Common.Responses;
 namespace TaxOmbud.Application.Hr.DTOs;
 
 public record ApproveLoanCommand(Guid Id, bool Approved) ;
+
+public record ApproveLoanRequest(bool Approved);

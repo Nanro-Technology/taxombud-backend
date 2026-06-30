@@ -38,4 +38,3 @@ public class SystemController : ControllerBase
     }
 }
 
-public record ToggleE2eeRequest(bool Enable);

@@ -14,3 +14,5 @@ public record UpdateWebhookCommand(
     string[] EventTypes,
     bool IsActive
 ) ;
+
+public record UpdateWebhookRequest(string Url, string[] EventTypes, bool IsActive);

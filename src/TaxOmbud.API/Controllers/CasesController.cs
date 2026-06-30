@@ -8,14 +8,6 @@ using TaxOmbud.Domain.Common;
 
 namespace TaxOmbud.Api.Controllers;
 
-public record AddNoteRequest(string Text, bool IsExternal);
-public record AssignCaseRequest(Guid OfficerId);
-public record TransitionCaseRequest(string TargetStage, string? Reason);
-public record PostRecommendationRequest(string RecommendationText);
-public record ApproveClosureRequest(bool Approve, string Rationale);
-public record AddCaseFindingRequest(string Description);
-public record UpdateCaseFindingRequest(string Description);
-
 /// <summary>
 /// Handles operational queues and the 6-stage case routing lifecycle
 /// (lodge → verify → B1 → B2 → B3 recommendation → CE approval → closed).

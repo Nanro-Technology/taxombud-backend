@@ -10,3 +10,5 @@ namespace TaxOmbud.Application.Complaints.DTOs;
 
 public record AssignComplaintCommand(Guid ComplaintId, Guid OfficerId, Guid AssignedByUserId)
     ;
+
+public record AssignComplaintRequest(Guid OfficerId);

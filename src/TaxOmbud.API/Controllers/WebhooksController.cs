@@ -6,10 +6,6 @@ using TaxOmbud.Application.Webhooks.DTOs;
 
 namespace TaxOmbud.Api.Controllers;
 
-public record CreateWebhookRequest(string Url, string Secret, string[] EventTypes);
-public record UpdateWebhookRequest(string Url, string[] EventTypes, bool IsActive);
-public record RotateSecretRequest(string NewSecret);
-
 /// <summary>
 /// Manage outgoing webhook subscriptions for real-time event delivery to third-party systems.
 /// </summary>

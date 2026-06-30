@@ -10,3 +10,5 @@ namespace TaxOmbud.Application.Complaints.DTOs;
 
 public record CloseComplaintCommand(Guid ComplaintId, string Reason, Guid ClosedByUserId)
     ;
+
+public record CloseComplaintRequest(string Reason);

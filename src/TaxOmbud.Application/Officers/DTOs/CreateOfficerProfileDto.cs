@@ -23,3 +23,5 @@ public record CreatedOfficerResponse(
     string? EmployeeNumber,
     string? Specialisation
 );
+
+public record CreateOfficerProfileRequest(Guid UserId, int MaxCaseload, string? EmployeeNumber, string? Specialisation);

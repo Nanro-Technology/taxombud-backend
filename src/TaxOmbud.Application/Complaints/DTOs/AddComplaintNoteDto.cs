@@ -15,3 +15,5 @@ public record AddComplaintNoteCommand(
     string Visibility,
     Guid AuthorUserId
 ) ;
+
+public record AddComplaintNoteRequest(string Body, string Visibility);

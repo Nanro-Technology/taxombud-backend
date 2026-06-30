@@ -15,3 +15,5 @@ public record UpdateComplaintStatusCommand(
     ComplaintStatus Status,
     string? Reason
 ) ;
+
+public record UpdateComplaintStatusRequest(ComplaintStatus Status, string? Reason);

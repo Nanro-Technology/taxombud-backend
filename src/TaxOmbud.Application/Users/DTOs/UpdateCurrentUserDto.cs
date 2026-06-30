@@ -14,3 +14,5 @@ public record UpdateCurrentUserCommand(
     string? Phone,
     string? JobTitle
 ) ;
+
+public record UpdateCurrentUserRequest(string FirstName, string LastName, string? Phone, string? JobTitle);

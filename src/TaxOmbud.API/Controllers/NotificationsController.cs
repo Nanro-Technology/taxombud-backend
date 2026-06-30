@@ -6,9 +6,6 @@ using TaxOmbud.Application.Notifications.DTOs;
 
 namespace TaxOmbud.Api.Controllers;
 
-public record SendNotificationRequest(Guid UserId, string Title, string Message);
-public record UpdateNotificationPreferencesRequest(List<PreferenceUpdateDto> Preferences);
-
 /// <summary>
 /// In-app notification inbox for staff and taxpayer portal users.
 /// </summary>

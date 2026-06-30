@@ -10,3 +10,5 @@ namespace TaxOmbud.Application.Complaints.DTOs;
 
 public record EscalateComplaintCommand(Guid ComplaintId, string Reason, Guid EscalatedByUserId)
     ;
+
+public record EscalateComplaintRequest(string Reason);

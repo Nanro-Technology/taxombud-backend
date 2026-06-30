@@ -6,11 +6,6 @@ using TaxOmbud.Application.PayGrades.DTOs;
 
 namespace TaxOmbud.Api.Controllers;
 
-public record CreatePayGradeRequest(string Name, int Level, string BasicSalaryBand);
-public record UpdatePayGradeRequest(string Name, int Level, string BasicSalaryBand);
-public record SaveSalaryProfileRequest(
-    Guid UserId, decimal Basic, string? Allowances, string? Deductions, DateTimeOffset EffectiveFrom);
-
 /// <summary>
 /// Manage pay grades (salary bands/levels) used across HR payroll and staff profiling.
 /// </summary>

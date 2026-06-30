@@ -21,3 +21,5 @@ public record CreatedWebhookResponse(
     string EventTypes,
     bool IsActive
 );
+
+public record CreateWebhookRequest(string Url, string Secret, string[] EventTypes);

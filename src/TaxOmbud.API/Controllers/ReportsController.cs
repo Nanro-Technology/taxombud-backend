@@ -6,9 +6,6 @@ using TaxOmbud.Application.Reports.DTOs;
 
 namespace TaxOmbud.Api.Controllers;
 
-public record CreateScheduledReportRequest(string ReportName, string CronExpression, string[] Recipients, string? Format);
-public record ExportReportRequest(string ReportType, string Format, int? Year);
-
 /// <summary>
 /// Analytics dashboard, scheduled report configuration, and operational statistics.
 /// </summary>

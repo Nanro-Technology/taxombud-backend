@@ -12,3 +12,5 @@ namespace TaxOmbud.Application.Hr.DTOs;
 public record WithdrawEwaCommand(decimal Amount) ;
 
 public record EwaWithdrawalResponse(string Message, decimal Amount);
+
+public record EwaWithdrawalRequest(decimal Amount);
