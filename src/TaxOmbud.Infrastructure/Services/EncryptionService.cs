@@ -1,7 +1,6 @@
-using System;
-using System.Security.Cryptography;
 using Microsoft.Extensions.Configuration;
-using TaxOmbud.Application.Common.Interfaces;
+using System.Security.Cryptography;
+using TaxOmbud.Application.Interfaces.InfrastructureService;
 
 namespace TaxOmbud.Infrastructure.Services;
 

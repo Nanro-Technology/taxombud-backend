@@ -1,10 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using MediatR;
-using System;
-using System.Threading;
-using System.Threading.Tasks;
+using TaxOmbud.Application.Interfaces.Services;
 
 namespace TaxOmbud.Api.Controllers;
 
@@ -13,17 +9,15 @@ namespace TaxOmbud.Api.Controllers;
 /// </summary>
 [Authorize]
 [Route("api/v1/dashboard")]
-public class DashboardController : ApiControllerBase
+public class DashboardController : ControllerBase
 {
-    private readonly IMediator _mediator;
-    public DashboardController(IMediator mediator) => _mediator = mediator;
+    private readonly IReportsService _reportsService;
 
-    /// <summary>Get all available widgets.</summary>
-    [HttpGet("widgets")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    public IActionResult GetWidgets(CancellationToken ct)
+    public DashboardController(
+        IReportsService reportsService
+    )
     {
-        return Ok(new { Message = "Not implemented yet" });
+        _reportsService = reportsService;
     }
 
     /// <summary>Create a new widget (Admin only).</summary>

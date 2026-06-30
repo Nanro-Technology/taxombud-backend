@@ -1,5 +1,5 @@
 using System.Security.Claims;
-using TaxOmbud.Application.Common.Interfaces;
+using TaxOmbud.Application.Interfaces.InfrastructureService;
 
 namespace TaxOmbud.Api.Services;
 

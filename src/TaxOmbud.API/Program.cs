@@ -6,7 +6,6 @@ using Serilog.Events;
 using TaxOmbud.Api.Middleware;
 using TaxOmbud.Api.Services;
 using TaxOmbud.Application;
-using TaxOmbud.Application.Common.Interfaces;
 using TaxOmbud.Infrastructure;
 using TaxOmbud.Infrastructure.Persistence;
 
@@ -38,7 +37,7 @@ try
 
     // ─── API Services ─────────────────────────────────────────────────────────
     builder.Services.AddHttpContextAccessor();
-    builder.Services.AddScoped<ICurrentUser, CurrentUserService>();
+    builder.Services.AddScoped<TaxOmbud.Application.Interfaces.InfrastructureService.ICurrentUser, CurrentUserService>();
     builder.Services.AddSignalR();
 
     builder.Services.AddControllers()

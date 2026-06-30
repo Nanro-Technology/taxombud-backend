@@ -1,19 +1,10 @@
-using System.Security.Claims;
-using MediatR;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using TaxOmbud.Application.Features.Auth.Commands.ChangePassword;
-using TaxOmbud.Application.Features.Auth.Commands.DisableMfa;
-using TaxOmbud.Application.Features.Auth.Commands.ForgotPassword;
-using TaxOmbud.Application.Features.Auth.Commands.Login;
-using TaxOmbud.Application.Features.Auth.Commands.Logout;
-using TaxOmbud.Application.Features.Auth.Commands.RefreshToken;
-using TaxOmbud.Application.Features.Auth.Commands.Register;
-using TaxOmbud.Application.Features.Auth.Commands.ResetPassword;
-using TaxOmbud.Application.Features.Auth.Commands.SetupMfa;
-using TaxOmbud.Application.Features.Auth.Commands.VerifyEmail;
-using TaxOmbud.Application.Features.Auth.Commands.VerifyMfa;
+using System.Security.Claims;
+using TaxOmbud.Application.Auth.DTOs;
+using TaxOmbud.Application.Interfaces.Services;
+using TaxOmbud.Common.Responses;
 
 namespace TaxOmbud.Api.Controllers;
 
@@ -24,64 +15,64 @@ public record DisableMfaRequest(string Password);
 /// <summary>
 /// Handles taxpayer self-registration, login and token refresh.
 /// </summary>
+[ApiController]
 [Route("api/v1/auth")]
-public class AuthController : ApiControllerBase
+[Produces("application/json")]
+public class AuthController : ControllerBase
 {
-    private readonly IMediator _mediator;
+    private readonly IAuthService _authService;
 
-    public AuthController(IMediator mediator)
+    public AuthController(IAuthService authService)
     {
-        _mediator = mediator;
+        _authService = authService;
     }
 
     /// <summary>Register a new taxpayer portal account.</summary>
     [AllowAnonymous]
     [HttpPost("register")]
     [HttpPost("/api/modules/auth/signup")]
-    [ProducesResponseType(typeof(RegisterResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(Response<RegisterResponse>), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> Register([FromBody] RegisterCommand command, CancellationToken ct)
     {
-        var result = await _mediator.Send(command, ct);
-        if (!result.IsSuccess)
-            return ToActionResult(result);
-
-        return StatusCode(StatusCodes.Status201Created, result.Value);
+        var result = await _authService.RegisterAsync(command, ct);
+        if (!(result.StatusCode >= 200 && result.StatusCode < 300))
+            return StatusCode(result.StatusCode, result);
+        return StatusCode(StatusCodes.Status201Created, result);
     }
 
     /// <summary>Authenticate and receive JWT + refresh token.</summary>
     [AllowAnonymous]
     [HttpPost("login")]
     [HttpPost("/api/modules/auth/signin")]
-    [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Response<LoginResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Login([FromBody] LoginCommand command, CancellationToken ct)
     {
-        var result = await _mediator.Send(command, ct);
-        return ToActionResult(result);
+        var result = await _authService.LoginAsync(command, ct);
+        return StatusCode(result.StatusCode, result);
     }
 
     /// <summary>Exchange a refresh token for a new access token.</summary>
     [AllowAnonymous]
     [HttpPost("refresh")]
-    [ProducesResponseType(typeof(RefreshTokenResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Response<RefreshTokenResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Refresh([FromBody] RefreshTokenCommand command, CancellationToken ct)
     {
-        var result = await _mediator.Send(command, ct);
-        return ToActionResult(result);
+        var result = await _authService.RefreshTokenAsync(command, ct);
+        return StatusCode(result.StatusCode, result);
     }
 
     /// <summary>Logout the user by revoking their refresh token.</summary>
     [AllowAnonymous]
     [HttpPost("logout")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Logout([FromBody] LogoutCommand command, CancellationToken ct)
     {
-        var result = await _mediator.Send(command, ct);
-        return ToActionResult(result);
+        var result = await _authService.LogoutAsync(command, ct);
+        return StatusCode(result.StatusCode, result);
     }
 
     /// <summary>Initiate password reset process by email.</summary>
@@ -91,8 +82,8 @@ public class AuthController : ApiControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordCommand command, CancellationToken ct)
     {
-        var result = await _mediator.Send(command, ct);
-        return ToActionResult(result);
+        var result = await _authService.ForgotPasswordAsync(command, ct);
+        return StatusCode(result.StatusCode, result);
     }
 
     /// <summary>Reset password using token received in email.</summary>
@@ -102,22 +93,20 @@ public class AuthController : ApiControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordCommand command, CancellationToken ct)
     {
-        var result = await _mediator.Send(command, ct);
-        return ToActionResult(result);
+        var result = await _authService.ResetPasswordAsync(command, ct);
+        return StatusCode(result.StatusCode, result);
     }
 
     /// <summary>Change the current user's password.</summary>
-    [Authorize]
+    [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     [HttpPost("change-password")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request, CancellationToken ct)
     {
         var userId = GetUserId();
-        var command = new ChangePasswordCommand(userId, request.CurrentPassword, request.NewPassword);
-        var result = await _mediator.Send(command, ct);
-        return ToActionResult(result);
+        var result = await _authService.ChangePasswordAsync(new ChangePasswordCommand(userId, request.CurrentPassword, request.NewPassword), ct);
+        return StatusCode(result.StatusCode, result);
     }
 
     /// <summary>Verify email address using verification token.</summary>
@@ -127,48 +116,43 @@ public class AuthController : ApiControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> VerifyEmail([FromBody] VerifyEmailCommand command, CancellationToken ct)
     {
-        var result = await _mediator.Send(command, ct);
-        return ToActionResult(result);
+        var result = await _authService.VerifyEmailAsync(command, ct);
+        return StatusCode(result.StatusCode, result);
     }
 
     /// <summary>Generate a new MFA TOTP secret and backup codes.</summary>
-    [Authorize]
+    [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     [HttpPost("mfa/setup")]
-    [ProducesResponseType(typeof(SetupMfaResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(Response<SetupMfaResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> SetupMfa(CancellationToken ct)
     {
         var userId = GetUserId();
-        var result = await _mediator.Send(new SetupMfaCommand(userId), ct);
-        return ToActionResult(result);
+        var result = await _authService.SetupMfaAsync(new SetupMfaCommand(userId), ct);
+        return StatusCode(result.StatusCode, result);
     }
 
     /// <summary>Verify the TOTP code to complete MFA setup and enable it.</summary>
-    [Authorize]
+    [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     [HttpPost("mfa/verify")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> VerifyMfa([FromBody] VerifyMfaRequest request, CancellationToken ct)
     {
         var userId = GetUserId();
-        var command = new VerifyMfaCommand(userId, request.TotpCode);
-        var result = await _mediator.Send(command, ct);
-        return ToActionResult(result);
+        var result = await _authService.VerifyMfaAsync(new VerifyMfaCommand(userId, request.TotpCode), ct);
+        return StatusCode(result.StatusCode, result);
     }
 
     /// <summary>Disable MFA for the current user.</summary>
-    [Authorize]
+    [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     [HttpPost("mfa/disable")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> DisableMfa([FromBody] DisableMfaRequest request, CancellationToken ct)
     {
         var userId = GetUserId();
-        var command = new DisableMfaCommand(userId, request.Password);
-        var result = await _mediator.Send(command, ct);
-        return ToActionResult(result);
+        var result = await _authService.DisableMfaAsync(new DisableMfaCommand(userId, request.Password), ct);
+        return StatusCode(result.StatusCode, result);
     }
 
     private Guid GetUserId()

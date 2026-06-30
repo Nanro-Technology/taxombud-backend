@@ -1,32 +1,29 @@
-using System;
-using System.Threading;
-using System.Threading.Tasks;
-using MediatR;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using TaxOmbud.Application.Features.Officers.Commands.CreateOfficerProfile;
-using TaxOmbud.Application.Features.Officers.Commands.UpdateOfficerProfile;
-using TaxOmbud.Application.Features.Officers.Queries.GetAvailableOfficers;
-using TaxOmbud.Application.Features.Officers.Queries.GetOfficerById;
-using TaxOmbud.Application.Features.Officers.Queries.GetOfficerCaseloads;
-using TaxOmbud.Application.Features.Officers.Queries.GetOfficerPerformance;
-using TaxOmbud.Application.Features.Officers.Queries.GetOfficers;
+using TaxOmbud.Application.Interfaces.Services;
+using TaxOmbud.Application.Officers.DTOs;
 
 namespace TaxOmbud.Api.Controllers;
+
+public record CreateOfficerProfileRequest(Guid UserId, int MaxCaseload, string? EmployeeNumber, string? Specialisation);
+public record UpdateOfficerProfileRequest(int MaxCaseload, bool IsAvailable, string? EmployeeNumber, string? Specialisation);
 
 /// <summary>
 /// Manage officer profile metadata, caseload capacity, and workload reporting.
 /// </summary>
-[Authorize(Policy = "OfficerOrAbove")]
+[ApiController]
 [Route("api/v1/officers")]
-public class OfficersController : ApiControllerBase
+[Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+[Authorize(Policy = "OfficerOrAbove")]
+[Produces("application/json")]
+public class OfficersController : ControllerBase
 {
-    private readonly IMediator _mediator;
+    private readonly IOfficersService _officersService;
 
-    public OfficersController(IMediator mediator)
+    public OfficersController(IOfficersService officersService)
     {
-        _mediator = mediator;
+        _officersService = officersService;
     }
 
     /// <summary>List all officer profiles with caseload stats.</summary>
@@ -39,76 +36,18 @@ public class OfficersController : ApiControllerBase
         [FromQuery] int pageSize = 20,
         CancellationToken ct = default)
     {
-        var result = await _mediator.Send(new GetOfficersQuery(departmentId, search, page, pageSize), ct);
-        return ToActionResult(result);
+        var result = await _officersService.GetOfficersAsync(new GetOfficersQuery(departmentId, search, page, pageSize), ct);
+        return StatusCode(result.StatusCode, result);
     }
 
     /// <summary>Get a specific officer profile by ID.</summary>
-    [HttpGet("{id:guid}")]
+    [HttpGet("{id:guid}", Name = "GetOfficerById")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetOfficerById(Guid id, CancellationToken ct)
     {
-        var result = await _mediator.Send(new GetOfficerByIdQuery(id), ct);
-        return ToActionResult(result);
-    }
-
-    /// <summary>Create an officer profile for an existing staff user.</summary>
-    [HttpPost]
-    [Authorize(Policy = "AdminOnly")]
-    [ProducesResponseType(StatusCodes.Status201Created)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> CreateOfficerProfile([FromBody] CreateOfficerProfileRequest request, CancellationToken ct)
-    {
-        var result = await _mediator.Send(new CreateOfficerProfileCommand(
-            request.UserId,
-            request.MaxCaseload,
-            request.EmployeeNumber,
-            request.Specialisation
-        ), ct);
-
-        if (!result.IsSuccess)
-            return ToActionResult(result);
-
-        return CreatedAtAction(nameof(GetOfficerById), new { id = result.Value!.Id }, result.Value);
-    }
-
-    /// <summary>Update officer capacity settings.</summary>
-    [HttpPut("{id:guid}")]
-    [Authorize(Policy = "AdminOnly")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> UpdateOfficerProfile(Guid id, [FromBody] UpdateOfficerProfileRequest request, CancellationToken ct)
-    {
-        var result = await _mediator.Send(new UpdateOfficerProfileCommand(
-            id,
-            request.MaxCaseload,
-            request.IsAvailable,
-            request.EmployeeNumber,
-            request.Specialisation
-        ), ct);
-
-        return ToActionResult(result);
-    }
-
-    /// <summary>Get active caseload list for a specific officer.</summary>
-    [HttpGet("{id:guid}/caseloads")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetCaseloads(Guid id, [FromQuery] bool? activeOnly, CancellationToken ct)
-    {
-        var result = await _mediator.Send(new GetOfficerCaseloadsQuery(id, activeOnly), ct);
-        return ToActionResult(result);
-    }
-
-    /// <summary>Get performance metrics for a specific officer.</summary>
-    [HttpGet("{id:guid}/performance")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetOfficerPerformance(Guid id, CancellationToken ct)
-    {
-        var result = await _mediator.Send(new GetOfficerPerformanceQuery(id), ct);
-        return ToActionResult(result);
+        var result = await _officersService.GetOfficerByIdAsync(new GetOfficerByIdQuery(id), ct);
+        return StatusCode(result.StatusCode, result);
     }
 
     /// <summary>Get list of officers with available capacity for case assignment.</summary>
@@ -121,10 +60,53 @@ public class OfficersController : ApiControllerBase
         [FromQuery] int pageSize = 20,
         CancellationToken ct = default)
     {
-        var result = await _mediator.Send(new GetAvailableOfficersQuery(departmentId, specialisation, page, pageSize), ct);
-        return ToActionResult(result);
+        var result = await _officersService.GetAvailableOfficersAsync(new GetAvailableOfficersQuery(departmentId, specialisation, page, pageSize), ct);
+        return StatusCode(result.StatusCode, result);
+    }
+
+    /// <summary>Create an officer profile for an existing staff user.</summary>
+    [HttpPost]
+    [Authorize(Policy = "AdminOnly")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> CreateOfficerProfile([FromBody] CreateOfficerProfileRequest request, CancellationToken ct)
+    {
+        var result = await _officersService.CreateOfficerProfileAsync(new CreateOfficerProfileCommand(
+            request.UserId, request.MaxCaseload, request.EmployeeNumber, request.Specialisation), ct);
+        if (!(result.StatusCode >= 200 && result.StatusCode < 300))
+            return StatusCode(result.StatusCode, result);
+        return CreatedAtAction(nameof(GetOfficerById), new { id = result.Data!.Id }, result);
+    }
+
+    /// <summary>Update officer capacity settings.</summary>
+    [HttpPut("{id:guid}")]
+    [Authorize(Policy = "AdminOnly")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateOfficerProfile(Guid id, [FromBody] UpdateOfficerProfileRequest request, CancellationToken ct)
+    {
+        var result = await _officersService.UpdateOfficerProfileAsync(new UpdateOfficerProfileCommand(
+            id, request.MaxCaseload, request.IsAvailable, request.EmployeeNumber, request.Specialisation), ct);
+        return StatusCode(result.StatusCode, result);
+    }
+
+    /// <summary>Get active caseload list for a specific officer.</summary>
+    [HttpGet("{id:guid}/caseloads")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetCaseloads(Guid id, [FromQuery] bool? activeOnly, CancellationToken ct)
+    {
+        var result = await _officersService.GetOfficerCaseloadsAsync(new GetOfficerCaseloadsQuery(id, activeOnly), ct);
+        return StatusCode(result.StatusCode, result);
+    }
+
+    /// <summary>Get performance metrics for a specific officer.</summary>
+    [HttpGet("{id:guid}/performance")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetOfficerPerformance(Guid id, CancellationToken ct)
+    {
+        var result = await _officersService.GetOfficerPerformanceAsync(new GetOfficerPerformanceQuery(id), ct);
+        return StatusCode(result.StatusCode, result);
     }
 }
-
-public record CreateOfficerProfileRequest(Guid UserId, int MaxCaseload, string? EmployeeNumber, string? Specialisation);
-public record UpdateOfficerProfileRequest(int MaxCaseload, bool IsAvailable, string? EmployeeNumber, string? Specialisation);

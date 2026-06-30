@@ -1,0 +1,20 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using TaxOmbud.Common.Responses;
+
+namespace TaxOmbud.Application.Taxpayers.DTOs;
+
+public record VerifyNinQuery(string Nin) ;
+
+public record NinVerificationResponseDto(
+    bool Verified,
+    string Nin,
+    string FirstName,
+    string LastName,
+    string DateOfBirth,
+    string Gender,
+    string PhotoBase64
+);

@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using TaxOmbud.Application.Common.Interfaces;
 
@@ -10,14 +9,18 @@ namespace TaxOmbud.Api.Controllers;
 /// </summary>
 [AllowAnonymous]
 [Route("api/v1/encryption")]
-public class EncryptionController : ApiControllerBase
+public class EncryptionController : ControllerBase
 {
     private readonly IEncryptionService _encryptionService;
 
-    public EncryptionController(IEncryptionService encryptionService)
+    public EncryptionController(
+        IEncryptionService encryptionService
+    )
     {
         _encryptionService = encryptionService;
     }
+
+
 
     /// <summary>Get the server's RSA Public Key for E2EE.</summary>
     [HttpGet("public-key")]

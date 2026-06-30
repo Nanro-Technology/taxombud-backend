@@ -1,22 +1,23 @@
-using System.Threading;
-using System.Threading.Tasks;
-using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using TaxOmbud.Application.Features.AiChatbot.Commands.SubmitChatMessage;
+using System.Threading;
+using System.Threading.Tasks;
+using TaxOmbud.Application.AiChatbot.DTOs;
+using TaxOmbud.Application.Interfaces.Services;
 
 namespace TaxOmbud.Api.Controllers;
 
+[ApiController]
 [AllowAnonymous]
 [Route("api/public")]
-public class AiChatbotController : ApiControllerBase
+public class AiChatbotController : ControllerBase
 {
-    private readonly IMediator _mediator;
+    private readonly IAiChatbotService _aiChatbotService;
 
-    public AiChatbotController(IMediator mediator)
+    public AiChatbotController(IAiChatbotService aiChatbotService)
     {
-        _mediator = mediator;
+        _aiChatbotService = aiChatbotService;
     }
 
     [HttpPost("ai-chatbot/chat")]
@@ -24,7 +25,7 @@ public class AiChatbotController : ApiControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Chat([FromBody] SubmitChatMessageCommand command, CancellationToken ct)
     {
-        var result = await _mediator.Send(command, ct);
-        return ToActionResult(result);
+        var result = await _aiChatbotService.SubmitChatMessageAsync(command, ct);
+        return StatusCode(result.StatusCode, result);
     }
 }

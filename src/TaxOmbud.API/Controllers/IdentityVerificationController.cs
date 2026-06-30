@@ -1,22 +1,20 @@
-using System.Threading;
-using System.Threading.Tasks;
-using MediatR;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using TaxOmbud.Application.Features.IdentityVerification.Commands.VerifyIdentity;
+using TaxOmbud.Application.IdentityVerification.DTOs;
+using TaxOmbud.Application.Interfaces.Services;
 
 namespace TaxOmbud.Api.Controllers;
 
+[ApiController]
 [AllowAnonymous]
 [Route("api/public")]
-public class IdentityVerificationController : ApiControllerBase
+public class IdentityVerificationController : ControllerBase
 {
-    private readonly IMediator _mediator;
+    private readonly IIdentityVerificationService _identityVerificationService;
 
-    public IdentityVerificationController(IMediator mediator)
+    public IdentityVerificationController(IIdentityVerificationService identityVerificationService)
     {
-        _mediator = mediator;
+        _identityVerificationService = identityVerificationService;
     }
 
     [HttpPost("identity-verification")]
@@ -24,7 +22,7 @@ public class IdentityVerificationController : ApiControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> VerifyIdentity([FromBody] VerifyIdentityCommand command, CancellationToken ct)
     {
-        var result = await _mediator.Send(command, ct);
-        return ToActionResult(result);
+        var result = await _identityVerificationService.VerifyIdentityAsync(command, ct);
+        return StatusCode(result.StatusCode, result);
     }
 }

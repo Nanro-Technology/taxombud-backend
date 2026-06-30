@@ -1,11 +1,9 @@
-using System;
-using System.Collections.Generic;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
-using Microsoft.Extensions.Options;
-using Microsoft.IdentityModel.Tokens;
-using TaxOmbud.Application.Common.Interfaces;
+using TaxOmbud.Application.Interfaces.InfrastructureService;
 using TaxOmbud.Infrastructure.Options;
 
 namespace TaxOmbud.Infrastructure.Services;

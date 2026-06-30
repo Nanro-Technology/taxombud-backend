@@ -1,23 +1,20 @@
-using System.Threading;
-using System.Threading.Tasks;
-using MediatR;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using TaxOmbud.Application.Features.Cases.Commands.SubmitPublicCase;
-using TaxOmbud.Application.Features.Cases.Queries.TrackComplaint;
+using TaxOmbud.Application.Cases.DTOs;
+using TaxOmbud.Application.Interfaces.Services;
 
 namespace TaxOmbud.Api.Controllers;
 
+[ApiController]
 [AllowAnonymous]
 [Route("api/public")]
-public class PublicCasesController : ApiControllerBase
+public class PublicCasesController : ControllerBase
 {
-    private readonly IMediator _mediator;
+    private readonly ICasesService _casesService;
 
-    public PublicCasesController(IMediator mediator)
+    public PublicCasesController(ICasesService casesService)
     {
-        _mediator = mediator;
+        _casesService = casesService;
     }
 
     [HttpPost("case")]
@@ -25,8 +22,8 @@ public class PublicCasesController : ApiControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> SubmitCase([FromBody] SubmitPublicCaseCommand command, CancellationToken ct)
     {
-        var result = await _mediator.Send(command, ct);
-        return ToActionResult(result);
+        var result = await _casesService.SubmitPublicCaseAsync(command, ct);
+        return StatusCode(result.StatusCode, result);
     }
 
     [HttpPost("track_complaints")]
@@ -34,8 +31,7 @@ public class PublicCasesController : ApiControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> TrackComplaint([FromForm] string trackingNumber, CancellationToken ct)
     {
-        // Track complaints form likely submits via Form URL Encoded given it's an HTML form action
-        var result = await _mediator.Send(new TrackComplaintQuery(trackingNumber), ct);
-        return ToActionResult(result);
+        var result = await _casesService.TrackComplaintAsync(new TrackComplaintQuery(trackingNumber), ct);
+        return StatusCode(result.StatusCode, result);
     }
 }

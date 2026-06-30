@@ -1,10 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using MediatR;
-using System;
-using System.Threading;
-using System.Threading.Tasks;
+using TaxOmbud.Application.Interfaces.Services;
 
 namespace TaxOmbud.Api.Controllers;
 
@@ -13,19 +9,15 @@ namespace TaxOmbud.Api.Controllers;
 /// </summary>
 [Authorize]
 [Route("api/v1/mailbox")]
-public class MailboxController : ApiControllerBase
+public class MailboxController : ControllerBase
 {
-    private readonly IMediator _mediator;
-    public MailboxController(IMediator mediator) => _mediator = mediator;
+    private readonly ICommunicationsService _communicationsService;
 
-    /// <summary>Get messages by folder (Inbox, Sent, Draft, Trash, etc).</summary>
-    [HttpGet("{folder}")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    public IActionResult GetMailbox(string folder, CancellationToken ct)
+    public MailboxController(
+        ICommunicationsService communicationsService
+    )
     {
-        // var result = await _mediator.Send(new GetMailboxQuery(folder), ct);
-        // return ToActionResult(result);
-        return Ok(new { Message = "Not implemented yet" });
+        _communicationsService = communicationsService;
     }
 
     /// <summary>Send a new message or save as draft.</summary>

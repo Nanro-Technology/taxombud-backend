@@ -1,10 +1,7 @@
-using System.Threading;
-using System.Threading.Tasks;
-using MediatR;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using TaxOmbud.Application.Features.Lookups.Queries.GetLookups;
+using TaxOmbud.Application.Interfaces.Services;
+using TaxOmbud.Application.Lookups.DTOs;
 
 namespace TaxOmbud.Api.Controllers;
 
@@ -13,13 +10,15 @@ namespace TaxOmbud.Api.Controllers;
 /// </summary>
 [Authorize]
 [Route("api/v1/lookups")]
-public class LookupsController : ApiControllerBase
+public class LookupsController : ControllerBase
 {
-    private readonly IMediator _mediator;
+    private readonly ILookupsService _lookupsService;
 
-    public LookupsController(IMediator mediator)
+    public LookupsController(
+        ILookupsService lookupsService
+    )
     {
-        _mediator = mediator;
+        _lookupsService = lookupsService;
     }
 
     /// <summary>Get lookup values by type (e.g. LeaveTypes, ComplaintCategories, TaxTypes).</summary>
@@ -28,7 +27,7 @@ public class LookupsController : ApiControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetLookups(string type, CancellationToken ct)
     {
-        var result = await _mediator.Send(new GetLookupsQuery(type), ct);
-        return ToActionResult(result);
+        var result = await _lookupsService.GetLookupsAsync(new GetLookupsQuery(type), ct);
+        return StatusCode(result.StatusCode, result);
     }
 }

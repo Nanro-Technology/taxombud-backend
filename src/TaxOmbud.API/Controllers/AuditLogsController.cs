@@ -1,28 +1,26 @@
-using System;
-using System.Threading;
-using System.Threading.Tasks;
-using MediatR;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using TaxOmbud.Application.Features.AuditLogs.Queries.GetAuditLogById;
-using TaxOmbud.Application.Features.AuditLogs.Queries.GetAuditLogs;
+using TaxOmbud.Application.AuditLogs.DTOs;
+using TaxOmbud.Application.Interfaces.Services;
 
 namespace TaxOmbud.Api.Controllers;
 
 /// <summary>
-/// Read-only access to the fine-grained system audit trail, including impersonation events.
-/// Admin only.
+/// Read-only access to the fine-grained system audit trail, including impersonation events. Admin only.
 /// </summary>
-[Authorize(Policy = "AdminOnly")]
+[ApiController]
 [Route("api/v1/audit-logs")]
-public class AuditLogsController : ApiControllerBase
+[Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+[Authorize(Policy = "AdminOnly")]
+[Produces("application/json")]
+public class AuditLogsController : ControllerBase
 {
-    private readonly IMediator _mediator;
+    private readonly IAuditLogsService _auditLogsService;
 
-    public AuditLogsController(IMediator mediator)
+    public AuditLogsController(IAuditLogsService auditLogsService)
     {
-        _mediator = mediator;
+        _auditLogsService = auditLogsService;
     }
 
     /// <summary>Query audit logs with optional filters.</summary>
@@ -39,18 +37,8 @@ public class AuditLogsController : ApiControllerBase
         [FromQuery] int pageSize = 50,
         CancellationToken ct = default)
     {
-        var result = await _mediator.Send(new GetAuditLogsQuery(
-            entityType,
-            entityId,
-            userId,
-            action,
-            from,
-            to,
-            page,
-            pageSize
-        ), ct);
-
-        return ToActionResult(result);
+        var result = await _auditLogsService.GetAuditLogsAsync(new GetAuditLogsQuery(entityType, entityId, userId, action, from, to, page, pageSize), ct);
+        return StatusCode(result.StatusCode, result);
     }
 
     /// <summary>Get a specific audit log entry by ID.</summary>
@@ -59,7 +47,7 @@ public class AuditLogsController : ApiControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetAuditLogById(Guid id, CancellationToken ct)
     {
-        var result = await _mediator.Send(new GetAuditLogByIdQuery(id), ct);
-        return ToActionResult(result);
+        var result = await _auditLogsService.GetAuditLogByIdAsync(new GetAuditLogByIdQuery(id), ct);
+        return StatusCode(result.StatusCode, result);
     }
 }

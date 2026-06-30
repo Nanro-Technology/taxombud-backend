@@ -1,47 +1,57 @@
-using System;
-using System.Threading;
-using System.Threading.Tasks;
-using MediatR;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using TaxOmbud.Application.Features.Roles.Commands.CreateRole;
-using TaxOmbud.Application.Features.Roles.Commands.UpdateRolePermissions;
-using TaxOmbud.Application.Features.Roles.Queries.GetPermissions;
-using TaxOmbud.Application.Features.Roles.Queries.GetRoleById;
-using TaxOmbud.Application.Features.Roles.Queries.GetRoles;
+using TaxOmbud.Application.Interfaces.Services;
+using TaxOmbud.Application.Roles.DTOs;
+using TaxOmbud.Common.Responses;
 
 namespace TaxOmbud.Api.Controllers;
+
+public record UpdateRolePermissionsRequest(string[] PermissionCodes);
 
 /// <summary>
 /// Manage roles and map permissions to roles.
 /// </summary>
-[Authorize(Policy = "AdminOnly")]
+[ApiController]
 [Route("api/v1/roles")]
-public class RolesController : ApiControllerBase
+[Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+[Authorize(Policy = "AdminOnly")]
+[Produces("application/json")]
+public class RolesController : ControllerBase
 {
-    private readonly IMediator _mediator;
+    private readonly IRolesService _rolesService;
 
-    public RolesController(IMediator mediator)
+    public RolesController(IRolesService rolesService)
     {
-        _mediator = mediator;
+        _rolesService = rolesService;
     }
 
     /// <summary>Get list of all roles.</summary>
     [HttpGet]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetRoles(CancellationToken ct)
     {
-        var result = await _mediator.Send(new GetRolesQuery(), ct);
-        return ToActionResult(result);
+        var result = await _rolesService.GetRolesAsync(new GetRolesQuery(), ct);
+        return StatusCode(result.StatusCode, result);
     }
 
     /// <summary>Get role by ID with permissions.</summary>
-    [HttpGet("{id:guid}")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
+    [HttpGet("{id:guid}", Name = "GetRoleById")]
+    [ProducesResponseType(typeof(Response<RoleDetailDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetRoleById(Guid id, CancellationToken ct)
     {
-        var result = await _mediator.Send(new GetRoleByIdQuery(id), ct);
-        return ToActionResult(result);
+        var result = await _rolesService.GetRoleByIdAsync(new GetRoleByIdQuery(id), ct);
+        return StatusCode(result.StatusCode, result);
+    }
+
+    /// <summary>Get list of all individual permissions available in the system.</summary>
+    [HttpGet("permissions")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetPermissions(CancellationToken ct)
+    {
+        var result = await _rolesService.GetPermissionsAsync(new GetPermissionsQuery(), ct);
+        return StatusCode(result.StatusCode, result);
     }
 
     /// <summary>Create a new role.</summary>
@@ -50,30 +60,19 @@ public class RolesController : ApiControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> CreateRole([FromBody] CreateRoleCommand command, CancellationToken ct)
     {
-        var result = await _mediator.Send(command, ct);
-        if (!result.IsSuccess)
-            return ToActionResult(result);
-
-        return CreatedAtAction(nameof(GetRoleById), new { id = result.Value!.Id }, result.Value);
+        var result = await _rolesService.CreateRoleAsync(command, ct);
+        if (!(result.StatusCode >= 200 && result.StatusCode < 300))
+            return StatusCode(result.StatusCode, result);
+        return CreatedAtAction(nameof(GetRoleById), new { id = result.Data!.Id }, result);
     }
 
     /// <summary>Sync permissions to a role.</summary>
     [HttpPut("{id:guid}/permissions")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> UpdateRolePermissions(Guid id, [FromBody] UpdateRolePermissionsRequest request, CancellationToken ct)
     {
-        var result = await _mediator.Send(new UpdateRolePermissionsCommand(id, request.PermissionCodes), ct);
-        return ToActionResult(result);
-    }
-
-    /// <summary>Get list of all individual permissions available in the system.</summary>
-    [HttpGet("permissions")]
-    public async Task<IActionResult> GetPermissions(CancellationToken ct)
-    {
-        var result = await _mediator.Send(new GetPermissionsQuery(), ct);
-        return ToActionResult(result);
+        var result = await _rolesService.UpdateRolePermissionsAsync(new UpdateRolePermissionsCommand(id, request.PermissionCodes), ct);
+        return StatusCode(result.StatusCode, result);
     }
 }
-
-public record UpdateRolePermissionsRequest(string[] PermissionCodes);
