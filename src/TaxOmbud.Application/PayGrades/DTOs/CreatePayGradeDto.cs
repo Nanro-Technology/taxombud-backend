@@ -20,3 +20,5 @@ public record CreatedPayGradeResponse(
     string Name,
     int Level
 );
+
+public record CreatePayGradeRequest(string Name, int Level, string BasicSalaryBand);

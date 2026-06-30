@@ -7,8 +7,6 @@ using TaxOmbud.Common.Responses;
 
 namespace TaxOmbud.Api.Controllers;
 
-public record UpdateRolePermissionsRequest(string[] PermissionCodes);
-
 /// <summary>
 /// Manage roles and map permissions to roles.
 /// </summary>

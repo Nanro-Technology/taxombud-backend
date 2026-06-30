@@ -6,22 +6,6 @@ using TaxOmbud.Application.Interfaces.Services;
 
 namespace TaxOmbud.Api.Controllers;
 
-public record SaveStaffProfileRequest(
-    Guid UserId, string? EmployeeCode, string? Title, Guid? SupervisorId,
-    DateTimeOffset HireDate, string EmploymentStatus, DateTimeOffset DateOfBirth,
-    string Nationality, string MaritalStatus, string? EducationLevel, string? EducationDetails,
-    string? AddressLine1, string? AddressLine2, string? City, string? State, string? Country,
-    string? EmergencyContactName, string? EmergencyContactPhone,
-    string BankAccountNo, string BankId,
-    string? NextOfKinName, string? NextOfKinRelationship, string? NextOfKinPhone, string? NextOfKinAddress
-);
-public record RequestLeaveRequest(string LeaveType, DateTimeOffset StartDate, DateTimeOffset EndDate);
-public record ApproveLeaveRequest(bool Approved, string? SupervisorNote);
-public record EwaWithdrawalRequest(decimal Amount);
-public record RequestLoanRequest(decimal Amount, int TermMonths, string Purpose);
-public record ApproveLoanRequest(bool Approved);
-public record CreatePayrollRunRequest(Guid PeriodId);
-
 /// <summary>
 /// Manage HR directory, leave management, payroll validation and runs, salary profiles, employee wallets, and financial requests.
 /// </summary>

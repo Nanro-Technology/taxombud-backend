@@ -7,26 +7,6 @@ using TaxOmbud.Common.Responses;
 
 namespace TaxOmbud.Api.Controllers;
 
-public record BookAppointmentRequest(
-    string Title,
-    string? Description,
-    DateTimeOffset StartTime,
-    DateTimeOffset EndTime,
-    Guid? TaxpayerId,
-    Guid? OfficerId,
-    string? Location,
-    string? MeetingUrl
-);
-public record UpdateAppointmentRequest(
-    string Title,
-    string? Description,
-    DateTimeOffset StartTime,
-    DateTimeOffset EndTime,
-    string? Location,
-    string? MeetingUrl
-);
-public record UpdateAppointmentStatusRequest(string Status);
-
 /// <summary>
 /// Book, view, and schedule meetings/appointments between taxpayers and OTO case officers.
 /// </summary>

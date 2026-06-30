@@ -18,3 +18,5 @@ public record NinVerificationResponseDto(
     string Gender,
     string PhotoBase64
 );
+
+public record NinVerificationRequest(string Nin);

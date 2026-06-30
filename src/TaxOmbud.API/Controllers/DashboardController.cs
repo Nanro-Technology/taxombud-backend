@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TaxOmbud.Application.Interfaces.Services;
+using TaxOmbud.Application.Dashboard.DTOs;
 
 namespace TaxOmbud.Api.Controllers;
 
@@ -58,7 +59,4 @@ public class DashboardController : ControllerBase
         return Ok(new { Message = "Not implemented yet" });
     }
 }
-
-public record SaveWidgetRequest(string Name, string Description, string ComponentName, string? RequiredPermission, bool IsActive);
-public record SaveDashboardLayoutRequest(string LayoutJson);
 

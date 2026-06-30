@@ -16,3 +16,5 @@ public record AddedVersionResponse(
     int VersionNumber,
     string FilePath
 );
+
+public record AddDocumentVersionRequest(string FilePath);

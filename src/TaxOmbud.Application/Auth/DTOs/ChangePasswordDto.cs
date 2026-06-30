@@ -14,3 +14,5 @@ public record ChangePasswordCommand(
     string CurrentPassword,
     string NewPassword
 ) ;
+
+public record ChangePasswordRequest(string CurrentPassword, string NewPassword);

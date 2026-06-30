@@ -15,3 +15,5 @@ public record UpdateOfficerProfileCommand(
     string? EmployeeNumber,
     string? Specialisation
 ) ;
+
+public record UpdateOfficerProfileRequest(int MaxCaseload, bool IsAvailable, string? EmployeeNumber, string? Specialisation);

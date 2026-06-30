@@ -6,11 +6,6 @@ using TaxOmbud.Application.Interfaces.Services;
 
 namespace TaxOmbud.Api.Controllers;
 
-public record CreateDocumentRequest(
-    string FileName, string FilePath, string ContentType, long FileSize, string EntityType, Guid EntityId);
-public record AddDocumentVersionRequest(string FilePath);
-public record ClassifyDocumentRequest(string Classification);
-
 /// <summary>
 /// Manage file uploads, document metadata, versioning, and entity-linked attachments.
 /// </summary>

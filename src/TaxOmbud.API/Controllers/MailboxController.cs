@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TaxOmbud.Application.Interfaces.Services;
+using TaxOmbud.Application.Mailbox.DTOs;
 
 namespace TaxOmbud.Api.Controllers;
 
@@ -49,7 +50,4 @@ public class MailboxController : ControllerBase
         return Ok(new { Message = "Not implemented yet" });
     }
 }
-
-public record SendMailboxMessageRequest(string Subject, string BodyText, bool IsDraft, System.Collections.Generic.List<Guid> ToRecipients);
-public record MoveMailboxMessageRequest(string Folder);
 

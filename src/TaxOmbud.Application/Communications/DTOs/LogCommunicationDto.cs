@@ -27,3 +27,8 @@ public record LoggedCommunicationResponse(
     bool IsSent,
     DateTimeOffset? SentAt
 );
+
+public record LogCommunicationRequest(
+    string Channel, string Subject, string Body, string Recipient,
+    string? RecipientName, Guid? RelatedEntityId, string? RelatedEntityType
+);

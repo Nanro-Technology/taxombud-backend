@@ -1,8 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using System.Threading;
-using System.Threading.Tasks;
 using TaxOmbud.Application.AiChatbot.DTOs;
 using TaxOmbud.Application.Interfaces.Services;
 

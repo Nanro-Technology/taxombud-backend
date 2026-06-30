@@ -10,3 +10,5 @@ using TaxOmbud.Common.Responses;
 namespace TaxOmbud.Application.Hr.DTOs;
 
 public record CreatePayrollRunCommand(Guid PeriodId) ;
+
+public record CreatePayrollRunRequest(Guid PeriodId);

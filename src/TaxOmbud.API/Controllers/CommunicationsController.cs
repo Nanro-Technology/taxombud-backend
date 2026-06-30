@@ -6,12 +6,6 @@ using TaxOmbud.Application.Interfaces.Services;
 
 namespace TaxOmbud.Api.Controllers;
 
-public record RenderTemplateRequest(Dictionary<string, string> Payload);
-public record LogCommunicationRequest(
-    string Channel, string Subject, string Body, string Recipient,
-    string? RecipientName, Guid? RelatedEntityId, string? RelatedEntityType
-);
-
 /// <summary>
 /// Track all communications (email, SMS, in-app, letter) sent to or received from taxpayers.
 /// </summary>

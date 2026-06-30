@@ -22,3 +22,5 @@ public record CreatedScheduledReportResponse(
     string CronExpression,
     string Format
 );
+
+public record CreateScheduledReportRequest(string ReportName, string CronExpression, string[] Recipients, string? Format);

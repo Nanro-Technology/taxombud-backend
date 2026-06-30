@@ -6,8 +6,6 @@ using TaxOmbud.Application.System.DTOs;
 
 namespace TaxOmbud.Api.Controllers;
 
-public record UpdateSettingRequest(string Key, string Value, string? Description);
-
 /// <summary>
 /// Configure feature flags, system settings, retrieve audit logs, and trigger administrative user impersonation.
 /// </summary>

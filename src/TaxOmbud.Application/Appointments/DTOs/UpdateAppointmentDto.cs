@@ -19,3 +19,12 @@ public record UpdateAppointmentCommand(
     string? Location,
     string? MeetingUrl
 ) ;
+
+public record UpdateAppointmentRequest(
+    string Title,
+    string? Description,
+    DateTimeOffset StartTime,
+    DateTimeOffset EndTime,
+    string? Location,
+    string? MeetingUrl
+);

@@ -7,8 +7,6 @@ using TaxOmbud.Common.Responses;
 
 namespace TaxOmbud.Api.Controllers;
 
-public record UpdateDepartmentRequest(string Name, string RoutingMode, string? Description, Guid? HeadUserId);
-
 /// <summary>
 /// Manage civil service departments and their case assignment routing rules.
 /// </summary>

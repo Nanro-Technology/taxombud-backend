@@ -33,3 +33,14 @@ public record BookAppointmentResponse(
     string? Location,
     string? MeetingUrl
 );
+
+public record BookAppointmentRequest(
+    string Title,
+    string? Description,
+    DateTimeOffset StartTime,
+    DateTimeOffset EndTime,
+    Guid? TaxpayerId,
+    Guid? OfficerId,
+    string? Location,
+    string? MeetingUrl
+);

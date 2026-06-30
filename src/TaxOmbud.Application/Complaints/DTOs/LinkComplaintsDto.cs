@@ -14,3 +14,5 @@ public record LinkComplaintsCommand(
     Guid TargetComplaintId,
     string? LinkType
 ) ;
+
+public record LinkComplaintRequest(Guid TargetComplaintId, string? LinkType);

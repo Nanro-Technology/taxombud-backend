@@ -19,3 +19,14 @@ public record UpdateComplaintCommand(
     string? TinNumber,
     string Priority
 ) ;
+
+public record UpdateComplaintRequest(
+    string Subject,
+    string Description,
+    string TaxType,
+    string TaxPeriod,
+    string ComplaintCategory,
+    string? TaxOfficeRef,
+    string? TinNumber,
+    string Priority
+);

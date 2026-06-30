@@ -9,3 +9,6 @@ using TaxOmbud.Common.Responses;
 namespace TaxOmbud.Application.SystemSettings.DTOs;
 
 public record ToggleE2eeCommand(bool Enable) ;
+
+
+public record ToggleE2eeRequest(bool Enable);

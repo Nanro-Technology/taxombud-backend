@@ -6,9 +6,6 @@ using TaxOmbud.Application.Officers.DTOs;
 
 namespace TaxOmbud.Api.Controllers;
 
-public record CreateOfficerProfileRequest(Guid UserId, int MaxCaseload, string? EmployeeNumber, string? Specialisation);
-public record UpdateOfficerProfileRequest(int MaxCaseload, bool IsAvailable, string? EmployeeNumber, string? Specialisation);
-
 /// <summary>
 /// Manage officer profile metadata, caseload capacity, and workload reporting.
 /// </summary>

@@ -14,3 +14,5 @@ public record UpdatePayGradeCommand(
     int Level,
     string BasicSalaryBand
 ) ;
+
+public record UpdatePayGradeRequest(string Name, int Level, string BasicSalaryBand);

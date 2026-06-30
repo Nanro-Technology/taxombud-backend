@@ -24,3 +24,6 @@ public record SavedSalaryProfileResponse(
     decimal Basic,
     DateTimeOffset EffectiveFrom
 );
+
+public record SaveSalaryProfileRequest(
+    Guid UserId, decimal Basic, string? Allowances, string? Deductions, DateTimeOffset EffectiveFrom);

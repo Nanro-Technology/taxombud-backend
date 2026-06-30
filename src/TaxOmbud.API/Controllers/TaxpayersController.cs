@@ -8,24 +8,6 @@ using TaxOmbud.Domain.Common;
 
 namespace TaxOmbud.Api.Controllers;
 
-public record UpdateTaxpayerRequest(
-    string FirstName,
-    string LastName,
-    string Phone,
-    string? TinNumber,
-    string? Nin,
-    string? Bvn,
-    string? Gender,
-    DateTimeOffset? DateOfBirth,
-    string? CompanyName,
-    string? RcNumber,
-    string? Address,
-    string? City,
-    string? State
-);
-public record VerifyTaxpayerRequest(bool IsVerified);
-public record NinVerificationRequest(string Nin);
-
 /// <summary>
 /// Manage taxpayer profiles, verification status, and credentials.
 /// </summary>

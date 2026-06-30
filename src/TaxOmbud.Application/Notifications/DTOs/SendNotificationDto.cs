@@ -16,3 +16,5 @@ public record SentNotificationResponse(
     string Title,
     DateTimeOffset CreatedAt
 );
+
+public record SendNotificationRequest(Guid UserId, string Title, string Message);

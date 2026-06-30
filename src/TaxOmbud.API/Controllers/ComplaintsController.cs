@@ -10,23 +10,6 @@ using TaxOmbud.Domain.Enums;
 
 namespace TaxOmbud.Api.Controllers;
 
-public record UpdateComplaintRequest(
-    string Subject,
-    string Description,
-    string TaxType,
-    string TaxPeriod,
-    string ComplaintCategory,
-    string? TaxOfficeRef,
-    string? TinNumber,
-    string Priority
-);
-public record UpdateComplaintStatusRequest(ComplaintStatus Status, string? Reason);
-public record AssignComplaintRequest(Guid OfficerId);
-public record EscalateComplaintRequest(string Reason);
-public record CloseComplaintRequest(string Reason);
-public record AddComplaintNoteRequest(string Body, string Visibility);
-public record LinkComplaintRequest(Guid TargetComplaintId, string? LinkType);
-
 /// <summary>
 /// Complaint lifecycle management — submission, retrieval, assignment, escalation and closure.
 /// </summary>

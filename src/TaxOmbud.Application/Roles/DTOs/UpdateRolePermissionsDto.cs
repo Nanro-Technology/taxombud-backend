@@ -10,3 +10,5 @@ using TaxOmbud.Common.Responses;
 namespace TaxOmbud.Application.Roles.DTOs;
 
 public record UpdateRolePermissionsCommand(Guid RoleId, string[] PermissionCodes) ;
+
+public record UpdateRolePermissionsRequest(string[] PermissionCodes);
