@@ -1,22 +1,20 @@
-using System.Threading;
-using System.Threading.Tasks;
-using MediatR;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using TaxOmbud.Application.Features.Contact.Commands.SubmitContactForm;
+using TaxOmbud.Application.Contact.DTOs;
+using TaxOmbud.Application.Interfaces.Services;
 
 namespace TaxOmbud.Api.Controllers;
 
+[ApiController]
 [AllowAnonymous]
 [Route("api/public")]
-public class PublicContactController : ApiControllerBase
+public class PublicContactController : ControllerBase
 {
-    private readonly IMediator _mediator;
+    private readonly IContactService _contactService;
 
-    public PublicContactController(IMediator mediator)
+    public PublicContactController(IContactService contactService)
     {
-        _mediator = mediator;
+        _contactService = contactService;
     }
 
     [HttpPost("contact")]
@@ -24,7 +22,7 @@ public class PublicContactController : ApiControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> SubmitContact([FromForm] SubmitContactFormCommand command, CancellationToken ct)
     {
-        var result = await _mediator.Send(command, ct);
-        return ToActionResult(result);
+        var result = await _contactService.SubmitContactFormAsync(command, ct);
+        return StatusCode(result.StatusCode, result);
     }
 }

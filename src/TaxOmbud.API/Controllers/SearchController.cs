@@ -1,29 +1,26 @@
-using System.Threading;
-using System.Threading.Tasks;
-using MediatR;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using TaxOmbud.Application.Features.Search.Queries.GlobalSearch;
-using TaxOmbud.Application.Features.Search.Queries.SearchCases;
-using TaxOmbud.Application.Features.Search.Queries.SearchComplaints;
-using TaxOmbud.Application.Features.Search.Queries.SearchDocuments;
-using TaxOmbud.Application.Features.Search.Queries.SearchTaxpayers;
+using TaxOmbud.Application.Interfaces.Services;
+using TaxOmbud.Application.Search.DTOs;
 
 namespace TaxOmbud.Api.Controllers;
 
 /// <summary>
 /// Global unified search across entities.
 /// </summary>
-[Authorize(Policy = "OfficerOrAbove")]
+[ApiController]
 [Route("api/v1/search")]
-public class SearchController : ApiControllerBase
+[Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+[Authorize(Policy = "OfficerOrAbove")]
+[Produces("application/json")]
+public class SearchController : ControllerBase
 {
-    private readonly IMediator _mediator;
+    private readonly ISearchService _searchService;
 
-    public SearchController(IMediator mediator)
+    public SearchController(ISearchService searchService)
     {
-        _mediator = mediator;
+        _searchService = searchService;
     }
 
     /// <summary>Perform a global search across Complaints, Cases, and Taxpayers.</summary>
@@ -31,8 +28,8 @@ public class SearchController : ApiControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GlobalSearch([FromQuery] string query, [FromQuery] int top = 10, CancellationToken ct = default)
     {
-        var result = await _mediator.Send(new GlobalSearchQuery(query, top), ct);
-        return ToActionResult(result);
+        var result = await _searchService.GlobalSearchAsync(new GlobalSearchQuery(query, top), ct);
+        return StatusCode(result.StatusCode, result);
     }
 
     /// <summary>Search complaints specifically.</summary>
@@ -40,8 +37,8 @@ public class SearchController : ApiControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> SearchComplaints([FromQuery] string query, CancellationToken ct = default)
     {
-        var result = await _mediator.Send(new SearchComplaintsQuery(query), ct);
-        return ToActionResult(result);
+        var result = await _searchService.SearchComplaintsAsync(new SearchComplaintsQuery(query), ct);
+        return StatusCode(result.StatusCode, result);
     }
 
     /// <summary>Search cases specifically.</summary>
@@ -49,8 +46,8 @@ public class SearchController : ApiControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> SearchCases([FromQuery] string query, CancellationToken ct = default)
     {
-        var result = await _mediator.Send(new SearchCasesQuery(query), ct);
-        return ToActionResult(result);
+        var result = await _searchService.SearchCasesAsync(new SearchCasesQuery(query), ct);
+        return StatusCode(result.StatusCode, result);
     }
 
     /// <summary>Search taxpayers specifically.</summary>
@@ -58,8 +55,8 @@ public class SearchController : ApiControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> SearchTaxpayers([FromQuery] string query, CancellationToken ct = default)
     {
-        var result = await _mediator.Send(new SearchTaxpayersQuery(query), ct);
-        return ToActionResult(result);
+        var result = await _searchService.SearchTaxpayersAsync(new SearchTaxpayersQuery(query), ct);
+        return StatusCode(result.StatusCode, result);
     }
 
     /// <summary>Search documents specifically.</summary>
@@ -67,7 +64,7 @@ public class SearchController : ApiControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> SearchDocuments([FromQuery] string query, CancellationToken ct = default)
     {
-        var result = await _mediator.Send(new SearchDocumentsQuery(query), ct);
-        return ToActionResult(result);
+        var result = await _searchService.SearchDocumentsAsync(new SearchDocumentsQuery(query), ct);
+        return StatusCode(result.StatusCode, result);
     }
 }

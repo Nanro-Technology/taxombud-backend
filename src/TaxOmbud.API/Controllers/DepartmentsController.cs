@@ -1,46 +1,48 @@
-using System;
-using System.Threading;
-using System.Threading.Tasks;
-using MediatR;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using TaxOmbud.Application.Features.Departments.Commands.CreateDepartment;
-using TaxOmbud.Application.Features.Departments.Commands.UpdateDepartment;
-using TaxOmbud.Application.Features.Departments.Queries.GetDepartmentById;
-using TaxOmbud.Application.Features.Departments.Queries.GetDepartments;
+using TaxOmbud.Application.Departments.DTOs;
+using TaxOmbud.Application.Interfaces.Services;
+using TaxOmbud.Common.Responses;
 
 namespace TaxOmbud.Api.Controllers;
+
+public record UpdateDepartmentRequest(string Name, string RoutingMode, string? Description, Guid? HeadUserId);
 
 /// <summary>
 /// Manage civil service departments and their case assignment routing rules.
 /// </summary>
-[Authorize(Policy = "AdminOnly")]
+[ApiController]
 [Route("api/v1/departments")]
-public class DepartmentsController : ApiControllerBase
+[Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+[Authorize(Policy = "AdminOnly")]
+[Produces("application/json")]
+public class DepartmentsController : ControllerBase
 {
-    private readonly IMediator _mediator;
+    private readonly IDepartmentsService _departmentsService;
 
-    public DepartmentsController(IMediator mediator)
+    public DepartmentsController(IDepartmentsService departmentsService)
     {
-        _mediator = mediator;
+        _departmentsService = departmentsService;
     }
 
     /// <summary>List departments.</summary>
     [HttpGet]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetDepartments(CancellationToken ct)
     {
-        var result = await _mediator.Send(new GetDepartmentsQuery(), ct);
-        return ToActionResult(result);
+        var result = await _departmentsService.GetDepartmentsAsync(new GetDepartmentsQuery(), ct);
+        return StatusCode(result.StatusCode, result);
     }
 
     /// <summary>Get department by ID.</summary>
-    [HttpGet("{id:guid}")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
+    [HttpGet("{id:guid}", Name = "GetDepartmentById")]
+    [ProducesResponseType(typeof(Response<DepartmentDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetDepartmentById(Guid id, CancellationToken ct)
     {
-        var result = await _mediator.Send(new GetDepartmentByIdQuery(id), ct);
-        return ToActionResult(result);
+        var result = await _departmentsService.GetDepartmentByIdAsync(new GetDepartmentByIdQuery(id), ct);
+        return StatusCode(result.StatusCode, result);
     }
 
     /// <summary>Create a department.</summary>
@@ -49,24 +51,19 @@ public class DepartmentsController : ApiControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> CreateDepartment([FromBody] CreateDepartmentCommand command, CancellationToken ct)
     {
-        var result = await _mediator.Send(command, ct);
-        if (!result.IsSuccess)
-            return ToActionResult(result);
-
-        return CreatedAtAction(nameof(GetDepartmentById), new { id = result.Value!.Id }, result.Value);
+        var result = await _departmentsService.CreateDepartmentAsync(command, ct);
+        if (!(result.StatusCode >= 200 && result.StatusCode < 300))
+            return StatusCode(result.StatusCode, result);
+        return CreatedAtAction(nameof(GetDepartmentById), new { id = result.Data!.Id }, result);
     }
 
     /// <summary>Update department details and routing configuration.</summary>
     [HttpPut("{id:guid}")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateDepartment(Guid id, [FromBody] UpdateDepartmentRequest request, CancellationToken ct)
     {
-        var command = new UpdateDepartmentCommand(id, request.Name, request.RoutingMode, request.Description, request.HeadUserId);
-        var result = await _mediator.Send(command, ct);
-        return ToActionResult(result);
+        var result = await _departmentsService.UpdateDepartmentAsync(new UpdateDepartmentCommand(id, request.Name, request.RoutingMode, request.Description, request.HeadUserId), ct);
+        return StatusCode(result.StatusCode, result);
     }
 }
-
-public record UpdateDepartmentRequest(string Name, string RoutingMode, string? Description, Guid? HeadUserId);

@@ -1,15 +1,8 @@
-using System;
-using System.Threading;
-using System.Threading.Tasks;
-using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using TaxOmbud.Application.Features.Appeals.Commands.FileAppeal;
-using TaxOmbud.Application.Features.Appeals.Commands.ReviewAppeal;
-using TaxOmbud.Application.Features.Appeals.Commands.UploadAppealDocument;
-using TaxOmbud.Application.Features.Appeals.Queries.GetAppealById;
-using TaxOmbud.Application.Features.Appeals.Queries.GetAppealDocuments;
-using TaxOmbud.Application.Features.Appeals.Queries.GetAppeals;
+using TaxOmbud.Application.Appeals.DTOs;
+using TaxOmbud.Application.Interfaces.Services;
+
 
 namespace TaxOmbud.Api.Controllers;
 
@@ -18,14 +11,18 @@ namespace TaxOmbud.Api.Controllers;
 /// </summary>
 [Authorize]
 [Route("api/v1/appeals")]
-public class AppealsController : ApiControllerBase
+public class AppealsController : ControllerBase
 {
-    private readonly IMediator _mediator;
+    private readonly IAppealsService _appealsService;
 
-    public AppealsController(IMediator mediator)
+    public AppealsController(
+        IAppealsService appealsService
+    )
     {
-        _mediator = mediator;
+        _appealsService = appealsService;
     }
+
+
 
     /// <summary>List all submitted taxpayer decision appeals (Officer and above only).</summary>
     [HttpGet]
@@ -36,8 +33,8 @@ public class AppealsController : ApiControllerBase
         [FromQuery] int pageSize = 20,
         CancellationToken ct = default)
     {
-        var result = await _mediator.Send(new GetAppealsQuery(status, page, pageSize), ct);
-        return ToActionResult(result);
+        var result = await _appealsService.GetAppealsAsync(new GetAppealsQuery(status, page, pageSize), ct);
+        return StatusCode(result.StatusCode, result);
     }
 
     /// <summary>Get details of an appeal by ID.</summary>
@@ -46,8 +43,8 @@ public class AppealsController : ApiControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetAppealById(Guid id, CancellationToken ct)
     {
-        var result = await _mediator.Send(new GetAppealByIdQuery(id), ct);
-        return ToActionResult(result);
+        var result = await _appealsService.GetAppealByIdAsync(new GetAppealByIdQuery(id), ct);
+        return StatusCode(result.StatusCode, result);
     }
 
     /// <summary>File a new decision appeal for a closed case (Taxpayer action).</summary>
@@ -57,11 +54,11 @@ public class AppealsController : ApiControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> FileAppeal([FromBody] FileAppealRequest request, CancellationToken ct)
     {
-        var result = await _mediator.Send(new FileAppealCommand(request.CaseId, request.Reason), ct);
-        if (!result.IsSuccess)
-            return ToActionResult(result);
+        var result = await _appealsService.FileAppealAsync(new FileAppealCommand(request.CaseId, request.Reason), ct);
+        if (!(result.StatusCode >= 200 && result.StatusCode < 300))
+            return StatusCode(result.StatusCode, result);
 
-        return CreatedAtAction(nameof(GetAppealById), new { id = result.Value!.Id }, result.Value);
+        return CreatedAtAction(nameof(GetAppealById), new { id = result.Data!.Id }, result.Data);
     }
 
     /// <summary>Review, uphold, or dismiss a decision appeal (Officer/Director action).</summary>
@@ -72,8 +69,8 @@ public class AppealsController : ApiControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> ReviewAppeal(Guid id, [FromBody] ReviewAppealRequest request, CancellationToken ct)
     {
-        var result = await _mediator.Send(new ReviewAppealCommand(id, request.Action, request.Notes), ct);
-        return ToActionResult(result);
+        var result = await _appealsService.ReviewAppealAsync(new ReviewAppealCommand(id, request.Action, request.Notes), ct);
+        return StatusCode(result.StatusCode, result);
     }
 
     /// <summary>Get documents attached to an appeal.</summary>
@@ -82,8 +79,8 @@ public class AppealsController : ApiControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetDocuments(Guid id, CancellationToken ct)
     {
-        var result = await _mediator.Send(new GetAppealDocumentsQuery(id), ct);
-        return ToActionResult(result);
+        var result = await _appealsService.GetAppealDocumentsAsync(new GetAppealDocumentsQuery(id), ct);
+        return StatusCode(result.StatusCode, result);
     }
 
     /// <summary>Upload a supporting document for an appeal.</summary>
@@ -94,11 +91,11 @@ public class AppealsController : ApiControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UploadDocument(Guid id, IFormFile file, CancellationToken ct)
     {
-        var result = await _mediator.Send(new UploadAppealDocumentCommand(id, file), ct);
-        if (!result.IsSuccess)
-            return ToActionResult(result);
+        var result = await _appealsService.UploadAppealDocumentAsync(new UploadAppealDocumentCommand(id, file), ct);
+        if (!(result.StatusCode >= 200 && result.StatusCode < 300))
+            return StatusCode(result.StatusCode, result);
 
-        return CreatedAtAction(nameof(GetDocuments), new { id }, result.Value);
+        return CreatedAtAction(nameof(GetDocuments), new { id }, result.Data);
     }
 }
 

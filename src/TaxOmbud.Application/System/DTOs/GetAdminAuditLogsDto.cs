@@ -1,0 +1,17 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
+using TaxOmbud.Domain.Common;
+using TaxOmbud.Domain.Entities.System;
+using TaxOmbud.Common.Responses;
+
+namespace TaxOmbud.Application.System.DTOs;
+
+public record GetAdminAuditLogsQuery(
+    string? EntityName,
+    int Page = 1,
+    int PageSize = 50
+) ;

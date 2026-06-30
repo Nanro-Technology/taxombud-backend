@@ -1,6 +1,6 @@
 using System.Text.Json;
 using Microsoft.Extensions.Caching.Distributed;
-using TaxOmbud.Application.Common.Interfaces;
+using TaxOmbud.Application.Interfaces.InfrastructureService;
 
 namespace TaxOmbud.Infrastructure.Services;
 

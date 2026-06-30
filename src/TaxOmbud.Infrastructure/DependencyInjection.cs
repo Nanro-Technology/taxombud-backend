@@ -69,9 +69,9 @@ public static class DependencyInjection
         {
             services.AddDistributedMemoryCache(); // dev fallback
         }
-        services.AddScoped<ICacheService, CacheService>();
-        services.AddSingleton<ICryptoService, CryptoService>();
-        services.AddSingleton<IEncryptionService, EncryptionService>();
+        services.AddScoped<TaxOmbud.Application.Interfaces.InfrastructureService.ICacheService, CacheService>();
+        services.AddSingleton<TaxOmbud.Application.Interfaces.InfrastructureService.ICryptoService, CryptoService>();
+        services.AddSingleton<TaxOmbud.Application.Interfaces.InfrastructureService.IEncryptionService, EncryptionService>();
 
         // ─── Hangfire Background Jobs ─────────────────────────────────────────
         services.AddHangfire(config =>
@@ -105,10 +105,10 @@ public static class DependencyInjection
         services.AddHangfireServer();
 
         // ─── Application Services ─────────────────────────────────────────────
-        services.AddScoped<ITokenService, TokenService>();
-        services.AddScoped<IPasswordHasher, PasswordHasher>();
-        services.AddScoped<IEmailService, SmtpEmailService>();
-        services.AddScoped<IFileStorageService, LocalFileStorageService>();
+        services.AddScoped<TaxOmbud.Application.Interfaces.InfrastructureService.ITokenService, TokenService>();
+        services.AddScoped<TaxOmbud.Application.Interfaces.InfrastructureService.IPasswordHasher, PasswordHasher>();
+        services.AddScoped<TaxOmbud.Application.Interfaces.InfrastructureService.IEmailService, TaxOmbud.Infrastructure.EmailServices.SmtpEmailService>();
+        services.AddScoped<TaxOmbud.Application.Interfaces.InfrastructureService.IFileStorageService, LocalFileStorageService>();
 
         // ─── JWT Authentication ───────────────────────────────────────────────
         var jwtSection = configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()

@@ -1,24 +1,24 @@
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using TaxOmbud.Application.Common.Interfaces;
-using TaxOmbud.Domain.Entities.System;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using TaxOmbud.Application.Interfaces.InfrastructureService;
+using TaxOmbud.Domain.Entities.System;
 
 namespace TaxOmbud.Api.Controllers;
 
-/// <summary>
-/// Security configurations and public keys.
-/// </summary>
-public class SecurityController : ApiControllerBase
+[ApiController]
+[Route("api/[controller]")]
+public class SecurityController : ControllerBase
 {
     private readonly ICryptoService _cryptoService;
-    private readonly IApplicationDbContext _context;
+    private readonly TaxOmbud.Application.Common.Interfaces.IApplicationDbContext _context;
     private readonly ICacheService _cache;
 
-    public SecurityController(ICryptoService cryptoService, IApplicationDbContext context, ICacheService cache)
+    public SecurityController(
+        ICryptoService cryptoService,
+        TaxOmbud.Application.Common.Interfaces.IApplicationDbContext context,
+        ICacheService cache
+    )
     {
         _cryptoService = cryptoService;
         _context = context;
@@ -84,7 +84,7 @@ public class SecurityController : ApiControllerBase
 
         var setting = await _context.SystemSettings.FirstOrDefaultAsync(s => s.Key == "Security:E2EE_Enabled", ct);
         var isEnabled = setting?.Value == "true";
-        
+
         // Cache for 5 minutes
         await _cache.SetAsync("E2EE_Enabled", isEnabled ? "true" : "false", System.TimeSpan.FromMinutes(5), ct);
         return isEnabled;

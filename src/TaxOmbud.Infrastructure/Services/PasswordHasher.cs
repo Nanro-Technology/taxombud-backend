@@ -1,5 +1,5 @@
 using BCrypt.Net;
-using TaxOmbud.Application.Common.Interfaces;
+using TaxOmbud.Application.Interfaces.InfrastructureService;
 
 namespace TaxOmbud.Infrastructure.Services;
 

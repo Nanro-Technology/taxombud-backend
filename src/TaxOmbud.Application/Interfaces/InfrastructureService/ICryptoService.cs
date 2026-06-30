@@ -1,0 +1,9 @@
+namespace TaxOmbud.Application.Interfaces.InfrastructureService;
+
+public interface ICryptoService
+{
+    string GetPublicKeyPem();
+    byte[] DecryptRsa(byte[] cipherText);
+    byte[] EncryptAes(byte[] plainText, byte[] key, byte[] iv);
+    byte[] DecryptAes(byte[] cipherText, byte[] key, byte[] iv);
+}

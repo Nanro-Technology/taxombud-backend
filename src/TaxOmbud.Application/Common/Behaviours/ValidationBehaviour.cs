@@ -43,7 +43,7 @@ public sealed class ValidationBehaviour<TRequest, TResponse> : IPipelineBehavior
         var responseType = typeof(TResponse);
         if (responseType.IsGenericType && responseType.GetGenericTypeDefinition() == typeof(Result<>))
         {
-            var method = responseType.GetMethod("ValidationFailure", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public);
+            var method = responseType.GetMethod("ValidationFailure", global::System.Reflection.BindingFlags.Static | global::System.Reflection.BindingFlags.Public);
             if (method != null)
                 return (TResponse)method.Invoke(null, [errors.AsReadOnly()])!;
         }

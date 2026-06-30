@@ -1,27 +1,53 @@
-using MediatR;
 using Microsoft.AspNetCore.Mvc;
-using System.Threading.Tasks;
-using TaxOmbud.Application.Features.Wallet.Queries.GetWalletBalance;
-using TaxOmbud.Application.Features.Wallet.Queries.GetWalletTransactions;
-using TaxOmbud.Application.Features.Wallet.Commands.RequestWithdrawal;
-using TaxOmbud.Application.Features.Wallet.Commands.ProcessWithdrawal;
+using TaxOmbud.Application.Interfaces.Services;
+using TaxOmbud.Application.Wallet.DTOs;
 
 namespace TaxOmbud.Api.Controllers;
 
-public class WalletController : ApiControllerBase
+[ApiController]
+[Route("api/[controller]")]
+public class WalletController : ControllerBase
 {
-    private readonly IMediator _mediator;
-    public WalletController(IMediator mediator) { _mediator = mediator; }
+    private readonly IWalletService _walletService;
+
+    public WalletController(IWalletService _walletService)
+    {
+        this._walletService = _walletService;
+    }
+
     [HttpGet("balance")]
-    public async Task<IActionResult> GetWalletBalance([FromQuery] GetWalletBalanceQueries query) => ToActionResult(await _mediator.Send(query));
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> GetWalletBalance([FromQuery] GetWalletBalanceQueries query, CancellationToken ct)
+    {
+        var result = await _walletService.GetWalletBalanceAsync(query, ct);
+        return StatusCode(result.StatusCode, result);
+    }
 
     [HttpGet("transactions")]
-    public async Task<IActionResult> GetWalletTransactions([FromQuery] GetWalletTransactionsQueries query) => ToActionResult(await _mediator.Send(query));
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> GetWalletTransactions([FromQuery] GetWalletTransactionsQueries query, CancellationToken ct)
+    {
+        var result = await _walletService.GetWalletTransactionsAsync(query, ct);
+        return StatusCode(result.StatusCode, result);
+    }
 
     [HttpPost("withdrawals/request")]
-    public async Task<IActionResult> RequestWithdrawal([FromBody] RequestWithdrawalCommands command) => ToActionResult(await _mediator.Send(command));
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> RequestWithdrawal([FromBody] RequestWithdrawalCommands command, CancellationToken ct)
+    {
+        var result = await _walletService.RequestWithdrawalAsync(command, ct);
+        return StatusCode(result.StatusCode, result);
+    }
 
     [HttpPost("withdrawals/process")]
-    public async Task<IActionResult> ProcessWithdrawal([FromBody] ProcessWithdrawalCommands command) => ToActionResult(await _mediator.Send(command));
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ProcessWithdrawal([FromBody] ProcessWithdrawalCommands command, CancellationToken ct)
+    {
+        var result = await _walletService.ProcessWithdrawalAsync(command, ct);
+        return StatusCode(result.StatusCode, result);
+    }
 }
-

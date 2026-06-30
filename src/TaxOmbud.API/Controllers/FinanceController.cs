@@ -1,39 +1,80 @@
-using MediatR;
 using Microsoft.AspNetCore.Mvc;
-using System.Threading.Tasks;
-using TaxOmbud.Application.Features.Finance.Queries.GetQuotes;
-using TaxOmbud.Application.Features.Finance.Queries.GetContracts;
-using TaxOmbud.Application.Features.Finance.Queries.GetInvoices;
-using TaxOmbud.Application.Features.Finance.Commands.CreateQuote;
-using TaxOmbud.Application.Features.Finance.Commands.CreateContract;
-using TaxOmbud.Application.Features.Finance.Commands.GenerateInvoice;
-using TaxOmbud.Application.Features.Finance.Commands.PayInvoice;
+using TaxOmbud.Application.Finance.DTOs;
+using TaxOmbud.Application.Interfaces.Services;
 
 namespace TaxOmbud.Api.Controllers;
 
-public class FinanceController : ApiControllerBase
+[ApiController]
+[Route("api/[controller]")]
+public class FinanceController : ControllerBase
 {
-    private readonly IMediator _mediator;
-    public FinanceController(IMediator mediator) { _mediator = mediator; }
+    private readonly IFinanceService _financeService;
+
+    public FinanceController(IFinanceService financeService)
+    {
+        _financeService = financeService;
+    }
 
     [HttpGet("quotes")]
-    public async Task<IActionResult> GetQuotes([FromQuery] GetQuotesQueries query) => ToActionResult(await _mediator.Send(query));
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> GetQuotes([FromQuery] GetQuotesQueries query, CancellationToken ct)
+    {
+        var result = await _financeService.GetQuotesAsync(query, ct);
+        return StatusCode(result.StatusCode, result);
+    }
 
     [HttpGet("contracts")]
-    public async Task<IActionResult> GetContracts([FromQuery] GetContractsQueries query) => ToActionResult(await _mediator.Send(query));
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> GetContracts([FromQuery] GetContractsQueries query, CancellationToken ct)
+    {
+        var result = await _financeService.GetContractsAsync(query, ct);
+        return StatusCode(result.StatusCode, result);
+    }
 
     [HttpGet("invoices")]
-    public async Task<IActionResult> GetInvoices([FromQuery] GetInvoicesQueries query) => ToActionResult(await _mediator.Send(query));
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> GetInvoices([FromQuery] GetInvoicesQueries query, CancellationToken ct)
+    {
+        var result = await _financeService.GetInvoicesAsync(query, ct);
+        return StatusCode(result.StatusCode, result);
+    }
 
     [HttpPost("quotes")]
-    public async Task<IActionResult> CreateQuote([FromBody] CreateQuoteCommands command) => ToActionResult(await _mediator.Send(command));
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> CreateQuote([FromBody] CreateQuoteCommands command, CancellationToken ct)
+    {
+        var result = await _financeService.CreateQuoteAsync(command, ct);
+        return StatusCode(result.StatusCode, result);
+    }
 
     [HttpPost("contracts")]
-    public async Task<IActionResult> CreateContract([FromBody] CreateContractCommands command) => ToActionResult(await _mediator.Send(command));
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> CreateContract([FromBody] CreateContractCommands command, CancellationToken ct)
+    {
+        var result = await _financeService.CreateContractAsync(command, ct);
+        return StatusCode(result.StatusCode, result);
+    }
 
     [HttpPost("invoices")]
-    public async Task<IActionResult> GenerateInvoice([FromBody] GenerateInvoiceCommands command) => ToActionResult(await _mediator.Send(command));
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GenerateInvoice([FromBody] GenerateInvoiceCommands command, CancellationToken ct)
+    {
+        var result = await _financeService.GenerateInvoiceAsync(command, ct);
+        return StatusCode(result.StatusCode, result);
+    }
 
     [HttpPost("invoices/pay")]
-    public async Task<IActionResult> PayInvoice([FromBody] PayInvoiceCommands command) => ToActionResult(await _mediator.Send(command));
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> PayInvoice([FromBody] PayInvoiceCommands command, CancellationToken ct)
+    {
+        var result = await _financeService.PayInvoiceAsync(command, ct);
+        return StatusCode(result.StatusCode, result);
+    }
 }

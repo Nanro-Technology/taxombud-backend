@@ -14,5 +14,5 @@ public interface ITokenService
     (string Token, DateTime ExpiresAt) GenerateRefreshToken();
 
     /// <summary>Validates a JWT access token and returns the principal.</summary>
-    System.Security.Claims.ClaimsPrincipal? ValidateAccessToken(string token);
+    global::System.Security.Claims.ClaimsPrincipal? ValidateAccessToken(string token);
 }

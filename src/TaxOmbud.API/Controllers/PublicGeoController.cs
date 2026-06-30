@@ -1,37 +1,36 @@
-using System.Threading;
-using System.Threading.Tasks;
-using MediatR;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using TaxOmbud.Application.Features.Geo.Queries;
+using TaxOmbud.Application.Geo.DTOs;
+using TaxOmbud.Application.Interfaces.Services;
 
 namespace TaxOmbud.Api.Controllers;
 
+[ApiController]
 [AllowAnonymous]
-public class PublicGeoController : ApiControllerBase
+[Route("api/public/geo")]
+public class PublicGeoController : ControllerBase
 {
-    private readonly IMediator _mediator;
+    private readonly IGeoService _geoService;
 
-    public PublicGeoController(IMediator mediator)
+    public PublicGeoController(IGeoService geoService)
     {
-        _mediator = mediator;
+        _geoService = geoService;
     }
 
-    [HttpGet("api/public/geo")]
+    [HttpGet]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> GetGeoData([FromQuery] string action, [FromQuery(Name = "country_id")] string? countryId, CancellationToken ct)
     {
         if (action == "countries")
         {
-            var result = await _mediator.Send(new GetCountriesQuery(), ct);
-            return ToActionResult(result);
+            var result = await _geoService.GetCountriesAsync(new GetCountriesQuery(), ct);
+            return StatusCode(result.StatusCode, result);
         }
         else if (action == "states")
         {
-            var result = await _mediator.Send(new GetStatesQuery(countryId ?? string.Empty), ct);
-            return ToActionResult(result);
+            var result = await _geoService.GetStatesAsync(new GetStatesQuery(countryId ?? string.Empty), ct);
+            return StatusCode(result.StatusCode, result);
         }
 
         return BadRequest("Invalid action specified.");

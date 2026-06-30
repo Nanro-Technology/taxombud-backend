@@ -1,50 +1,55 @@
-using System;
-using System.Threading;
-using System.Threading.Tasks;
-using MediatR;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using TaxOmbud.Application.Features.Hr.Commands.ApproveLeave;
-using TaxOmbud.Application.Features.Hr.Commands.ApproveLoan;
-using TaxOmbud.Application.Features.Hr.Commands.CreatePayrollRun;
-using TaxOmbud.Application.Features.Hr.Commands.RequestLeave;
-using TaxOmbud.Application.Features.Hr.Commands.RequestLoan;
-using TaxOmbud.Application.Features.Hr.Commands.SaveStaffProfile;
-using TaxOmbud.Application.Features.Hr.Commands.WithdrawEwa;
-using TaxOmbud.Application.Features.Hr.Queries.GetLeaveRequests;
-using TaxOmbud.Application.Features.Hr.Queries.GetPayrollPeriods;
-using TaxOmbud.Application.Features.Hr.Queries.GetStaff;
-using TaxOmbud.Application.Features.Hr.Queries.GetStaffById;
-using TaxOmbud.Application.Features.Hr.Queries.GetWallet;
+using TaxOmbud.Application.Hr.DTOs;
+using TaxOmbud.Application.Interfaces.Services;
 
 namespace TaxOmbud.Api.Controllers;
 
-/// <summary>
-/// Manage HR directory, leave management, payroll validation & runs, salary profiles, employee wallets, and financial requests.
-/// </summary>
-[Authorize]
-[Route("api/v1/hr")]
-public class HrController : ApiControllerBase
-{
-    private readonly IMediator _mediator;
+public record SaveStaffProfileRequest(
+    Guid UserId, string? EmployeeCode, string? Title, Guid? SupervisorId,
+    DateTimeOffset HireDate, string EmploymentStatus, DateTimeOffset DateOfBirth,
+    string Nationality, string MaritalStatus, string? EducationLevel, string? EducationDetails,
+    string? AddressLine1, string? AddressLine2, string? City, string? State, string? Country,
+    string? EmergencyContactName, string? EmergencyContactPhone,
+    string BankAccountNo, string BankId,
+    string? NextOfKinName, string? NextOfKinRelationship, string? NextOfKinPhone, string? NextOfKinAddress
+);
+public record RequestLeaveRequest(string LeaveType, DateTimeOffset StartDate, DateTimeOffset EndDate);
+public record ApproveLeaveRequest(bool Approved, string? SupervisorNote);
+public record EwaWithdrawalRequest(decimal Amount);
+public record RequestLoanRequest(decimal Amount, int TermMonths, string Purpose);
+public record ApproveLoanRequest(bool Approved);
+public record CreatePayrollRunRequest(Guid PeriodId);
 
-    public HrController(IMediator mediator)
+/// <summary>
+/// Manage HR directory, leave management, payroll validation and runs, salary profiles, employee wallets, and financial requests.
+/// </summary>
+[ApiController]
+[Route("api/v1/hr")]
+[Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+[Produces("application/json")]
+public class HrController : ControllerBase
+{
+    private readonly IHrService _hrService;
+
+    public HrController(IHrService hrService)
     {
-        _mediator = mediator;
+        _hrService = hrService;
     }
 
     /// <summary>List all staff profiles with pagination and search.</summary>
     [HttpGet("staff")]
     [Authorize(Policy = "OfficerOrAbove")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetStaff(
         [FromQuery] string? search,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         CancellationToken ct = default)
     {
-        var result = await _mediator.Send(new GetStaffQuery(search, page, pageSize), ct);
-        return ToActionResult(result);
+        var result = await _hrService.GetStaffAsync(new GetStaffQuery(search, page, pageSize), ct);
+        return StatusCode(result.StatusCode, result);
     }
 
     /// <summary>Get a specific staff profile by ID.</summary>
@@ -54,8 +59,8 @@ public class HrController : ApiControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetStaffById(Guid id, CancellationToken ct)
     {
-        var result = await _mediator.Send(new GetStaffByIdQuery(id), ct);
-        return ToActionResult(result);
+        var result = await _hrService.GetStaffByIdAsync(new GetStaffByIdQuery(id), ct);
+        return StatusCode(result.StatusCode, result);
     }
 
     /// <summary>Create or update staff profile.</summary>
@@ -65,83 +70,58 @@ public class HrController : ApiControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> SaveStaffProfile([FromBody] SaveStaffProfileRequest request, CancellationToken ct)
     {
-        var result = await _mediator.Send(new SaveStaffProfileCommand(
-            request.UserId,
-            request.EmployeeCode,
-            request.Title,
-            request.SupervisorId,
-            request.HireDate,
-            request.EmploymentStatus,
-            request.DateOfBirth,
-            request.Nationality,
-            request.MaritalStatus,
-            request.EducationLevel,
-            request.EducationDetails,
-            request.AddressLine1,
-            request.AddressLine2,
-            request.City,
-            request.State,
-            request.Country,
-            request.EmergencyContactName,
-            request.EmergencyContactPhone,
-            request.BankAccountNo,
-            request.BankId,
-            request.NextOfKinName,
-            request.NextOfKinRelationship,
-            request.NextOfKinPhone,
-            request.NextOfKinAddress
+        var result = await _hrService.SaveStaffProfileAsync(new SaveStaffProfileCommand(
+            request.UserId, request.EmployeeCode, request.Title, request.SupervisorId,
+            request.HireDate, request.EmploymentStatus, request.DateOfBirth,
+            request.Nationality, request.MaritalStatus, request.EducationLevel, request.EducationDetails,
+            request.AddressLine1, request.AddressLine2, request.City, request.State, request.Country,
+            request.EmergencyContactName, request.EmergencyContactPhone,
+            request.BankAccountNo, request.BankId,
+            request.NextOfKinName, request.NextOfKinRelationship, request.NextOfKinPhone, request.NextOfKinAddress
         ), ct);
-
-        return ToActionResult(result);
+        return StatusCode(result.StatusCode, result);
     }
 
     /// <summary>List leave requests.</summary>
     [HttpGet("leave")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetLeaveRequests(
         [FromQuery] Guid? userId,
         [FromQuery] string? status,
         CancellationToken ct = default)
     {
-        var result = await _mediator.Send(new GetLeaveRequestsQuery(userId, status), ct);
-        return ToActionResult(result);
+        var result = await _hrService.GetLeaveRequestsAsync(new GetLeaveRequestsQuery(userId, status), ct);
+        return StatusCode(result.StatusCode, result);
     }
 
     /// <summary>Submit a leave request.</summary>
     [HttpPost("leave")]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> RequestLeave([FromBody] RequestLeaveRequest request, CancellationToken ct)
     {
-        var result = await _mediator.Send(new RequestLeaveCommand(
-            request.LeaveType,
-            request.StartDate,
-            request.EndDate
-        ), ct);
-
-        return ToActionResult(result);
+        var result = await _hrService.RequestLeaveAsync(new RequestLeaveCommand(request.LeaveType, request.StartDate, request.EndDate), ct);
+        return StatusCode(result.StatusCode, result);
     }
 
     /// <summary>Approve/Reject leave request.</summary>
     [HttpPut("leave/{id:guid}/approve")]
     [Authorize(Policy = "OfficerOrAbove")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> ApproveLeave(Guid id, [FromBody] ApproveLeaveRequest request, CancellationToken ct)
     {
-        var result = await _mediator.Send(new ApproveLeaveCommand(
-            id,
-            request.Approved,
-            request.SupervisorNote
-        ), ct);
-
-        return ToActionResult(result);
+        var result = await _hrService.ApproveLeaveAsync(new ApproveLeaveCommand(id, request.Approved, request.SupervisorNote), ct);
+        return StatusCode(result.StatusCode, result);
     }
 
     /// <summary>Get current employee's wallet details and transaction logs.</summary>
     [HttpGet("wallet")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetWallet(CancellationToken ct)
     {
-        var result = await _mediator.Send(new GetWalletQuery(), ct);
-        return ToActionResult(result);
+        var result = await _hrService.GetWalletAsync(new GetWalletQuery(), ct);
+        return StatusCode(result.StatusCode, result);
     }
 
     /// <summary>Request Earned Wage Access (EWA).</summary>
@@ -150,8 +130,8 @@ public class HrController : ApiControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> WithdrawEwa([FromBody] EwaWithdrawalRequest request, CancellationToken ct)
     {
-        var result = await _mediator.Send(new WithdrawEwaCommand(request.Amount), ct);
-        return ToActionResult(result);
+        var result = await _hrService.WithdrawEwaAsync(new WithdrawEwaCommand(request.Amount), ct);
+        return StatusCode(result.StatusCode, result);
     }
 
     /// <summary>Request an employee loan.</summary>
@@ -159,33 +139,29 @@ public class HrController : ApiControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> RequestLoan([FromBody] RequestLoanRequest request, CancellationToken ct)
     {
-        var result = await _mediator.Send(new RequestLoanCommand(
-            request.Amount,
-            request.TermMonths,
-            request.Purpose
-        ), ct);
-
-        return ToActionResult(result);
+        var result = await _hrService.RequestLoanAsync(new RequestLoanCommand(request.Amount, request.TermMonths, request.Purpose), ct);
+        return StatusCode(result.StatusCode, result);
     }
 
     /// <summary>Approve/Reject loan request.</summary>
     [HttpPut("loans/{id:guid}/approve")]
     [Authorize(Policy = "AdminOnly")]
-    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> ApproveLoan(Guid id, [FromBody] ApproveLoanRequest request, CancellationToken ct)
     {
-        var result = await _mediator.Send(new ApproveLoanCommand(id, request.Approved), ct);
-        return ToActionResult(result);
+        var result = await _hrService.ApproveLoanAsync(new ApproveLoanCommand(id, request.Approved), ct);
+        return StatusCode(result.StatusCode, result);
     }
 
     /// <summary>List payroll periods.</summary>
     [HttpGet("payroll/periods")]
     [Authorize(Policy = "OfficerOrAbove")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetPayrollPeriods(CancellationToken ct)
     {
-        var result = await _mediator.Send(new GetPayrollPeriodsQuery(), ct);
-        return ToActionResult(result);
+        var result = await _hrService.GetPayrollPeriodsAsync(new GetPayrollPeriodsQuery(), ct);
+        return StatusCode(result.StatusCode, result);
     }
 
     /// <summary>Create and run payroll for a specific period.</summary>
@@ -195,46 +171,7 @@ public class HrController : ApiControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> CreatePayrollRun([FromBody] CreatePayrollRunRequest request, CancellationToken ct)
     {
-        var result = await _mediator.Send(new CreatePayrollRunCommand(request.PeriodId), ct);
-        return ToActionResult(result);
+        var result = await _hrService.CreatePayrollRunAsync(new CreatePayrollRunCommand(request.PeriodId), ct);
+        return StatusCode(result.StatusCode, result);
     }
 }
-
-public record SaveStaffProfileRequest(
-    Guid UserId,
-    string? EmployeeCode,
-    string? Title,
-    Guid? SupervisorId,
-    DateTimeOffset HireDate,
-    string EmploymentStatus,
-    DateTimeOffset DateOfBirth,
-    string Nationality,
-    string MaritalStatus,
-    string? EducationLevel,
-    string? EducationDetails,
-    string? AddressLine1,
-    string? AddressLine2,
-    string? City,
-    string? State,
-    string? Country,
-    string? EmergencyContactName,
-    string? EmergencyContactPhone,
-    string BankAccountNo,
-    string BankId,
-    string? NextOfKinName,
-    string? NextOfKinRelationship,
-    string? NextOfKinPhone,
-    string? NextOfKinAddress
-);
-
-public record RequestLeaveRequest(string LeaveType, DateTimeOffset StartDate, DateTimeOffset EndDate);
-
-public record ApproveLeaveRequest(bool Approved, string? SupervisorNote);
-
-public record EwaWithdrawalRequest(decimal Amount);
-
-public record RequestLoanRequest(decimal Amount, int TermMonths, string Purpose);
-
-public record ApproveLoanRequest(bool Approved);
-
-public record CreatePayrollRunRequest(Guid PeriodId);
