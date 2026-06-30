@@ -1,12 +1,12 @@
 # Tax Ombud Case Management System — Backend API
 
-A production-ready **ASP.NET Core 9** REST API for the **South African Tax Ombud (OTO)** Case Management System.
+A production-ready **ASP.NET Core 10** REST API for the **South African Tax Ombud (OTO)** Case Management System.
 
 ## Overview
 
 The system enables taxpayers to lodge complaints against SARS (South African Revenue Service), tracks investigations through their full lifecycle, manages internal HR operations, and produces statutory reports.
 
-Built with **Clean Architecture**, **CQRS via MediatR**, and **Entity Framework Core**.
+Built with **Clean Architecture**, **Direct Service-Based Application Layer**, and **Entity Framework Core**.
 
 ---
 
@@ -14,9 +14,8 @@ Built with **Clean Architecture**, **CQRS via MediatR**, and **Entity Framework 
 
 | Layer | Technology |
 |---|---|
-| API | ASP.NET Core 9 (Minimal Hosting) |
-| CQRS | MediatR 12 |
-| ORM | Entity Framework Core 9 + SQL Server |
+| API | ASP.NET Core 10 (Minimal Hosting) |
+| ORM | Entity Framework Core 10 + SQL Server |
 | Auth | JWT Bearer + TOTP MFA (Otp.NET) |
 | Background Jobs | Hangfire + SQL Server storage |
 | Validation | FluentValidation |
@@ -31,7 +30,7 @@ Built with **Clean Architecture**, **CQRS via MediatR**, and **Entity Framework 
 
 ```
 TaxOmbud.Domain          ← Entities, value objects, domain events, enums
-TaxOmbud.Application     ← CQRS handlers, validators, interfaces
+TaxOmbud.Application     ← Application services, DTOs, validators, interfaces
 TaxOmbud.Infrastructure  ← EF Core, JWT, Hangfire, file storage, email
 TaxOmbud.API             ← ASP.NET Core controllers, middleware, DI
 TaxOmbud.KeyGenerator    ← Utility to generate JWT signing keys
@@ -76,7 +75,7 @@ Full OpenAPI documentation available at `/swagger` when running in Development.
 ## Getting Started
 
 ### Prerequisites
-- .NET 9 SDK
+- .NET 10 SDK
 - SQL Server (local or Docker)
 
 ### Configuration
