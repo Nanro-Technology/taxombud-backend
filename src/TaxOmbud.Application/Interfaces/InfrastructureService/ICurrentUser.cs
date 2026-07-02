@@ -1,4 +1,3 @@
-using System;
 using System.Security.Claims;
 
 namespace TaxOmbud.Application.Interfaces.InfrastructureService;

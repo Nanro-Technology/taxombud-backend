@@ -7,7 +7,7 @@ namespace TaxOmbud.Api.Services;
 /// Resolves current user identity from the HTTP context and makes it available
 /// throughout the application layer via DI.
 /// </summary>
-public class CurrentUserService : TaxOmbud.Application.Interfaces.InfrastructureService.ICurrentUser, TaxOmbud.Application.Common.Interfaces.ICurrentUser
+public class CurrentUserService : ICurrentUser
 {
     private readonly IHttpContextAccessor _httpContextAccessor;
 

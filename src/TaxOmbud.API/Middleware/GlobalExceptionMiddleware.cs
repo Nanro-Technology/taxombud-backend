@@ -1,6 +1,5 @@
 using System.Net;
 using System.Text.Json;
-using TaxOmbud.Application.Common.Exceptions;
 using TaxOmbud.Domain.Exceptions;
 
 namespace TaxOmbud.Api.Middleware;

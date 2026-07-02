@@ -77,14 +77,7 @@ public class CasesController : ControllerBase
         CancellationToken ct = default)
     {
         var result = await _casesService.GetOverdueCasesAsync(new GetOverdueCasesQuery(page, pageSize), ct);
-        if (result.IsSuccess)
-            return Ok(result.Value);
-
-        if (result.IsNotFound) return NotFound(result.Errors);
-        if (result.IsForbidden) return Forbid();
-        if (result.IsConflict) return Conflict(result.Errors);
-
-        return BadRequest(result.Errors);
+        return StatusCode(result.StatusCode, result);
     }
 
     /// <summary>Query cases by 6-stage queue name (input, verify, b1, b2, b3, approval, closed).</summary>

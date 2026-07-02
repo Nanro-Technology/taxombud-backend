@@ -39,7 +39,6 @@ try
     // ─── API Services ─────────────────────────────────────────────────────────
     builder.Services.AddHttpContextAccessor();
     builder.Services.AddScoped<TaxOmbud.Application.Interfaces.InfrastructureService.ICurrentUser, CurrentUserService>();
-    builder.Services.AddScoped<TaxOmbud.Application.Common.Interfaces.ICurrentUser, CurrentUserService>();
     builder.Services.AddSignalR();
 
     builder.Services.AddControllers()

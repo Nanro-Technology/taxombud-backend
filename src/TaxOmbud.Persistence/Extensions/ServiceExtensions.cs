@@ -67,9 +67,6 @@ public static class ServiceExtensions
         services.AddScoped<IApplicationDbContext>(provider =>
             provider.GetRequiredService<ApplicationDbContext>());
 
-        services.AddScoped<TaxOmbud.Application.Common.Interfaces.IApplicationDbContext>(provider =>
-            provider.GetRequiredService<ApplicationDbContext>());
-
         // ─── Repositories ─────────────────────────────────────────────────────
         services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
         services.AddScoped<IUnitOfWork, UnitOfWork>();

@@ -1,9 +1,5 @@
-using System;
 using FluentValidation;
 using TaxOmbud.Application.Appeals.DTOs;
-using System.Threading;
-using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
 
 namespace TaxOmbud.Application.Appeals.Validators;
 

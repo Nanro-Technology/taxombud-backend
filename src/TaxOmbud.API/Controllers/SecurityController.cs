@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TaxOmbud.Application.Interfaces.InfrastructureService;
+using TaxOmbud.Application.Interfaces.Persistence;
 using TaxOmbud.Domain.Entities.System;
 
 namespace TaxOmbud.Api.Controllers;
@@ -11,12 +12,12 @@ namespace TaxOmbud.Api.Controllers;
 public class SecurityController : ControllerBase
 {
     private readonly ICryptoService _cryptoService;
-    private readonly TaxOmbud.Application.Common.Interfaces.IApplicationDbContext _context;
+    private readonly IApplicationDbContext _context;
     private readonly ICacheService _cache;
 
     public SecurityController(
         ICryptoService cryptoService,
-        TaxOmbud.Application.Common.Interfaces.IApplicationDbContext context,
+        IApplicationDbContext context,
         ICacheService cache
     )
     {

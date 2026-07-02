@@ -1,9 +1,7 @@
-using System;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
-using TaxOmbud.Application.Common.Interfaces;
 using TaxOmbud.Application.Chats.DTOs;
+using TaxOmbud.Application.Interfaces.InfrastructureService;
 
 namespace TaxOmbud.API.Hubs;
 
