@@ -12,8 +12,9 @@ namespace TaxOmbud.Persistence.Extensions;
 public static class ServiceExtensions
 {
     /// <summary>
-    /// Registers the database context, repositories, and unit-of-work.
-    /// Authentication and Hangfire are registered by AddInfrastructure.
+    /// Registers the database context, repositories, unit-of-work, and EF configurations.
+    /// Migrations live in this (Persistence) assembly. Seeding is handled by DataSeeder.
+    /// Infrastructure registers external services (cache, Hangfire, email, etc.).
     /// </summary>
     public static IServiceCollection AddPersistence(
         this IServiceCollection services,
@@ -31,7 +32,7 @@ public static class ServiceExtensions
         if (databaseProvider == "MySql")
         {
             var connectionString = configuration.GetConnectionString("MySqlConnection");
-            services.AddDbContext<ApplicationDbContext, MySqlApplicationDbContext>(options =>
+            services.AddDbContext<MySqlApplicationDbContext>(options =>
             {
                 options.UseMySql(connectionString, ServerVersion.Parse("8.0.32-mysql"),
                     sql =>
@@ -42,11 +43,13 @@ public static class ServiceExtensions
                     });
                 options.UseQueryTrackingBehavior(QueryTrackingBehavior.TrackAll);
             });
+            services.AddScoped<ApplicationDbContext>(provider =>
+                provider.GetRequiredService<MySqlApplicationDbContext>());
         }
         else
         {
             var connectionString = configuration.GetConnectionString("DefaultConnection");
-            services.AddDbContext<ApplicationDbContext, SqlServerApplicationDbContext>(options =>
+            services.AddDbContext<SqlServerApplicationDbContext>(options =>
             {
                 options.UseSqlServer(connectionString,
                     sql =>
@@ -57,9 +60,14 @@ public static class ServiceExtensions
                     });
                 options.UseQueryTrackingBehavior(QueryTrackingBehavior.TrackAll);
             });
+            services.AddScoped<ApplicationDbContext>(provider =>
+                provider.GetRequiredService<SqlServerApplicationDbContext>());
         }
 
         services.AddScoped<IApplicationDbContext>(provider =>
+            provider.GetRequiredService<ApplicationDbContext>());
+
+        services.AddScoped<TaxOmbud.Application.Common.Interfaces.IApplicationDbContext>(provider =>
             provider.GetRequiredService<ApplicationDbContext>());
 
         // ─── Repositories ─────────────────────────────────────────────────────

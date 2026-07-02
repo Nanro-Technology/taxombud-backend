@@ -9,6 +9,6 @@ using TaxOmbud.Common.Responses;
 
 namespace TaxOmbud.Application.Roles.DTOs;
 
-public record CreateRoleCommand(string Name, string Code, string Scope, string? Description) ;
+public record CreateRoleCommand(string Name, string? Description);
 
-public record CreateRoleResponse(Guid Id, string Name, string Code, string Scope, string? Description);
+public record CreateRoleResponse(Guid Id, string Name, string? Description);

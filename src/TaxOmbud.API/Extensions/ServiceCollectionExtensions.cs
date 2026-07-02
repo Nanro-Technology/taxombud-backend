@@ -16,7 +16,8 @@ public static class ServiceCollectionExtensions
     {
         // ─── HTTP Context & Current User ──────────────────────────────────────
         services.AddHttpContextAccessor();
-        services.AddScoped<ICurrentUser, CurrentUserService>();
+        services.AddScoped<TaxOmbud.Application.Interfaces.InfrastructureService.ICurrentUser, CurrentUserService>();
+        services.AddScoped<TaxOmbud.Application.Common.Interfaces.ICurrentUser, CurrentUserService>();
 
         // ─── Real-time ────────────────────────────────────────────────────────
         services.AddSignalR();

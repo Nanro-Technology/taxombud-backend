@@ -1,22 +1,19 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
-using TaxOmbud.Common.Responses;
+using TaxOmbud.Domain.Entities.Identity;
 
 namespace TaxOmbud.Application.Roles.DTOs;
 
-public record GetRoleByIdQuery(Guid Id) ;
+public record GetRoleByIdQuery(Guid Id);
 
 public record RoleDetailDto(
     Guid Id,
     string Name,
-    string Code,
-    string Scope,
     string? Description,
+    bool IsSystemRole,
+    bool IsActive,
     IEnumerable<PermissionDto> Permissions
 );
 
-public record PermissionDto(string Code, string Action, string Entity, string? Description);
+/// <summary>Permission DTO using Module × Action enum-derived strings (e.g. "Complaints", "View").</summary>
+public record PermissionDto(Guid Id, string Module, string Action);

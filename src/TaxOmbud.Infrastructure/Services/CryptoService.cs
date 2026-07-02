@@ -5,7 +5,7 @@ using TaxOmbud.Application.Interfaces.InfrastructureService;
 
 namespace TaxOmbud.Infrastructure.Services;
 
-public class CryptoService : ICryptoService
+public class CryptoService : TaxOmbud.Application.Interfaces.InfrastructureService.ICryptoService, TaxOmbud.Application.Common.Interfaces.ICryptoService
 {
     private readonly EncryptionOptions _options;
 

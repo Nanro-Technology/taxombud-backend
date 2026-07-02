@@ -1,13 +1,13 @@
 using Hangfire;
 using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.EntityFrameworkCore;
 using Serilog;
 using Serilog.Events;
 using TaxOmbud.Api.Middleware;
 using TaxOmbud.Api.Services;
 using TaxOmbud.Application;
 using TaxOmbud.Infrastructure;
-using TaxOmbud.Infrastructure.Persistence;
+using TaxOmbud.Persistence.Data;
+using TaxOmbud.Persistence.Extensions;
 
 // ─── Bootstrap Logger ─────────────────────────────────────────────────────────
 Log.Logger = new LoggerConfiguration()
@@ -33,11 +33,13 @@ try
 
     // ─── Application Layers ───────────────────────────────────────────────────
     builder.Services.AddApplication();
+    builder.Services.AddPersistence(builder.Configuration);
     builder.Services.AddInfrastructure(builder.Configuration);
 
     // ─── API Services ─────────────────────────────────────────────────────────
     builder.Services.AddHttpContextAccessor();
     builder.Services.AddScoped<TaxOmbud.Application.Interfaces.InfrastructureService.ICurrentUser, CurrentUserService>();
+    builder.Services.AddScoped<TaxOmbud.Application.Common.Interfaces.ICurrentUser, CurrentUserService>();
     builder.Services.AddSignalR();
 
     builder.Services.AddControllers()
@@ -57,6 +59,8 @@ try
             Version = "v1",
             Description = "RESTful API for the Tax Ombud Case Management System"
         });
+
+        c.CustomSchemaIds(type => type.FullName);
 
         c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
         {
@@ -124,31 +128,8 @@ try
     // ─── Build App ────────────────────────────────────────────────────────────
     var app = builder.Build();
 
-    // ─── Auto-migrate & Seed on startup ───────────────────────────────────────
-    using (var scope = app.Services.CreateScope())
-    {
-        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-
-        try
-        {
-            if (db.Database.IsRelational())
-            {
-                // await db.Database.MigrateAsync();
-            }
-            else
-            {
-                await db.Database.EnsureCreatedAsync();
-            }
-            await ApplicationDbContextSeed.SeedAsync(db, logger);
-        }
-        catch (Exception ex)
-        {
-            // Log but don't crash startup — tests use their own DB seeding via InitializeAsync,
-            // and in production this should be monitored via health checks.
-            logger.LogError(ex, "Database migration/seeding failed. The application will still start.");
-        }
-    }
+    // ─── Auto-migrate & Seed on startup (Estate Management pattern) ───────────
+    await app.SeedDatabaseAsync();
 
     // ─── Pipeline ─────────────────────────────────────────────────────────────
     app.UseMiddleware<GlobalExceptionMiddleware>();

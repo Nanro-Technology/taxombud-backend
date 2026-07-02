@@ -3,7 +3,7 @@ using TaxOmbud.Application.Interfaces.InfrastructureService;
 
 namespace TaxOmbud.Infrastructure.Services;
 
-public class PasswordHasher : IPasswordHasher
+public class PasswordHasher : TaxOmbud.Application.Interfaces.InfrastructureService.IPasswordHasher, TaxOmbud.Application.Common.Interfaces.IPasswordHasher
 {
     private const int WorkFactor = 12;
 

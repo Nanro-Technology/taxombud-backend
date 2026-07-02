@@ -4,7 +4,7 @@ using TaxOmbud.Application.Interfaces.InfrastructureService;
 
 namespace TaxOmbud.Infrastructure.Services;
 
-public class EncryptionService : IEncryptionService
+public class EncryptionService : TaxOmbud.Application.Interfaces.InfrastructureService.IEncryptionService, TaxOmbud.Application.Common.Interfaces.IEncryptionService
 {
     private readonly string _privateKeyPem;
     private readonly string _publicKeyPem;

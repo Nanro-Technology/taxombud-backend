@@ -30,8 +30,9 @@ public record UserListDto(
     DepartmentDto? Department,
     string Status,
     bool CanSignIn,
-    IEnumerable<RoleDto> Roles
+    /// <summary>Single assigned role (Estate Management pattern: one role per user).</summary>
+    RoleDto? Role
 );
 
 public record DepartmentDto(Guid Id, string Name);
-public record RoleDto(Guid Id, string Name, string Code);
+public record RoleDto(Guid Id, string Name);

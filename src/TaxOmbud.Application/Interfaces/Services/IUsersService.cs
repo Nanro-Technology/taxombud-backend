@@ -22,8 +22,7 @@ namespace TaxOmbud.Application.Interfaces.Services;
 
 public interface IUsersService
 {
-    Task<Response<object?>> ApplyPermissionOverridesAsync(ApplyPermissionOverridesCommand request, CancellationToken cancellationToken = default);
-    Task<Response<object?>> AssignRolesAsync(AssignRolesCommand request, CancellationToken cancellationToken = default);
+    Task<Response<object?>> AssignRoleAsync(AssignRolesCommand request, CancellationToken cancellationToken = default);
     Task<Response<CreateUserResponse>> CreateUserAsync(CreateUserCommand request, CancellationToken cancellationToken = default);
     Task<Response<object?>> UpdateCurrentUserAsync(UpdateCurrentUserCommand request, CancellationToken cancellationToken = default);
     Task<Response<object?>> UpdateUserAsync(UpdateUserCommand request, CancellationToken cancellationToken = default);

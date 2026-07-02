@@ -69,25 +69,28 @@ public class SystemService : ISystemService
         try
         {
             var targetUser = await _context.Users
-                .Include(u => u.UserRoles)
-                    .ThenInclude(ur => ur.Role)
+                .Include(u => u.Role)
+                    .ThenInclude(r => r!.RolePermissions)
+                        .ThenInclude(rp => rp.Permission)
                 .FirstOrDefaultAsync(u => u.Id == request.UserId, cancellationToken);
 
             if (targetUser == null)
                 return new Response<ImpersonationResponseDto> { StatusCode = StatusCodes.Status404NotFound, Message = "Target user not found." };
 
-            if (targetUser.UserRoles.Any(ur => ur.Role.Code == "superadmin"))
+            if (targetUser.Role?.Name == TaxOmbud.Domain.Entities.Identity.RoleConstants.SuperAdmin)
             {
                 return new Response<ImpersonationResponseDto> { StatusCode = StatusCodes.Status400BadRequest, Message = "Cannot impersonate another Super Admin without dual-control approval." };
             }
 
-            var roles = targetUser.UserRoles.Select(ur => ur.Role.Name).ToList();
-            var roleIds = targetUser.UserRoles.Select(ur => ur.RoleId).ToList();
-            var permissions = await _context.RolePermissions
-                .Where(rp => roleIds.Contains(rp.RoleId))
-                .Select(rp => rp.PermissionCode)
+            var roles = targetUser.Role is not null
+                ? new List<string> { targetUser.Role.Name }
+                : new List<string>();
+
+            var permissions = targetUser.Role?.RolePermissions
+                .Where(rp => rp.Permission != null)
+                .Select(rp => $"{rp.Permission.Module}:{rp.Permission.Action}")
                 .Distinct()
-                .ToListAsync(cancellationToken);
+                .ToList() ?? new List<string>();
 
             var token = _tokenService.GenerateAccessToken(targetUser.Id, targetUser.Email, roles, permissions);
 

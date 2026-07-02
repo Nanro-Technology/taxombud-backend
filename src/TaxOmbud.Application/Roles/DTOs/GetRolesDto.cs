@@ -10,4 +10,4 @@ namespace TaxOmbud.Application.Roles.DTOs;
 
 public record GetRolesQuery() ;
 
-public record RoleDto(Guid Id, string Name, string Code, string Scope, string? Description);
+public record RoleDto(Guid Id, string Name, string? Description, bool IsSystemRole, bool IsActive);

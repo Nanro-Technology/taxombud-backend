@@ -7,7 +7,7 @@ using TaxOmbud.Common.Config;
 
 namespace TaxOmbud.Infrastructure.EmailServices;
 
-public class SmtpEmailService : IEmailService
+public class SmtpEmailService : TaxOmbud.Application.Interfaces.InfrastructureService.IEmailService, TaxOmbud.Application.Common.Interfaces.IEmailService
 {
     private readonly SmtpOptions _options;
     private readonly ILogger<SmtpEmailService> _logger;

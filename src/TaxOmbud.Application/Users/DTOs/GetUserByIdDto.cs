@@ -1,14 +1,8 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
-using TaxOmbud.Common.Responses;
 
 namespace TaxOmbud.Application.Users.DTOs;
 
-public record GetUserByIdQuery(Guid Id) ;
+public record GetUserByIdQuery(Guid Id);
 
 public record UserDetailDto(
     Guid Id,
@@ -23,10 +17,11 @@ public record UserDetailDto(
     DepartmentDetailDto? Department,
     string Status,
     bool CanSignIn,
-    IEnumerable<RoleDetailDto> Roles,
-    IEnumerable<PermissionOverrideDetailDto> PermissionOverrides
+    /// <summary>The single assigned role (Estate Management pattern).</summary>
+    RoleDetailDto? Role
 );
 
 public record DepartmentDetailDto(Guid Id, string Name);
-public record RoleDetailDto(Guid Id, string Name, string Code);
-public record PermissionOverrideDetailDto(string PermissionCode, string Mode);
+
+/// <summary>Compact role DTO returned on user responses.</summary>
+public record RoleDetailDto(Guid Id, string Name, bool IsSystemRole);

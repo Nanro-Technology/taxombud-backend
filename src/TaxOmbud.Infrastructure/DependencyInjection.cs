@@ -1,12 +1,10 @@
 using Hangfire;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Cryptography;
 using TaxOmbud.Application.Common.Interfaces;
 using TaxOmbud.Infrastructure.Options;
-using TaxOmbud.Infrastructure.Persistence;
 using TaxOmbud.Infrastructure.Services;
 
 namespace TaxOmbud.Infrastructure;
@@ -22,44 +20,7 @@ public static class DependencyInjection
         services.Configure<SmtpOptions>(configuration.GetSection(SmtpOptions.SectionName));
         services.Configure<EncryptionOptions>(configuration.GetSection(EncryptionOptions.SectionName));
 
-        // ─── Database ─────────────────────────────────────────────────────────
-        var databaseProvider = configuration.GetValue<string>("DatabaseProvider");
-        
-        if (databaseProvider == "MySql")
-        {
-            var connectionString = configuration.GetConnectionString("MySqlConnection");
-            services.AddDbContext<ApplicationDbContext, MySqlApplicationDbContext>(options =>
-            {
-                options.UseMySql(connectionString, ServerVersion.Parse("8.0.32-mysql"),
-                    sql =>
-                    {
-                        sql.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName);
-                        sql.EnableRetryOnFailure(maxRetryCount: 5, maxRetryDelay: TimeSpan.FromSeconds(30), errorNumbersToAdd: null);
-                        sql.CommandTimeout(60);
-                    });
-                options.UseQueryTrackingBehavior(QueryTrackingBehavior.TrackAll);
-            });
-        }
-        else
-        {
-            var connectionString = configuration.GetConnectionString("DefaultConnection");
-            services.AddDbContext<ApplicationDbContext, SqlServerApplicationDbContext>(options =>
-            {
-                options.UseSqlServer(connectionString,
-                    sql =>
-                    {
-                        sql.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName);
-                        sql.EnableRetryOnFailure(maxRetryCount: 5, maxRetryDelay: TimeSpan.FromSeconds(30), errorNumbersToAdd: null);
-                        sql.CommandTimeout(60);
-                    });
-                options.UseQueryTrackingBehavior(QueryTrackingBehavior.TrackAll);
-            });
-        }
-
-        services.AddScoped<IApplicationDbContext>(provider =>
-            provider.GetRequiredService<ApplicationDbContext>());
-
-        // ─── Caching & Services ───────────────────────────────────────────────────
+        // ─── Caching ──────────────────────────────────────────────────────────
         var redisConn = configuration.GetConnectionString("Redis");
         if (!string.IsNullOrWhiteSpace(redisConn))
         {
@@ -70,10 +31,17 @@ public static class DependencyInjection
             services.AddDistributedMemoryCache(); // dev fallback
         }
         services.AddScoped<TaxOmbud.Application.Interfaces.InfrastructureService.ICacheService, CacheService>();
+        services.AddScoped<TaxOmbud.Application.Common.Interfaces.ICacheService, CacheService>();
+
         services.AddSingleton<TaxOmbud.Application.Interfaces.InfrastructureService.ICryptoService, CryptoService>();
+        services.AddSingleton<TaxOmbud.Application.Common.Interfaces.ICryptoService, CryptoService>();
+
         services.AddSingleton<TaxOmbud.Application.Interfaces.InfrastructureService.IEncryptionService, EncryptionService>();
+        services.AddSingleton<TaxOmbud.Application.Common.Interfaces.IEncryptionService, EncryptionService>();
 
         // ─── Hangfire Background Jobs ─────────────────────────────────────────
+        var databaseProvider = configuration.GetValue<string>("DatabaseProvider");
+
         services.AddHangfire(config =>
         {
             config.SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
@@ -106,11 +74,21 @@ public static class DependencyInjection
 
         // ─── Application Services ─────────────────────────────────────────────
         services.AddScoped<TaxOmbud.Application.Interfaces.InfrastructureService.ITokenService, TokenService>();
+        services.AddScoped<TaxOmbud.Application.Common.Interfaces.ITokenService, TokenService>();
+
         services.AddScoped<TaxOmbud.Application.Interfaces.InfrastructureService.IPasswordHasher, PasswordHasher>();
+        services.AddScoped<TaxOmbud.Application.Common.Interfaces.IPasswordHasher, PasswordHasher>();
+
         services.AddScoped<TaxOmbud.Application.Interfaces.InfrastructureService.IEmailService, TaxOmbud.Infrastructure.EmailServices.SmtpEmailService>();
+        services.AddScoped<TaxOmbud.Application.Common.Interfaces.IEmailService, TaxOmbud.Infrastructure.EmailServices.SmtpEmailService>();
+
         services.AddScoped<TaxOmbud.Application.Interfaces.InfrastructureService.IFileStorageService, LocalFileStorageService>();
+        services.AddScoped<TaxOmbud.Application.Common.Interfaces.IFileStorageService, LocalFileStorageService>();
 
         // ─── JWT Authentication ───────────────────────────────────────────────
+        // NOTE: DbContext and database config are registered in
+        // TaxOmbud.Persistence (ServiceExtensions.AddPersistence).
+        // Authorization policies are permission-claim based — no hardcoded role strings.
         var jwtSection = configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
             ?? throw new InvalidOperationException("JWT configuration section is missing.");
 
@@ -134,11 +112,42 @@ public static class DependencyInjection
                 };
             });
 
+        // ─── Authorization (permission-claim based — no hardcoded role strings) ──
         services.AddAuthorizationBuilder()
             .AddPolicy("RequireAuthenticated", p => p.RequireAuthenticatedUser())
-            .AddPolicy("AdminOnly", p => p.RequireRole("SuperAdmin", "Admin"))
-            .AddPolicy("OfficerOrAbove", p => p.RequireRole("SuperAdmin", "Admin", "Manager", "Director", "SeniorOfficer", "Officer"))
-            .AddPolicy("TaxpayerOnly", p => p.RequireRole("Taxpayer"));
+            .AddPolicy("AdminOnly", p => p.RequireRole(TaxOmbud.Domain.Entities.Identity.RoleConstants.SuperAdmin, TaxOmbud.Domain.Entities.Identity.RoleConstants.Admin))
+            // Complaints
+            .AddPolicy("CanViewComplaints",   p => p.RequireClaim("permission", "Complaints:View"))
+            .AddPolicy("CanCreateComplaints", p => p.RequireClaim("permission", "Complaints:Create"))
+            .AddPolicy("CanEditComplaints",   p => p.RequireClaim("permission", "Complaints:Edit"))
+            .AddPolicy("CanDeleteComplaints", p => p.RequireClaim("permission", "Complaints:Delete"))
+            // Cases
+            .AddPolicy("CanViewCases",        p => p.RequireClaim("permission", "Cases:View"))
+            .AddPolicy("CanCreateCases",      p => p.RequireClaim("permission", "Cases:Create"))
+            .AddPolicy("CanEditCases",        p => p.RequireClaim("permission", "Cases:Edit"))
+            // Users
+            .AddPolicy("CanViewUsers",        p => p.RequireClaim("permission", "Users:View"))
+            .AddPolicy("CanCreateUsers",      p => p.RequireClaim("permission", "Users:Create"))
+            .AddPolicy("CanManageUsers",      p => p.RequireClaim("permission", "Users:Edit"))
+            .AddPolicy("CanDeleteUsers",      p => p.RequireClaim("permission", "Users:Delete"))
+            // Roles
+            .AddPolicy("CanViewRoles",        p => p.RequireClaim("permission", "Roles:View"))
+            .AddPolicy("CanManageRoles",      p => p.RequireClaim("permission", "Roles:Edit"))
+            // Reports
+            .AddPolicy("CanViewReports",      p => p.RequireClaim("permission", "Reports:View"))
+            .AddPolicy("CanExportReports",    p => p.RequireClaim("permission", "Reports:Create"))
+            // HR
+            .AddPolicy("CanViewHR",           p => p.RequireClaim("permission", "HR:View"))
+            .AddPolicy("CanManageHR",         p => p.RequireClaim("permission", "HR:Edit"))
+            // Payroll
+            .AddPolicy("CanRunPayroll",       p => p.RequireClaim("permission", "Payroll:Create"))
+            .AddPolicy("CanApprovePayroll",   p => p.RequireClaim("permission", "Payroll:Edit"))
+            // Finance
+            .AddPolicy("CanViewFinance",      p => p.RequireClaim("permission", "Finance:View"))
+            .AddPolicy("CanManageFinance",    p => p.RequireClaim("permission", "Finance:Edit"))
+            // System
+            .AddPolicy("CanManageSystem",     p => p.RequireClaim("permission", "System:Edit"))
+            .AddPolicy("CanViewAudit",        p => p.RequireClaim("permission", "Audit:View"));
 
         return services;
     }

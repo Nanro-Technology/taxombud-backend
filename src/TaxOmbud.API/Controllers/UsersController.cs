@@ -94,25 +94,16 @@ public class UsersController : ControllerBase
         return StatusCode(result.StatusCode, result);
     }
 
-    /// <summary>Assign roles to user.</summary>
+    /// <summary>Assign role to user.</summary>
     [HttpPost("{id:guid}/roles")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> AssignRoles(Guid id, [FromBody] AssignRolesRequest request, CancellationToken ct)
+    public async Task<IActionResult> AssignRole(Guid id, [FromBody] AssignRolesRequest request, CancellationToken ct)
     {
-        var result = await _usersService.AssignRolesAsync(new AssignRolesCommand(id, request.RoleIds), ct);
+        var result = await _usersService.AssignRoleAsync(new AssignRolesCommand(id, request.RoleIds), ct);
         return StatusCode(result.StatusCode, result);
     }
 
-    /// <summary>Override user permissions directly.</summary>
-    [HttpPost("{id:guid}/permissions/overrides")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> ApplyPermissionOverrides(Guid id, [FromBody] PermissionOverridesRequest request, CancellationToken ct)
-    {
-        var result = await _usersService.ApplyPermissionOverridesAsync(new ApplyPermissionOverridesCommand(id, request.Overrides), ct);
-        return StatusCode(result.StatusCode, result);
-    }
 
     /// <summary>Update the current authenticated user's own profile.</summary>
     [HttpPatch("me")]

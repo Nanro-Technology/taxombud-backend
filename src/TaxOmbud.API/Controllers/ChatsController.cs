@@ -19,6 +19,13 @@ public class PinMessageRequest
     public bool IsPinned { get; set; }
 }
 
+public class SendMessageRequest
+{
+    public string Content { get; set; } = string.Empty;
+    public IFormFile? Attachment { get; set; }
+    public string ParticipantIdsJson { get; set; } = "[]";
+}
+
 /// <summary>
 /// Real-time messaging between staff and taxpayers, backed by SignalR.
 /// </summary>
@@ -66,30 +73,28 @@ public class ChatsController : ControllerBase
     [Consumes("multipart/form-data")]
     public async Task<IActionResult> SendMessage(
         Guid id,
-        [FromForm] string content,
-        [FromForm] IFormFile? attachment,
-        [FromForm] string participantIdsJson = "[]",
+        [FromForm] SendMessageRequest request,
         CancellationToken ct = default)
     {
         string? attachmentUrl = null;
         string? attachmentFileName = null;
 
-        if (attachment != null && attachment.Length > 0)
+        if (request.Attachment != null && request.Attachment.Length > 0)
         {
             var uploadDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "chats");
             if (!Directory.Exists(uploadDir)) Directory.CreateDirectory(uploadDir);
-            var fileName = $"{Guid.NewGuid()}_{attachment.FileName}";
+            var fileName = $"{Guid.NewGuid()}_{request.Attachment.FileName}";
             var filePath = Path.Combine(uploadDir, fileName);
             using (var stream = new FileStream(filePath, FileMode.Create))
-                await attachment.CopyToAsync(stream);
+                await request.Attachment.CopyToAsync(stream);
             attachmentUrl = $"/uploads/chats/{fileName}";
-            attachmentFileName = attachment.FileName;
+            attachmentFileName = request.Attachment.FileName;
         }
 
-        var result = await _chatsService.SendMessageAsync(new SendMessageCommand(id, content, attachmentUrl, attachmentFileName), ct);
+        var result = await _chatsService.SendMessageAsync(new SendMessageCommand(id, request.Content, attachmentUrl, attachmentFileName), ct);
         if (result == null) return BadRequest("Failed to send message.");
 
-        var participantIds = JsonSerializer.Deserialize<List<string>>(participantIdsJson) ?? new List<string>();
+        var participantIds = JsonSerializer.Deserialize<List<string>>(request.ParticipantIdsJson) ?? new List<string>();
         foreach (var pId in participantIds)
             await _hubContext.Clients.Group(pId).ReceiveMessage(result);
 

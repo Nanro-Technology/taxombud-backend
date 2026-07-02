@@ -7,7 +7,7 @@ namespace TaxOmbud.Infrastructure.Services;
 /// <summary>
 /// Local disk file storage. Drop-in replaced with Azure Blob / AWS S3 in production.
 /// </summary>
-public class LocalFileStorageService : IFileStorageService
+public class LocalFileStorageService : TaxOmbud.Application.Interfaces.InfrastructureService.IFileStorageService, TaxOmbud.Application.Common.Interfaces.IFileStorageService
 {
     private readonly string _storagePath;
     private readonly ILogger<LocalFileStorageService> _logger;
