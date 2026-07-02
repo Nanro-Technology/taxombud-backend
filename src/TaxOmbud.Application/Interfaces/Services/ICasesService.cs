@@ -1,10 +1,6 @@
-using System;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Collections.Generic;
+using TaxOmbud.Application.Cases.DTOs;
 using TaxOmbud.Common.Responses;
 using TaxOmbud.Domain.Common;
-using TaxOmbud.Application.Cases.DTOs;
 
 namespace TaxOmbud.Application.Interfaces.Services;
 

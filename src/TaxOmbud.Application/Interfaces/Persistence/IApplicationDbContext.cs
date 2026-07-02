@@ -1,18 +1,19 @@
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
-using TaxOmbud.Domain.Entities.Identity;
-using TaxOmbud.Domain.Entities.Taxpayers;
-using TaxOmbud.Domain.Entities.Officers;
-using TaxOmbud.Domain.Entities.Complaints;
-using TaxOmbud.Domain.Entities.Cases;
-using TaxOmbud.Domain.Entities.Documents;
-using TaxOmbud.Domain.Entities.Communications;
 using TaxOmbud.Domain.Entities.Appeals;
 using TaxOmbud.Domain.Entities.Appointments;
-using TaxOmbud.Domain.Entities.Notifications;
-using TaxOmbud.Domain.Entities.System;
+using TaxOmbud.Domain.Entities.Cases;
+using TaxOmbud.Domain.Entities.Communications;
+using TaxOmbud.Domain.Entities.Complaints;
+using TaxOmbud.Domain.Entities.Crm;
+using TaxOmbud.Domain.Entities.Documents;
+using TaxOmbud.Domain.Entities.Finance;
 using TaxOmbud.Domain.Entities.Hr;
+using TaxOmbud.Domain.Entities.Identity;
+using TaxOmbud.Domain.Entities.Notifications;
+using TaxOmbud.Domain.Entities.Officers;
+using TaxOmbud.Domain.Entities.Operations;
+using TaxOmbud.Domain.Entities.System;
+using TaxOmbud.Domain.Entities.Taxpayers;
 
 namespace TaxOmbud.Application.Interfaces.Persistence;
 
@@ -91,49 +92,49 @@ public interface IApplicationDbContext
     DbSet<EwaRequest> EwaRequests { get; }
     DbSet<LeaveRequest> LeaveRequests { get; }
 
-    DbSet<TaxOmbud.Domain.Entities.Operations.Project> Projects { get; }
-    DbSet<TaxOmbud.Domain.Entities.Operations.ProjectTask> ProjectTasks { get; }
-    DbSet<TaxOmbud.Domain.Entities.Operations.InventoryItem> InventoryItems { get; }
-    DbSet<TaxOmbud.Domain.Entities.Operations.VendorContact> VendorContacts { get; }
-    DbSet<TaxOmbud.Domain.Entities.Finance.Quote> Quotes { get; }
-    DbSet<TaxOmbud.Domain.Entities.Finance.Contract> Contracts { get; }
-    DbSet<TaxOmbud.Domain.Entities.Finance.QuoteItem> QuoteItems { get; }
-    DbSet<TaxOmbud.Domain.Entities.Finance.ContractReview> ContractReviews { get; }
-    DbSet<TaxOmbud.Domain.Entities.Finance.Invoice> Invoices { get; }
-    DbSet<TaxOmbud.Domain.Entities.Finance.InvoiceItem> InvoiceItems { get; }
-    DbSet<TaxOmbud.Domain.Entities.System.Announcement> Announcements { get; }
-    DbSet<TaxOmbud.Domain.Entities.Appointments.CalendarEvent> CalendarEvents { get; }
-    DbSet<TaxOmbud.Domain.Entities.Communications.AgentChat> AgentChats { get; }
-    DbSet<TaxOmbud.Domain.Entities.System.AnnouncementReadReceipt> AnnouncementReadReceipts { get; }
-    DbSet<TaxOmbud.Domain.Entities.System.DashboardWidget> DashboardWidgets { get; }
-    DbSet<TaxOmbud.Domain.Entities.System.UserDashboardLayout> UserDashboardLayouts { get; }
-    DbSet<TaxOmbud.Domain.Entities.Communications.MailboxMessage> MailboxMessages { get; }
-    DbSet<TaxOmbud.Domain.Entities.Communications.MailboxRecipient> MailboxRecipients { get; }
-    DbSet<TaxOmbud.Domain.Entities.Communications.MailboxAttachment> MailboxAttachments { get; }
-    DbSet<TaxOmbud.Domain.Entities.Hr.PerformanceCycle> PerformanceCycles { get; }
-    DbSet<TaxOmbud.Domain.Entities.Hr.PerformanceGoal> PerformanceGoals { get; }
-    DbSet<TaxOmbud.Domain.Entities.Hr.PerformanceReview> PerformanceReviews { get; }
-    DbSet<TaxOmbud.Domain.Entities.Hr.DisciplinaryCase> DisciplinaryCases { get; }
-    DbSet<TaxOmbud.Domain.Entities.Hr.ExitRecord> ExitRecords { get; }
-    DbSet<TaxOmbud.Domain.Entities.Hr.BenefitType> BenefitTypes { get; }
-    DbSet<TaxOmbud.Domain.Entities.Hr.EmployeeBenefit> EmployeeBenefits { get; }
-    DbSet<TaxOmbud.Domain.Entities.Hr.LeaveTypeEntity> LeaveTypeEntities { get; }
-    DbSet<TaxOmbud.Domain.Entities.Hr.LeaveBalance> LeaveBalances { get; }
-    DbSet<TaxOmbud.Domain.Entities.Hr.StatutoryDeduction> StatutoryDeductions { get; }
-    DbSet<TaxOmbud.Domain.Entities.Hr.StatutoryRule> StatutoryRules { get; }
-    DbSet<TaxOmbud.Domain.Entities.Hr.PayoutProvider> PayoutProviders { get; }
-    DbSet<TaxOmbud.Domain.Entities.Operations.ProjectMember> ProjectMembers { get; }
-    DbSet<TaxOmbud.Domain.Entities.Operations.Ticket> Tickets { get; }
-    DbSet<TaxOmbud.Domain.Entities.Operations.Visitor> Visitors { get; }
-    DbSet<TaxOmbud.Domain.Entities.Hr.AttendanceLog> AttendanceLogs { get; }
-    DbSet<TaxOmbud.Domain.Entities.Hr.Holiday> Holidays { get; }
-    DbSet<TaxOmbud.Domain.Entities.Communications.AgentChatMessage> AgentChatMessages { get; }
-    DbSet<TaxOmbud.Domain.Entities.Communications.AgentChatPreference> AgentChatPreferences { get; }
-    DbSet<TaxOmbud.Domain.Entities.Communications.SmsMessage> SmsMessages { get; }
-    DbSet<TaxOmbud.Domain.Entities.Crm.Organization> Organizations { get; }
-    DbSet<TaxOmbud.Domain.Entities.Crm.Interaction> Interactions { get; }
-    DbSet<TaxOmbud.Domain.Entities.Crm.Call> Calls { get; }
-    DbSet<TaxOmbud.Domain.Entities.Hr.TimeLog> TimeLogs { get; }
+    DbSet<Project> Projects { get; }
+    DbSet<ProjectTask> ProjectTasks { get; }
+    DbSet<InventoryItem> InventoryItems { get; }
+    DbSet<VendorContact> VendorContacts { get; }
+    DbSet<Quote> Quotes { get; }
+    DbSet<Contract> Contracts { get; }
+    DbSet<QuoteItem> QuoteItems { get; }
+    DbSet<ContractReview> ContractReviews { get; }
+    DbSet<Invoice> Invoices { get; }
+    DbSet<InvoiceItem> InvoiceItems { get; }
+    DbSet<Announcement> Announcements { get; }
+    DbSet<CalendarEvent> CalendarEvents { get; }
+    DbSet<AgentChat> AgentChats { get; }
+    DbSet<AnnouncementReadReceipt> AnnouncementReadReceipts { get; }
+    DbSet<DashboardWidget> DashboardWidgets { get; }
+    DbSet<UserDashboardLayout> UserDashboardLayouts { get; }
+    DbSet<MailboxMessage> MailboxMessages { get; }
+    DbSet<MailboxRecipient> MailboxRecipients { get; }
+    DbSet<MailboxAttachment> MailboxAttachments { get; }
+    DbSet<PerformanceCycle> PerformanceCycles { get; }
+    DbSet<PerformanceGoal> PerformanceGoals { get; }
+    DbSet<PerformanceReview> PerformanceReviews { get; }
+    DbSet<DisciplinaryCase> DisciplinaryCases { get; }
+    DbSet<ExitRecord> ExitRecords { get; }
+    DbSet<BenefitType> BenefitTypes { get; }
+    DbSet<EmployeeBenefit> EmployeeBenefits { get; }
+    DbSet<LeaveTypeEntity> LeaveTypeEntities { get; }
+    DbSet<LeaveBalance> LeaveBalances { get; }
+    DbSet<StatutoryDeduction> StatutoryDeductions { get; }
+    DbSet<StatutoryRule> StatutoryRules { get; }
+    DbSet<PayoutProvider> PayoutProviders { get; }
+    DbSet<ProjectMember> ProjectMembers { get; }
+    DbSet<Ticket> Tickets { get; }
+    DbSet<Visitor> Visitors { get; }
+    DbSet<AttendanceLog> AttendanceLogs { get; }
+    DbSet<Holiday> Holidays { get; }
+    DbSet<AgentChatMessage> AgentChatMessages { get; }
+    DbSet<AgentChatPreference> AgentChatPreferences { get; }
+    DbSet<SmsMessage> SmsMessages { get; }
+    DbSet<Organization> Organizations { get; }
+    DbSet<Interaction> Interactions { get; }
+    DbSet<Call> Calls { get; }
+    DbSet<TimeLog> TimeLogs { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
