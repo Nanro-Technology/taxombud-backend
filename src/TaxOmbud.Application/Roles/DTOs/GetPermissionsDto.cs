@@ -10,4 +10,5 @@ namespace TaxOmbud.Application.Roles.DTOs;
 
 public record GetPermissionsQuery() ;
 
-public record PermissionDetailDto(string Code, string Action, string Entity, string? Description);
+/// <summary>Permission DTO: Module (e.g. "Complaints") × Action (e.g. "View").</summary>
+public record PermissionDetailDto(Guid Id, string Module, string Action);

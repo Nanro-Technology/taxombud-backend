@@ -4,7 +4,7 @@ using TaxOmbud.Application.Interfaces.InfrastructureService;
 
 namespace TaxOmbud.Infrastructure.Services;
 
-public class CacheService : ICacheService
+public class CacheService : TaxOmbud.Application.Interfaces.InfrastructureService.ICacheService, TaxOmbud.Application.Common.Interfaces.ICacheService
 {
     private readonly IDistributedCache _cache;
 

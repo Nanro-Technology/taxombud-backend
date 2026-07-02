@@ -177,10 +177,9 @@ public class AuthService : IAuthService
             var emailNormalized = request.Email.Trim().ToLowerInvariant();
 
             var user = await _context.Users
-                .Include(u => u.UserRoles)
-                    .ThenInclude(ur => ur.Role)
-                        .ThenInclude(r => r.RolePermissions)
-                            .ThenInclude(rp => rp.Permission)
+                .Include(u => u.Role)
+                    .ThenInclude(r => r!.RolePermissions)
+                        .ThenInclude(rp => rp.Permission)
                 .FirstOrDefaultAsync(u => u.Email == emailNormalized, cancellationToken);
 
             if (user is null || !_passwordHasher.Verify(request.Password, user.PasswordHash))
@@ -197,18 +196,16 @@ public class AuthService : IAuthService
                 return response;
             }
 
-            var roles = user.UserRoles
-                .Where(ur => ur.Role != null)
-                .Select(ur => ur.Role.Name)
-                .ToList();
+            var roles = user.Role is not null
+                ? new List<string> { user.Role.Name }
+                : new List<string>();
 
-            var permissions = user.UserRoles
-                .Where(ur => ur.Role != null)
-                .SelectMany(ur => ur.Role.RolePermissions)
+            // Emit permissions as "Module:Action" strings (matched by auth policies)
+            var permissions = user.Role?.RolePermissions
                 .Where(rp => rp.Permission != null)
-                .Select(rp => rp.Permission.Code)
+                .Select(rp => $"{rp.Permission.Module}:{rp.Permission.Action}")
                 .Distinct()
-                .ToList();
+                .ToList() ?? new List<string>();
 
             var accessToken = _tokenService.GenerateAccessToken(user.Id, user.Email, roles, permissions);
             var (refreshToken, refreshExpiry) = _tokenService.GenerateRefreshToken();
@@ -277,10 +274,9 @@ public class AuthService : IAuthService
         {
             var storedToken = await _context.RefreshTokens
                 .Include(rt => rt.User)
-                    .ThenInclude(u => u.UserRoles)
-                        .ThenInclude(ur => ur.Role)
-                            .ThenInclude(r => r.RolePermissions)
-                                .ThenInclude(rp => rp.Permission)
+                    .ThenInclude(u => u.Role)
+                        .ThenInclude(r => r!.RolePermissions)
+                            .ThenInclude(rp => rp.Permission)
                 .FirstOrDefaultAsync(rt => rt.Token == request.Token, cancellationToken);
 
             if (storedToken is null)
@@ -306,18 +302,15 @@ public class AuthService : IAuthService
 
             var user = storedToken.User;
 
-            var roles = user.UserRoles
-                .Where(ur => ur.Role != null)
-                .Select(ur => ur.Role.Name)
-                .ToList();
+            var roles = user.Role is not null
+                ? new List<string> { user.Role.Name }
+                : new List<string>();
 
-            var permissions = user.UserRoles
-                .Where(ur => ur.Role != null)
-                .SelectMany(ur => ur.Role.RolePermissions)
+            var permissions = user.Role?.RolePermissions
                 .Where(rp => rp.Permission != null)
-                .Select(rp => rp.Permission.Code)
+                .Select(rp => $"{rp.Permission.Module}:{rp.Permission.Action}")
                 .Distinct()
-                .ToList();
+                .ToList() ?? new List<string>();
 
             // Rotate: revoke old, issue new
             storedToken.Revoke();
@@ -378,7 +371,7 @@ public class AuthService : IAuthService
             user.SetPasswordHash(_passwordHasher.Hash(request.Password));
 
             if (taxpayerRole != null)
-                user.AddRole(taxpayerRole.Id);
+                user.AssignRole(taxpayerRole.Id);
 
             _context.Users.Add(user);
             await _context.SaveChangesAsync(cancellationToken);

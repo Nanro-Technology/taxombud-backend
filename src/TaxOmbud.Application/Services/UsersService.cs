@@ -37,7 +37,7 @@ public class UsersService : IUsersService
         {
             var query = _context.Users
                 .Include(u => u.Department)
-                .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
+                .Include(u => u.Role)
                 .AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(request.Search))
@@ -69,7 +69,7 @@ public class UsersService : IUsersService
                     u.Department == null ? null : new DepartmentDto(u.Department.Id, u.Department.Name),
                     u.Status.ToString(),
                     u.CanSignIn,
-                    u.UserRoles.Select(ur => new RoleDto(ur.Role.Id, ur.Role.Name, ur.Role.Code))
+                    u.Role == null ? null : new RoleDto(u.Role.Id, u.Role.Name)
                 ))
                 .ToListAsync(cancellationToken);
 
@@ -92,8 +92,7 @@ public class UsersService : IUsersService
         {
             var u = await _context.Users
                 .Include(x => x.Department)
-                .Include(x => x.UserRoles).ThenInclude(ur => ur.Role)
-                .Include(x => x.UserPermissionOverrides).ThenInclude(po => po.Permission)
+                .Include(x => x.Role)
                 .FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken);
 
             if (u is null)
@@ -130,8 +129,7 @@ public class UsersService : IUsersService
 
             var u = await _context.Users
                 .Include(x => x.Department)
-                .Include(x => x.UserRoles).ThenInclude(ur => ur.Role)
-                .Include(x => x.UserPermissionOverrides).ThenInclude(po => po.Permission)
+                .Include(x => x.Role)
                 .FirstOrDefaultAsync(x => x.Id == userId.Value, cancellationToken);
 
             if (u is null)
@@ -356,13 +354,12 @@ public class UsersService : IUsersService
         return response;
     }
 
-    public async Task<Response<object?>> AssignRolesAsync(AssignRolesCommand request, CancellationToken cancellationToken = default)
+    public async Task<Response<object?>> AssignRoleAsync(AssignRolesCommand request, CancellationToken cancellationToken = default)
     {
         var response = new Response<object?>();
         try
         {
             var user = await _context.Users
-                .Include(u => u.UserRoles)
                 .FirstOrDefaultAsync(u => u.Id == request.Id, cancellationToken);
 
             if (user is null)
@@ -372,78 +369,25 @@ public class UsersService : IUsersService
                 return response;
             }
 
-            // Remove existing roles and re-assign
-            _context.UserRoles.RemoveRange(user.UserRoles);
-
-            foreach (var roleId in request.RoleIds)
-            {
-                _context.UserRoles.Add(new UserRole
-                {
-                    UserId = request.Id,
-                    RoleId = roleId
-                });
-            }
+            // Estate Management pattern: one role per user
+            var roleId = request.RoleIds.FirstOrDefault();
+            user.AssignRole(roleId == Guid.Empty ? null : roleId);
 
             await _context.SaveChangesAsync(cancellationToken);
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Roles assigned successfully.";
+            response.Message = "Role assigned successfully.";
         }
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = "An error occurred while assigning roles.";
+            response.Message = "An error occurred while assigning role.";
         }
         return response;
     }
 
-    public async Task<Response<object?>> ApplyPermissionOverridesAsync(ApplyPermissionOverridesCommand request, CancellationToken cancellationToken = default)
-    {
-        var response = new Response<object?>();
-        try
-        {
-            var user = await _context.Users
-                .Include(u => u.UserPermissionOverrides)
-                .FirstOrDefaultAsync(u => u.Id == request.Id, cancellationToken);
-
-            if (user is null)
-            {
-                response.StatusCode = StatusCodes.Status404NotFound;
-                response.Message = "User not found.";
-                return response;
-            }
-
-            // Remove existing overrides and apply new ones
-            _context.UserPermissionOverrides.RemoveRange(user.UserPermissionOverrides);
-
-            foreach (var o in request.Overrides)
-            {
-                var permission = await _context.Permissions
-                    .FirstOrDefaultAsync(p => p.Code == o.PermissionCode, cancellationToken);
-
-                if (permission is not null)
-                {
-                    _context.UserPermissionOverrides.Add(new UserPermissionOverride
-                    {
-                        UserId = request.Id,
-                        PermissionCode = permission.Code,
-                        Mode = o.Mode
-                    });
-                }
-            }
-
-            await _context.SaveChangesAsync(cancellationToken);
-
-            response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Permission overrides applied successfully.";
-        }
-        catch (Exception)
-        {
-            response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = "An error occurred while applying permission overrides.";
-        }
-        return response;
-    }
+    // ApplyPermissionOverridesAsync removed — UserPermissionOverride entity has been deleted
+    // as part of the Estate Management RBAC refactor (permissions are role-based only).
 
     // ─── Private helpers ──────────────────────────────────────────────────────
 
@@ -460,7 +404,6 @@ public class UsersService : IUsersService
         u.Department == null ? null : new DepartmentDetailDto(u.Department.Id, u.Department.Name),
         u.Status.ToString(),
         u.CanSignIn,
-        u.UserRoles.Select(ur => new RoleDetailDto(ur.Role.Id, ur.Role.Name, ur.Role.Code)),
-        u.UserPermissionOverrides.Select(po => new PermissionOverrideDetailDto(po.Permission.Code, po.Mode))
+        u.Role == null ? null : new RoleDetailDto(u.Role.Id, u.Role.Name, u.Role.IsSystemRole)
     );
 }

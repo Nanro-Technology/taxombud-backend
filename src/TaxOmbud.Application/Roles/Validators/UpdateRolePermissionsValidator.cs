@@ -13,6 +13,6 @@ public class UpdateRolePermissionsCommandValidator : AbstractValidator<UpdateRol
     public UpdateRolePermissionsCommandValidator()
     {
         RuleFor(x => x.RoleId).NotEmpty();
-        RuleFor(x => x.PermissionCodes).NotNull();
+        RuleFor(x => x.PermissionIds).NotNull();
     }
 }

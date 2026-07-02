@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using TaxOmbud.Domain.Common;
 using TaxOmbud.Domain.Enums;
 using TaxOmbud.Domain.ValueObjects;
@@ -52,9 +54,15 @@ public class User : BaseAuditableEntity
         }
     }
 
+    // ─── Role (Estate Management pattern: one role per user via FK) ───────────
+    /// <summary>
+    /// The single role assigned to this user. All permissions are derived
+    /// from this role's RolePermissions collection.
+    /// </summary>
+    public Guid? RoleId { get; private set; }
+    public Role? Role { get; private set; }
+
     // Navigation
-    public ICollection<UserRole> UserRoles { get; private set; } = new List<UserRole>();
-    public ICollection<UserPermissionOverride> UserPermissionOverrides { get; private set; } = new List<UserPermissionOverride>();
     public ICollection<RefreshToken> RefreshTokens { get; private set; } = new List<RefreshToken>();
     public MfaToken? MfaToken { get; private set; }
 
@@ -77,10 +85,8 @@ public class User : BaseAuditableEntity
     // ─── Mutators ─────────────────────────────────────────────────────────────────
     public void SetPasswordHash(string hash) => PasswordHash = hash;
 
-    public void AddRole(Guid roleId)
-    {
-        UserRoles.Add(new UserRole { UserId = Id, RoleId = roleId });
-    }
+    /// <summary>Assigns the user to a single role (Estate Management pattern).</summary>
+    public void AssignRole(Guid? roleId) => RoleId = roleId;
 
     public void Deactivate()
     {

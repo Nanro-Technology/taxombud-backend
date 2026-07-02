@@ -70,7 +70,7 @@ public class RolesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> UpdateRolePermissions(Guid id, [FromBody] UpdateRolePermissionsRequest request, CancellationToken ct)
     {
-        var result = await _rolesService.UpdateRolePermissionsAsync(new UpdateRolePermissionsCommand(id, request.PermissionCodes), ct);
+        var result = await _rolesService.UpdateRolePermissionsAsync(new UpdateRolePermissionsCommand(id, request.PermissionIds), ct);
         return StatusCode(result.StatusCode, result);
     }
 }

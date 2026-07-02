@@ -8,7 +8,7 @@ using TaxOmbud.Infrastructure.Options;
 
 namespace TaxOmbud.Infrastructure.Services;
 
-public class TokenService : ITokenService
+public class TokenService : TaxOmbud.Application.Interfaces.InfrastructureService.ITokenService, TaxOmbud.Application.Common.Interfaces.ITokenService
 {
     private readonly JwtOptions _options;
     private readonly RsaSecurityKey _privateKey;
