@@ -1,13 +1,13 @@
-using System.Net;
-using System.Net.Mail;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using System.Net;
+using System.Net.Mail;
 using TaxOmbud.Application.Interfaces.InfrastructureService;
 using TaxOmbud.Common.Config;
 
 namespace TaxOmbud.Infrastructure.EmailServices;
 
-public class SmtpEmailService : TaxOmbud.Application.Interfaces.InfrastructureService.IEmailService, TaxOmbud.Application.Common.Interfaces.IEmailService
+public class SmtpEmailService : IEmailService
 {
     private readonly SmtpOptions _options;
     private readonly ILogger<SmtpEmailService> _logger;

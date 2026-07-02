@@ -3,7 +3,9 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Cryptography;
-using TaxOmbud.Application.Common.Interfaces;
+using TaxOmbud.Application.Interfaces.InfrastructureService;
+using TaxOmbud.Domain.Entities.Identity;
+using TaxOmbud.Infrastructure.EmailServices;
 using TaxOmbud.Infrastructure.Options;
 using TaxOmbud.Infrastructure.Services;
 
@@ -30,14 +32,11 @@ public static class DependencyInjection
         {
             services.AddDistributedMemoryCache(); // dev fallback
         }
-        services.AddScoped<TaxOmbud.Application.Interfaces.InfrastructureService.ICacheService, CacheService>();
-        services.AddScoped<TaxOmbud.Application.Common.Interfaces.ICacheService, CacheService>();
+        services.AddScoped<ICacheService, CacheService>();
 
-        services.AddSingleton<TaxOmbud.Application.Interfaces.InfrastructureService.ICryptoService, CryptoService>();
-        services.AddSingleton<TaxOmbud.Application.Common.Interfaces.ICryptoService, CryptoService>();
+        services.AddSingleton<ICryptoService, CryptoService>();
 
-        services.AddSingleton<TaxOmbud.Application.Interfaces.InfrastructureService.IEncryptionService, EncryptionService>();
-        services.AddSingleton<TaxOmbud.Application.Common.Interfaces.IEncryptionService, EncryptionService>();
+        services.AddSingleton<IEncryptionService, EncryptionService>();
 
         // ─── Hangfire Background Jobs ─────────────────────────────────────────
         var databaseProvider = configuration.GetValue<string>("DatabaseProvider");
@@ -73,17 +72,13 @@ public static class DependencyInjection
         services.AddHangfireServer();
 
         // ─── Application Services ─────────────────────────────────────────────
-        services.AddScoped<TaxOmbud.Application.Interfaces.InfrastructureService.ITokenService, TokenService>();
-        services.AddScoped<TaxOmbud.Application.Common.Interfaces.ITokenService, TokenService>();
+        services.AddScoped<ITokenService, TokenService>();
 
-        services.AddScoped<TaxOmbud.Application.Interfaces.InfrastructureService.IPasswordHasher, PasswordHasher>();
-        services.AddScoped<TaxOmbud.Application.Common.Interfaces.IPasswordHasher, PasswordHasher>();
+        services.AddScoped<IPasswordHasher, PasswordHasher>();
 
-        services.AddScoped<TaxOmbud.Application.Interfaces.InfrastructureService.IEmailService, TaxOmbud.Infrastructure.EmailServices.SmtpEmailService>();
-        services.AddScoped<TaxOmbud.Application.Common.Interfaces.IEmailService, TaxOmbud.Infrastructure.EmailServices.SmtpEmailService>();
+        services.AddScoped<IEmailService, SmtpEmailService>();
 
-        services.AddScoped<TaxOmbud.Application.Interfaces.InfrastructureService.IFileStorageService, LocalFileStorageService>();
-        services.AddScoped<TaxOmbud.Application.Common.Interfaces.IFileStorageService, LocalFileStorageService>();
+        services.AddScoped<IFileStorageService, LocalFileStorageService>();
 
         // ─── JWT Authentication ───────────────────────────────────────────────
         // NOTE: DbContext and database config are registered in
@@ -115,7 +110,7 @@ public static class DependencyInjection
         // ─── Authorization (permission-claim based — no hardcoded role strings) ──
         services.AddAuthorizationBuilder()
             .AddPolicy("RequireAuthenticated", p => p.RequireAuthenticatedUser())
-            .AddPolicy("AdminOnly", p => p.RequireRole(TaxOmbud.Domain.Entities.Identity.RoleConstants.SuperAdmin, TaxOmbud.Domain.Entities.Identity.RoleConstants.Admin))
+            .AddPolicy("AdminOnly", p => p.RequireRole(RoleConstants.SuperAdmin, RoleConstants.Admin))
             // Complaints
             .AddPolicy("CanViewComplaints",   p => p.RequireClaim("permission", "Complaints:View"))
             .AddPolicy("CanCreateComplaints", p => p.RequireClaim("permission", "Complaints:Create"))

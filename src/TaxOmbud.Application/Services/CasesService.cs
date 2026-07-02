@@ -6,8 +6,7 @@ using System.Collections.Generic;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using TaxOmbud.Application.Cases.DTOs;
-using TaxOmbud.Application.Common.Interfaces;
-using TaxOmbud.Application.Common.Models;
+using TaxOmbud.Application.Interfaces.Persistence;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Common.Responses;
 using TaxOmbud.Domain.Common;
@@ -134,8 +133,9 @@ public class CasesService : ICasesService
         return response;
     }
 
-    public async Task<Result<PagedResult<CaseListDto>>> GetOverdueCasesAsync(GetOverdueCasesQuery request, CancellationToken cancellationToken = default)
+    public async Task<Response<PagedResult<CaseListDto>>> GetOverdueCasesAsync(GetOverdueCasesQuery request, CancellationToken cancellationToken = default)
     {
+        var response = new Response<PagedResult<CaseListDto>>();
         try
         {
             var now = DateTimeOffset.UtcNow;
@@ -165,12 +165,15 @@ public class CasesService : ICasesService
                 ))
                 .ToListAsync(cancellationToken);
 
-            return Result<PagedResult<CaseListDto>>.Success(new PagedResult<CaseListDto>(items, total, request.Page, request.PageSize));
+            response.Data = new PagedResult<CaseListDto>(items, total, request.Page, request.PageSize);
+            response.StatusCode = StatusCodes.Status200OK;
         }
         catch (Exception ex)
         {
-            return Result<PagedResult<CaseListDto>>.Failure(ex.Message);
+            response.StatusCode = StatusCodes.Status500InternalServerError;
+            response.Message = ex.Message;
         }
+        return response;
     }
 
     public async Task<Response<QueueResultDto>> GetQueueAsync(GetQueueQuery request, CancellationToken cancellationToken = default)

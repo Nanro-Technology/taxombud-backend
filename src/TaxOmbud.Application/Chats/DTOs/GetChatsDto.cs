@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using TaxOmbud.Common.Responses;
-
 namespace TaxOmbud.Application.Chats.DTOs;
 
 public record GetChatsQuery;

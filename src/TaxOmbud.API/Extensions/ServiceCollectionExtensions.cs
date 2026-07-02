@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.RateLimiting;
 using TaxOmbud.Api.Services;
-using TaxOmbud.Application.Interfaces.InfrastructureService;
 
 namespace TaxOmbud.Api.Extensions;
 
@@ -17,7 +16,6 @@ public static class ServiceCollectionExtensions
         // ─── HTTP Context & Current User ──────────────────────────────────────
         services.AddHttpContextAccessor();
         services.AddScoped<TaxOmbud.Application.Interfaces.InfrastructureService.ICurrentUser, CurrentUserService>();
-        services.AddScoped<TaxOmbud.Application.Common.Interfaces.ICurrentUser, CurrentUserService>();
 
         // ─── Real-time ────────────────────────────────────────────────────────
         services.AddSignalR();

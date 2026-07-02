@@ -7,7 +7,6 @@ using System.Security.Cryptography;
 using TaxOmbud.Application.Interfaces.InfrastructureService;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Common.Config;
-using TaxOmbud.Infrastructure.EmailServices;
 using TaxOmbud.Infrastructure.HangfireServices;
 using TaxOmbud.Infrastructure.Services;
 

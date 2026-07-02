@@ -20,7 +20,7 @@ using TaxOmbud.Application.Interfaces.InfrastructureService;
 
 namespace TaxOmbud.Persistence.Data;
 
-public class ApplicationDbContext : DbContext, IApplicationDbContext, TaxOmbud.Application.Common.Interfaces.IApplicationDbContext
+public class ApplicationDbContext : DbContext, IApplicationDbContext
 {
     private readonly ICurrentUser _currentUser;
 

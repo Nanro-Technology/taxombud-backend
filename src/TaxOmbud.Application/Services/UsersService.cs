@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
-using TaxOmbud.Application.Common.Interfaces;
+using TaxOmbud.Application.Interfaces.Persistence;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Application.Users.DTOs;
 using TaxOmbud.Common.Responses;
@@ -18,10 +18,10 @@ namespace TaxOmbud.Application.Services;
 public class UsersService : IUsersService
 {
     private readonly IApplicationDbContext _context;
-    private readonly TaxOmbud.Application.Common.Interfaces.ICurrentUser _currentUser;
-    private readonly TaxOmbud.Application.Common.Interfaces.IPasswordHasher _passwordHasher;
+    private readonly ICurrentUser _currentUser;
+    private readonly IPasswordHasher _passwordHasher;
 
-    public UsersService(IApplicationDbContext context, TaxOmbud.Application.Common.Interfaces.ICurrentUser currentUser, TaxOmbud.Application.Common.Interfaces.IPasswordHasher passwordHasher)
+    public UsersService(IApplicationDbContext context, ICurrentUser currentUser, IPasswordHasher passwordHasher)
     {
         _context = context;
         _currentUser = currentUser;

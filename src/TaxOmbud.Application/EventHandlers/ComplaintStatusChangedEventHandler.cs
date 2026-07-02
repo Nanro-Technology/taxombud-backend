@@ -1,7 +1,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
-using TaxOmbud.Application.Common.Interfaces;
+using TaxOmbud.Application.Interfaces.Persistence;
 using TaxOmbud.Domain.Entities.Complaints;
 using TaxOmbud.Domain.Events.Complaints;
 
