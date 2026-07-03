@@ -1,10 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using TaxOmbud.Common.Responses;
-
 namespace TaxOmbud.Application.Taxpayers.DTOs;
 
 public record VerifyNinQuery(string Nin) ;

@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using TaxOmbud.Domain.Entities.Identity;
+using TaxOmbud.Domain.Enums;
+
 
 namespace TaxOmbud.Persistence.Configurations;
 
@@ -86,7 +88,8 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.Email).HasMaxLength(256).IsRequired();
         builder.HasIndex(u => u.Email).IsUnique();
 
-        builder.Property(u => u.Username).HasMaxLength(256).IsRequired();
+        builder.Ignore(u => u.Username);
+        builder.Property(u => u.UserName).HasMaxLength(256).IsRequired();
         builder.Property(u => u.FirstName).HasMaxLength(100).IsRequired();
         builder.Property(u => u.LastName).HasMaxLength(100).IsRequired();
         builder.Property(u => u.PasswordHash).HasMaxLength(512).IsRequired();
@@ -98,6 +101,11 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.Status)
             .HasConversion<string>()
             .HasMaxLength(30);
+
+        builder.Property(u => u.UserType)
+            .HasConversion<string>()
+            .HasMaxLength(30)
+            .IsRequired();
 
         // Soft delete query filter
         builder.HasQueryFilter(u => !u.IsDeleted);

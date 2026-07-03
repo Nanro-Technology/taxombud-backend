@@ -1,19 +1,13 @@
-using System;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Http;
-using TaxOmbud.Common.Responses;
-using TaxOmbud.Application.Auth.DTOs;
-using TaxOmbud.Application.Interfaces.Persistence;
-using TaxOmbud.Application.Interfaces.InfrastructureService;
-using TaxOmbud.Application.Interfaces.Services;
-using TaxOmbud.Domain.Enums;
-using TaxOmbud.Domain.Entities.Identity;
-using TaxOmbud.Domain.ValueObjects;
 using OtpNet;
+using TaxOmbud.Application.Auth.DTOs;
+using TaxOmbud.Application.Interfaces.InfrastructureService;
+using TaxOmbud.Application.Interfaces.Persistence;
+using TaxOmbud.Application.Interfaces.Services;
+using TaxOmbud.Common.Responses;
+using TaxOmbud.Common.Utilities;
+using TaxOmbud.Domain.Entities.Identity;
+using TaxOmbud.Domain.Enums;
 
 namespace TaxOmbud.Application.Services;
 
@@ -52,7 +46,7 @@ public class AuthService : IAuthService
                 return response;
             }
 
-            if (!_passwordHasher.Verify(request.CurrentPassword, user.PasswordHash))
+            if (!_passwordHasher.Verify(request.CurrentPassword, user.PasswordHash ?? string.Empty))
             {
                 response.StatusCode = StatusCodes.Status400BadRequest;
                 response.Message = "Current password is incorrect.";
@@ -98,7 +92,7 @@ public class AuthService : IAuthService
             }
 
             // Require password confirmation before disabling MFA
-            if (!_passwordHasher.Verify(request.Password, user.PasswordHash))
+            if (!_passwordHasher.Verify(request.Password, user.PasswordHash ?? string.Empty))
             {
                 response.StatusCode = StatusCodes.Status400BadRequest;
                 response.Message = "Password confirmation failed.";
@@ -153,7 +147,7 @@ public class AuthService : IAuthService
 
             // Send email with reset link
             await _emailService.SendAsync(
-                to: user.Email,
+                to: user.Email ?? string.Empty,
                 subject: "Reset your TaxOmbud password",
                 htmlBody: $"Use this token to reset your password: {token}\n\nThis link expires in 1 hour.",
                 cancellationToken: cancellationToken);
@@ -182,7 +176,7 @@ public class AuthService : IAuthService
                         .ThenInclude(rp => rp.Permission)
                 .FirstOrDefaultAsync(u => u.Email == emailNormalized, cancellationToken);
 
-            if (user is null || !_passwordHasher.Verify(request.Password, user.PasswordHash))
+            if (user is null || !_passwordHasher.Verify(request.Password, user.PasswordHash ?? string.Empty))
             {
                 response.StatusCode = StatusCodes.Status400BadRequest;
                 response.Message = "Invalid email or password.";
@@ -207,7 +201,7 @@ public class AuthService : IAuthService
                 .Distinct()
                 .ToList() ?? new List<string>();
 
-            var accessToken = _tokenService.GenerateAccessToken(user.Id, user.Email, roles, permissions);
+            var accessToken = _tokenService.GenerateAccessToken(user.Id, user.Email ?? string.Empty, user.UserType, roles, permissions);
             var (refreshToken, refreshExpiry) = _tokenService.GenerateRefreshToken();
 
             // Persist refresh token
@@ -217,7 +211,7 @@ public class AuthService : IAuthService
                 UserId = user.Id,
                 Token = refreshToken,
                 ExpiresAt = refreshExpiry,
-                CreatedAt = DateTimeOffset.UtcNow
+                CreatedAt = DateTime.UtcNow
             };
             _context.RefreshTokens.Add(rt);
             await _context.SaveChangesAsync(cancellationToken);
@@ -315,7 +309,7 @@ public class AuthService : IAuthService
             // Rotate: revoke old, issue new
             storedToken.Revoke();
 
-            var accessToken = _tokenService.GenerateAccessToken(user.Id, user.Email, roles, permissions);
+            var accessToken = _tokenService.GenerateAccessToken(user.Id, user.Email ?? string.Empty, user.UserType, roles, permissions);
             var (newRefreshToken, expiry) = _tokenService.GenerateRefreshToken();
 
             var newRt = new RefreshToken
@@ -324,7 +318,7 @@ public class AuthService : IAuthService
                 UserId = user.Id,
                 Token = newRefreshToken,
                 ExpiresAt = expiry,
-                CreatedAt = DateTimeOffset.UtcNow,
+                CreatedAt = DateTime.UtcNow,
                 ReplacedByToken = null
             };
             storedToken.ReplacedByToken = newRefreshToken;
@@ -367,7 +361,7 @@ public class AuthService : IAuthService
 
             // Create user
             var emailVo = new Email(request.Email);
-            var user = User.Create(request.FirstName, request.LastName, emailVo, request.PhoneNumber);
+            var user = User.Create(request.FirstName, request.LastName, emailVo, request.PhoneNumber, UserType.RegisteredTaxpayer);
             user.SetPasswordHash(_passwordHasher.Hash(request.Password));
 
             if (taxpayerRole != null)
@@ -378,7 +372,7 @@ public class AuthService : IAuthService
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Success";
-            response.Data = new RegisterResponse(user.Id, user.Email, user.FullName);
+            response.Data = new RegisterResponse(user.Id, user.Email ?? string.Empty, user.FullName);
         }
         catch (Exception ex)
         {
@@ -485,7 +479,7 @@ public class AuthService : IAuthService
 
             await _context.SaveChangesAsync(cancellationToken);
 
-            var label = Uri.EscapeDataString(user.Email);
+            var label = Uri.EscapeDataString(user.Email ?? string.Empty);
             var issuer = Uri.EscapeDataString("TaxOmbud");
             var qrUri = $"otpauth://totp/{issuer}:{label}?secret={secretBase32}&issuer={issuer}&algorithm=SHA1&digits=6&period=30";
 

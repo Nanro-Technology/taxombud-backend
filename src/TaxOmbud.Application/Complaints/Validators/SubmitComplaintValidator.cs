@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using TaxOmbud.Domain.Entities.Complaints;
-using TaxOmbud.Domain.ValueObjects;
+using TaxOmbud.Common.Utilities;
 
 namespace TaxOmbud.Application.Complaints.Validators;
 

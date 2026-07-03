@@ -4,7 +4,7 @@ using TaxOmbud.Domain.Common;
 namespace TaxOmbud.Domain.Entities.Officers;
 
 /// <summary>Tracks active case assignments for workload balancing.</summary>
-public class OfficerCaseload : BaseAuditableEntity
+public class OfficerCaseload : BaseEntity
 {
     public Guid OfficerProfileId { get; set; }
     public OfficerProfile OfficerProfile { get; set; } = null!;

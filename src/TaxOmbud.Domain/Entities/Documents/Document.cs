@@ -3,7 +3,7 @@ using TaxOmbud.Domain.Enums;
 
 namespace TaxOmbud.Domain.Entities.Documents;
 
-public class Document : BaseAuditableEntity
+public class Document : BaseEntity
 {
     public string FileName { get; set; } = null!;
     public string FilePath { get; set; } = null!;

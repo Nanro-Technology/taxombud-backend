@@ -4,7 +4,7 @@ using TaxOmbud.Domain.Entities.Identity;
 
 namespace TaxOmbud.Domain.Entities.Hr;
 
-public class PayrollRun : BaseAuditableEntity
+public class PayrollRun : BaseEntity
 {
     public Guid PeriodId { get; set; }
     public PayrollPeriod Period { get; set; } = null!;

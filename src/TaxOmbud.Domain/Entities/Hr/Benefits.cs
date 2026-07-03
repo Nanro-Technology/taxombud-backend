@@ -3,7 +3,7 @@ using TaxOmbud.Domain.Common;
 
 namespace TaxOmbud.Domain.Entities.Hr;
 
-public class BenefitType : BaseAuditableEntity
+public class BenefitType : BaseEntity
 {
     public string Name { get; set; } = null!;
     public string Code { get; set; } = null!;
@@ -15,7 +15,7 @@ public class BenefitType : BaseAuditableEntity
     public bool IsActive { get; set; } = true;
 }
 
-public class EmployeeBenefit : BaseAuditableEntity
+public class EmployeeBenefit : BaseEntity
 {
     public Guid EmployeeId { get; set; }
     

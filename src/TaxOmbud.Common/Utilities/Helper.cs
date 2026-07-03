@@ -52,3 +52,82 @@ public static class Helper
     public static int ClampPageSize(int pageSize, int max = 100)
         => Math.Clamp(pageSize, 1, max);
 }
+
+public record Email
+{
+    public string Value { get; }
+
+    public Email(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw new ArgumentException("Email cannot be empty.", nameof(value));
+        }
+
+        string trimmed = value.Trim();
+        if (!trimmed.Contains("@") || !trimmed.Contains("."))
+        {
+            throw new ArgumentException("Invalid email format.", nameof(value));
+        }
+
+        Value = trimmed.ToLowerInvariant();
+    }
+
+    public override string ToString() => Value;
+}
+
+public record ReferenceNumber
+{
+    public string Value { get; }
+
+    private ReferenceNumber(string value) => Value = value;
+
+    /// <summary>Creates and validates a reference number from an existing string.</summary>
+    public static ReferenceNumber From(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            throw new ArgumentException("Reference number cannot be empty.", nameof(value));
+
+        return new ReferenceNumber(value.Trim().ToUpperInvariant());
+    }
+
+    /// <summary>Generates a new unique reference number with the given prefix.</summary>
+    /// <param name="prefix">e.g. CMP, CASE, APL, APT</param>
+    public static string Generate(string prefix)
+    {
+        if (string.IsNullOrWhiteSpace(prefix))
+            throw new ArgumentException("Prefix cannot be empty.", nameof(prefix));
+
+        var datePart = DateTimeOffset.UtcNow.ToString("yyyyMMdd");
+        var randomPart = Guid.NewGuid().ToString("N")[..6].ToUpperInvariant();
+        return $"{prefix.ToUpperInvariant()}-{datePart}-{randomPart}";
+    }
+
+    public override string ToString() => Value;
+}
+
+public record TaxIdentificationNumber
+{
+    private static readonly Regex TinRegex = new(@"^\d{10,12}$", RegexOptions.Compiled);
+
+    public string Value { get; }
+
+    public TaxIdentificationNumber(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw new ArgumentException("Tax Identification Number cannot be empty.", nameof(value));
+        }
+
+        string cleaned = value.Replace("-", "").Replace(" ", "").Trim();
+
+        if (!TinRegex.IsMatch(cleaned))
+        {
+            throw new ArgumentException("Tax Identification Number must be between 10 and 12 digits.", nameof(value));
+        }
+
+        Value = cleaned;
+    }
+
+    public override string ToString() => Value;
+}

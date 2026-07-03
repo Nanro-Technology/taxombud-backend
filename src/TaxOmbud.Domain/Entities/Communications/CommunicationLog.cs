@@ -5,7 +5,7 @@ using TaxOmbud.Domain.Enums;
 namespace TaxOmbud.Domain.Entities.Communications;
 
 /// <summary>Immutable record of every communication sent or received.</summary>
-public class CommunicationLog : BaseAuditableEntity
+public class CommunicationLog : BaseEntity
 {
     public Guid? RelatedEntityId { get; set; }         // FK to complaint / case / appeal
     public string? RelatedEntityType { get; set; }     // "Complaint", "Case", "Appeal"

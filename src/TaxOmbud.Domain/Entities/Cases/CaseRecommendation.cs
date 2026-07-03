@@ -3,7 +3,7 @@ using TaxOmbud.Domain.Common;
 
 namespace TaxOmbud.Domain.Entities.Cases;
 
-public class CaseRecommendation : BaseAuditableEntity
+public class CaseRecommendation : BaseEntity
 {
     public Guid CaseId { get; set; }
     public Case Case { get; set; } = null!;

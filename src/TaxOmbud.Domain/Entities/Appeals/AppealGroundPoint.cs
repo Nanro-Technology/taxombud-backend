@@ -4,7 +4,7 @@ using TaxOmbud.Domain.Common;
 namespace TaxOmbud.Domain.Entities.Appeals;
 
 /// <summary>A single ground point raised in an appeal submission.</summary>
-public class AppealGroundPoint : BaseAuditableEntity
+public class AppealGroundPoint : BaseEntity
 {
     public Guid AppealId { get; set; }
     public Appeal Appeal { get; set; } = null!;

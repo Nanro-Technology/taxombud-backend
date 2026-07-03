@@ -4,6 +4,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using TaxOmbud.Application.Interfaces.InfrastructureService;
+using TaxOmbud.Domain.Enums;
 using TaxOmbud.Infrastructure.Options;
 
 namespace TaxOmbud.Infrastructure.Services;
@@ -27,14 +28,15 @@ public class TokenService : ITokenService
         _publicKey = new RsaSecurityKey(publicRsa);
     }
 
-    public string GenerateAccessToken(Guid userId, string email, IEnumerable<string> roles, IEnumerable<string> permissions)
+    public string GenerateAccessToken(Guid userId, string email, UserType userType, IEnumerable<string> roles, IEnumerable<string> permissions)
     {
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, userId.ToString()),
             new(JwtRegisteredClaimNames.Email, email),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-            new(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64)
+            new(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64),
+            new("user_type", userType.ToString())
         };
 
         foreach (var role in roles)

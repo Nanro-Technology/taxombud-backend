@@ -3,7 +3,7 @@ using TaxOmbud.Domain.Common;
 
 namespace TaxOmbud.Domain.Entities.Documents;
 
-public class DocumentVersion : BaseAuditableEntity
+public class DocumentVersion : BaseEntity
 {
     public Guid DocumentId { get; set; }
     public Document Document { get; set; } = null!;

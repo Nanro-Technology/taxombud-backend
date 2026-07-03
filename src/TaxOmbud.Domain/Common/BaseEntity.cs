@@ -1,36 +1,16 @@
-using System;
-using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 
 namespace TaxOmbud.Domain.Common;
 
-public abstract class BaseEntity : ISoftDelete, IHasDomainEvents
+public abstract class BaseEntity : ISoftDelete
 {
-    private readonly List<IDomainEvent> _domainEvents = new();
-
+    [Key]
     public Guid Id { get; set; }
-
-    public DateTimeOffset CreatedAt { get; set; }
-
-    public DateTimeOffset? UpdatedAt { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? LastModifiedAt { get; set; }
+    public Guid? CreatedByUserId { get; set; }
+    public Guid? LastModifiedByUserId { get; set; }
 
     public bool IsDeleted { get; set; }
-
     public DateTimeOffset? DeletedAt { get; set; }
-
-    public IReadOnlyCollection<IDomainEvent> DomainEvents => _domainEvents.AsReadOnly();
-
-    public void AddDomainEvent(IDomainEvent domainEvent)
-    {
-        _domainEvents.Add(domainEvent);
-    }
-
-    public void RemoveDomainEvent(IDomainEvent domainEvent)
-    {
-        _domainEvents.Remove(domainEvent);
-    }
-
-    public void ClearDomainEvents()
-    {
-        _domainEvents.Clear();
-    }
 }

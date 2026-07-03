@@ -1,14 +1,8 @@
-using System;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Collections.Generic;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
-using TaxOmbud.Common.Responses;
-using TaxOmbud.Application.Webhooks.DTOs;
 using TaxOmbud.Application.Interfaces.Persistence;
 using TaxOmbud.Application.Interfaces.Services;
+using TaxOmbud.Application.Webhooks.DTOs;
+using TaxOmbud.Common.Responses;
 using TaxOmbud.Domain.Entities.System;
 
 namespace TaxOmbud.Application.Services;
@@ -97,7 +91,7 @@ public class WebhooksService : IWebhooksService
             }
 
             webhook.Secret = request.NewSecret;
-            webhook.UpdatedAt = DateTimeOffset.UtcNow;
+            webhook.LastModifiedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync(cancellationToken);
 
             response.StatusCode = StatusCodes.Status200OK;
@@ -130,7 +124,7 @@ public class WebhooksService : IWebhooksService
             webhook.Url = request.Url;
             webhook.EventTypes = string.Join(",", request.EventTypes);
             webhook.IsActive = request.IsActive;
-            webhook.UpdatedAt = DateTimeOffset.UtcNow;
+            webhook.LastModifiedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync(cancellationToken);
 
@@ -170,7 +164,7 @@ public class WebhooksService : IWebhooksService
                 webhook.EventTypes,
                 webhook.IsActive,
                 webhook.CreatedAt,
-                webhook.UpdatedAt
+                webhook.LastModifiedAt
             );
         }
         catch (Exception)
@@ -195,7 +189,7 @@ public class WebhooksService : IWebhooksService
                     w.EventTypes,
                     w.IsActive,
                     w.CreatedAt,
-                    w.UpdatedAt
+                    w.LastModifiedAt
                 ))
                 .ToListAsync(cancellationToken);
 

@@ -6,7 +6,7 @@ using TaxOmbud.Domain.Enums;
 
 namespace TaxOmbud.Domain.Entities.Appointments;
 
-public class Appointment : BaseAuditableEntity
+public class Appointment : BaseEntity
 {
     public string Title { get; set; } = null!;
     public string? Description { get; set; }

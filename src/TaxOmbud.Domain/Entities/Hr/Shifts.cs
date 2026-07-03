@@ -3,7 +3,7 @@ using TaxOmbud.Domain.Common;
 
 namespace TaxOmbud.Domain.Entities.Hr;
 
-public class Shift : BaseAuditableEntity
+public class Shift : BaseEntity
 {
     public string Name { get; set; } = null!;
     
@@ -17,7 +17,7 @@ public class Shift : BaseAuditableEntity
     public bool IsActive { get; set; } = true;
 }
 
-public class ShiftAssignment : BaseAuditableEntity
+public class ShiftAssignment : BaseEntity
 {
     public Guid ShiftId { get; set; }
     public Shift Shift { get; set; } = null!;

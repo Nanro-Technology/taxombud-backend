@@ -2,11 +2,11 @@ using System;
 using System.Collections.Generic;
 using TaxOmbud.Domain.Common;
 using TaxOmbud.Domain.Entities.Identity;
-using TaxOmbud.Domain.ValueObjects;
+using TaxOmbud.Common.Utilities;
 
 namespace TaxOmbud.Domain.Entities.Taxpayers;
 
-public class Taxpayer : BaseAuditableEntity
+public class Taxpayer : BaseEntity
 {
     public Guid AccountId { get; set; } // Workflow Lane
     public Account Account { get; set; } = null!;

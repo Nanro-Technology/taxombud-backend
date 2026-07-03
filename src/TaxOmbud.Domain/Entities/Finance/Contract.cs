@@ -4,7 +4,7 @@ using TaxOmbud.Domain.Common;
 
 namespace TaxOmbud.Domain.Entities.Finance;
 
-public class Contract : BaseAuditableEntity
+public class Contract : BaseEntity
 {
     public string? ContractNumber { get; set; }
     public string? Title { get; set; }
@@ -24,7 +24,7 @@ public class Contract : BaseAuditableEntity
     public string? Notes { get; set; }
 }
 
-public class ContractReview : BaseAuditableEntity
+public class ContractReview : BaseEntity
 {
     public Guid ContractId { get; set; }
     public Contract Contract { get; set; } = null!;

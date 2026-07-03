@@ -3,7 +3,7 @@ using TaxOmbud.Domain.Common;
 
 namespace TaxOmbud.Domain.Entities.Crm;
 
-public class Interaction : BaseAuditableEntity
+public class Interaction : BaseEntity
 {
     public string Direction { get; set; } = null!; // Inbound, Outbound
     public string Subject { get; set; } = null!;

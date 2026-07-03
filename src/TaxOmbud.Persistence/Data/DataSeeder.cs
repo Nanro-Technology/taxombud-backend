@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using TaxOmbud.Common.Utilities;
 using TaxOmbud.Domain.Entities.Identity;
 
 namespace TaxOmbud.Persistence.Data;
@@ -48,7 +49,7 @@ public class DataSeeder
                         Id = Guid.NewGuid(),
                         Module = module,
                         Action = action,
-                        CreatedAt = DateTimeOffset.UtcNow
+                        CreatedAt = DateTime.Now.ToUniversalTime()
                     });
                 }
             }
@@ -90,7 +91,7 @@ public class DataSeeder
                     Description = description,
                     IsSystemRole = isSystem,
                     IsActive = true,
-                    CreatedAt = DateTimeOffset.UtcNow
+                    CreatedAt = DateTime.Now.ToUniversalTime()
                 });
             }
         }
@@ -121,7 +122,7 @@ public class DataSeeder
                     Id = Guid.NewGuid(),
                     RoleId = superAdmin.Id,
                     PermissionId = permission.Id,
-                    CreatedAt = DateTimeOffset.UtcNow
+                    CreatedAt = DateTime.Now.ToUniversalTime()
                 });
             }
         }
@@ -148,7 +149,7 @@ public class DataSeeder
         var admin = User.Create(
             "System",
             "Administrator",
-            new Domain.ValueObjects.Email(adminEmail),
+            new Email(adminEmail),
             null);
 
         // Default password — must be changed on first login

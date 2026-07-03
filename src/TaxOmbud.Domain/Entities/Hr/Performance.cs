@@ -3,7 +3,7 @@ using TaxOmbud.Domain.Common;
 
 namespace TaxOmbud.Domain.Entities.Hr;
 
-public class PerformanceCycle : BaseAuditableEntity
+public class PerformanceCycle : BaseEntity
 {
     public string Name { get; set; } = null!; // e.g. Q1 2026
     public DateTime StartDate { get; set; }
@@ -11,7 +11,7 @@ public class PerformanceCycle : BaseAuditableEntity
     public string Status { get; set; } = "Draft"; // Draft, Active, Closed
 }
 
-public class PerformanceGoal : BaseAuditableEntity
+public class PerformanceGoal : BaseEntity
 {
     public Guid EmployeeId { get; set; }
     public Guid CycleId { get; set; }
@@ -24,7 +24,7 @@ public class PerformanceGoal : BaseAuditableEntity
     public string Status { get; set; } = "Not Started";
 }
 
-public class PerformanceReview : BaseAuditableEntity
+public class PerformanceReview : BaseEntity
 {
     public Guid EmployeeId { get; set; }
     public Guid ReviewerId { get; set; }

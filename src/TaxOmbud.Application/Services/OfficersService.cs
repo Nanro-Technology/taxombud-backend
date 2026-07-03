@@ -1,16 +1,8 @@
-using System;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Collections.Generic;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using TaxOmbud.Application.Interfaces.Persistence;
-using TaxOmbud.Application.Interfaces.InfrastructureService;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Application.Officers.DTOs;
 using TaxOmbud.Common.Responses;
-using TaxOmbud.Domain.Common;
 using TaxOmbud.Domain.Entities.Officers;
 
 namespace TaxOmbud.Application.Services;
@@ -41,9 +33,9 @@ public class OfficersService : IOfficersService
 
             if (!string.IsNullOrWhiteSpace(request.Search))
                 query = query.Where(o =>
-                    o.User.FirstName.Contains(request.Search) ||
-                    o.User.LastName.Contains(request.Search) ||
-                    o.User.Email.Contains(request.Search));
+                    o.User!.FirstName!.Contains(request.Search) ||
+                    o.User!.LastName!.Contains(request.Search) ||
+                    o.User!.Email!.Contains(request.Search));
 
             var total = await query.CountAsync(cancellationToken);
             var items = await query
@@ -54,7 +46,7 @@ public class OfficersService : IOfficersService
                     o.Id,
                     o.UserId,
                     $"{o.User.FirstName} {o.User.LastName}",
-                    o.User.Email,
+                    o.User!.Email ?? string.Empty,
                     o.User.Phone,
                     o.User.JobTitle,
                     o.User.Department == null ? null : new OfficerDepartmentDto(o.User.Department.Id, o.User.Department.Name),
@@ -98,7 +90,7 @@ public class OfficersService : IOfficersService
                     o.Id,
                     o.UserId,
                     $"{o.User.FirstName} {o.User.LastName}",
-                    o.User.Email,
+                    o.User!.Email ?? string.Empty,
                     o.User.Phone,
                     o.User.JobTitle,
                     o.User.Department == null ? null : new OfficerDepartmentDto(o.User.Department.Id, o.User.Department.Name),
@@ -266,7 +258,7 @@ public class OfficersService : IOfficersService
                 IsAvailable = true,
                 EmployeeNumber = request.EmployeeNumber,
                 Specialisation = request.Specialisation,
-                CreatedAt = DateTimeOffset.UtcNow
+                CreatedAt = DateTime.UtcNow
             };
 
             _context.OfficerProfiles.Add(profile);
@@ -306,7 +298,7 @@ public class OfficersService : IOfficersService
             if (request.Specialisation is not null)
                 profile.Specialisation = request.Specialisation;
 
-            profile.UpdatedAt = DateTimeOffset.UtcNow;
+            profile.LastModifiedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync(cancellationToken);
 
             response.StatusCode = StatusCodes.Status200OK;

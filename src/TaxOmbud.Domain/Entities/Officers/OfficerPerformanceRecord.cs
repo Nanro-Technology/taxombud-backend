@@ -3,7 +3,7 @@ using TaxOmbud.Domain.Common;
 
 namespace TaxOmbud.Domain.Entities.Officers;
 
-public class OfficerPerformanceRecord : BaseAuditableEntity
+public class OfficerPerformanceRecord : BaseEntity
 {
     public Guid OfficerId { get; set; }
     public Officer Officer { get; set; } = null!;

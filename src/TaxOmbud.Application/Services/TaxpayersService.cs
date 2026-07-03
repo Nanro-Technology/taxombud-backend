@@ -1,18 +1,11 @@
-using System;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Collections.Generic;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using TaxOmbud.Application.Complaints.DTOs;
+using TaxOmbud.Application.Interfaces.InfrastructureService;
 using TaxOmbud.Application.Interfaces.Persistence;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Application.Taxpayers.DTOs;
-using TaxOmbud.Application.Complaints.DTOs;
 using TaxOmbud.Common.Responses;
-using TaxOmbud.Domain.Common;
 using TaxOmbud.Domain.Entities.Taxpayers;
-using TaxOmbud.Application.Interfaces.InfrastructureService;
 
 namespace TaxOmbud.Application.Services;
 
@@ -40,9 +33,9 @@ public class TaxpayersService : ITaxpayersService
 
             if (!string.IsNullOrWhiteSpace(request.Search))
                 query = query.Where(t =>
-                    t.User.FirstName.Contains(request.Search) ||
-                    t.User.LastName.Contains(request.Search) ||
-                    t.User.Email.Contains(request.Search) ||
+                    t.User!.FirstName!.Contains(request.Search) ||
+                    t.User!.LastName!.Contains(request.Search) ||
+                    t.User!.Email!.Contains(request.Search) ||
                     (t.TinNumber != null && t.TinNumber.Contains(request.Search)));
 
             if (!string.IsNullOrWhiteSpace(request.Type))
@@ -60,7 +53,7 @@ public class TaxpayersService : ITaxpayersService
                     t.Id,
                     t.UserId,
                     $"{t.User.FirstName} {t.User.LastName}",
-                    t.User.Email,
+                    t.User!.Email ?? string.Empty,
                     t.User.Phone,
                     t.TaxpayerType.ToString(),
                     t.TinNumber,
@@ -267,7 +260,7 @@ public class TaxpayersService : ITaxpayersService
             if (request.CompanyName is not null) taxpayer.CompanyName = request.CompanyName;
             if (request.RcNumber is not null) taxpayer.RcNumber = request.RcNumber;
 
-            taxpayer.UpdatedAt = DateTimeOffset.UtcNow;
+            taxpayer.LastModifiedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync(cancellationToken);
 
             response.StatusCode = StatusCodes.Status200OK;
@@ -295,7 +288,7 @@ public class TaxpayersService : ITaxpayersService
             }
 
             taxpayer.IsVerified = true;
-            taxpayer.UpdatedAt = DateTimeOffset.UtcNow;
+            taxpayer.LastModifiedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync(cancellationToken);
 
             response.StatusCode = StatusCodes.Status200OK;
@@ -329,7 +322,7 @@ public class TaxpayersService : ITaxpayersService
             {
                 taxpayer.User.Deactivate();
             }
-            taxpayer.UpdatedAt = DateTimeOffset.UtcNow;
+            taxpayer.LastModifiedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync(cancellationToken);
 
             response.StatusCode = StatusCodes.Status200OK;
@@ -366,6 +359,6 @@ public class TaxpayersService : ITaxpayersService
         t.State,
         t.IsVerified,
         t.CreatedAt,
-        t.UpdatedAt
+        t.LastModifiedAt
     );
 }

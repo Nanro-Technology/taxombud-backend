@@ -4,7 +4,7 @@ using TaxOmbud.Domain.Common;
 
 namespace TaxOmbud.Domain.Entities.Communications;
 
-public class AgentChat : BaseAuditableEntity
+public class AgentChat : BaseEntity
 {
     public string? Topic { get; set; }
     public bool IsGroupChat { get; set; } = false;
@@ -15,7 +15,7 @@ public class AgentChat : BaseAuditableEntity
     public ICollection<AgentChatMessage> Messages { get; set; } = new List<AgentChatMessage>();
 }
 
-public class AgentChatMessage : BaseAuditableEntity
+public class AgentChatMessage : BaseEntity
 {
     public Guid AgentChatId { get; set; }
     public AgentChat Chat { get; set; } = null!;

@@ -3,7 +3,7 @@ using TaxOmbud.Domain.Common;
 
 namespace TaxOmbud.Domain.Entities.Communications;
 
-public class AgentChatPreference : BaseAuditableEntity
+public class AgentChatPreference : BaseEntity
 {
     public Guid UserId { get; set; }
     public bool DoNotDisturb { get; set; } = false;

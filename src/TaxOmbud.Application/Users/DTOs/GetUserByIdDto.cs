@@ -1,5 +1,3 @@
-using System;
-
 namespace TaxOmbud.Application.Users.DTOs;
 
 public record GetUserByIdQuery(Guid Id);
@@ -18,7 +16,8 @@ public record UserDetailDto(
     string Status,
     bool CanSignIn,
     /// <summary>The single assigned role (Estate Management pattern).</summary>
-    RoleDetailDto? Role
+    RoleDetailDto? Role,
+    string UserType
 );
 
 public record DepartmentDetailDto(Guid Id, string Name);

@@ -6,6 +6,7 @@ using System.Security.Cryptography;
 using TaxOmbud.Application.Interfaces.InfrastructureService;
 using TaxOmbud.Domain.Entities.Identity;
 using TaxOmbud.Infrastructure.EmailServices;
+using TaxOmbud.Infrastructure.HttpService;
 using TaxOmbud.Infrastructure.Options;
 using TaxOmbud.Infrastructure.Services;
 
@@ -71,7 +72,6 @@ public static class DependencyInjection
 
         services.AddHangfireServer();
 
-        // ─── Application Services ─────────────────────────────────────────────
         services.AddScoped<ITokenService, TokenService>();
 
         services.AddScoped<IPasswordHasher, PasswordHasher>();
@@ -79,6 +79,8 @@ public static class DependencyInjection
         services.AddScoped<IEmailService, SmtpEmailService>();
 
         services.AddScoped<IFileStorageService, LocalFileStorageService>();
+
+        services.AddScoped<IHttpRequestManagerService, HttpRequestManagerService>();
 
         // ─── JWT Authentication ───────────────────────────────────────────────
         // NOTE: DbContext and database config are registered in

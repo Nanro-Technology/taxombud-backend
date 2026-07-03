@@ -1,10 +1,20 @@
+using System.Net;
+
 namespace TaxOmbud.Common.CustomException;
 
 public class ApplicationException : Exception
 {
-    public int StatusCode { get; }
+    public HttpStatusCode StatusCode { get; }
 
-    public ApplicationException(string message, int statusCode = 400)
+    public ApplicationException() { }
+
+    public ApplicationException(string message)
+        : base(message) { }
+
+    public ApplicationException(string message, Exception inner)
+        : base(message, inner) { }
+
+    public ApplicationException(string message, HttpStatusCode statusCode)
         : base(message)
     {
         StatusCode = statusCode;

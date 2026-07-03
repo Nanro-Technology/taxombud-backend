@@ -1,11 +1,5 @@
-using System;
 using FluentValidation;
 using TaxOmbud.Application.Users.DTOs;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
-using TaxOmbud.Domain.Entities.Identity;
 
 namespace TaxOmbud.Application.Users.Validators;
 

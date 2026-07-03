@@ -3,13 +3,20 @@ using System.Collections.Generic;
 using TaxOmbud.Domain.Common;
 using TaxOmbud.Domain.Entities.Cases;
 using TaxOmbud.Domain.Enums;
-using TaxOmbud.Domain.Exceptions;
+using TaxOmbud.Common.CustomException;
 using TaxOmbud.Domain.Events.Appeals;
 
 namespace TaxOmbud.Domain.Entities.Appeals;
 
-public class Appeal : BaseAuditableEntity
+public class Appeal : BaseEntity, IHasDomainEvents
 {
+    private readonly List<IDomainEvent> _domainEvents = new();
+    public IReadOnlyCollection<IDomainEvent> DomainEvents => _domainEvents.AsReadOnly();
+
+    public void AddDomainEvent(IDomainEvent domainEvent) => _domainEvents.Add(domainEvent);
+    public void RemoveDomainEvent(IDomainEvent domainEvent) => _domainEvents.Remove(domainEvent);
+    public void ClearDomainEvents() => _domainEvents.Clear();
+
     public Guid CaseId { get; set; }
     public Case Case { get; set; } = null!;
 
@@ -32,7 +39,7 @@ public class Appeal : BaseAuditableEntity
         CaseId = caseId;
         Reason = reason;
         Status = AppealStatus.Submitted;
-        CreatedAt = DateTimeOffset.UtcNow;
+        CreatedAt = DateTime.UtcNow;
     }
 
     public void Submit(Guid submittedByUserId)

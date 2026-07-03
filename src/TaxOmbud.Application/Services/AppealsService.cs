@@ -1,19 +1,12 @@
-using System;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Http;
-using TaxOmbud.Common.Responses;
 using TaxOmbud.Application.Appeals.DTOs;
-using TaxOmbud.Application.Interfaces.Persistence;
 using TaxOmbud.Application.Interfaces.InfrastructureService;
+using TaxOmbud.Application.Interfaces.Persistence;
 using TaxOmbud.Application.Interfaces.Services;
-using TaxOmbud.Domain.Enums;
-using TaxOmbud.Domain.Entities.Documents;
+using TaxOmbud.Common.Responses;
 using TaxOmbud.Domain.Entities.Appeals;
-using TaxOmbud.Domain.Common;
+using TaxOmbud.Domain.Entities.Documents;
+using TaxOmbud.Domain.Enums;
 
 namespace TaxOmbud.Application.Services;
 
@@ -152,7 +145,7 @@ public class AppealsService : IAppealsService
                 FileSize = request.File.Length,
                 EntityType = DocumentEntityType.Appeal,
                 EntityId = request.AppealId,
-                CreatedAt = DateTimeOffset.UtcNow
+                CreatedAt = DateTime.UtcNow
             };
 
             _context.Documents.Add(doc);

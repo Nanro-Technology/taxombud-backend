@@ -3,7 +3,7 @@ using TaxOmbud.Domain.Common;
 
 namespace TaxOmbud.Domain.Entities.Identity;
 
-public class Department : BaseAuditableEntity
+public class Department : BaseEntity
 {
     public string Name { get; set; } = null!;
     

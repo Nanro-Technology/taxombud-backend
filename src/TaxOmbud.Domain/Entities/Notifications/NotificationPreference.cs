@@ -4,7 +4,7 @@ using TaxOmbud.Domain.Entities.Identity;
 
 namespace TaxOmbud.Domain.Entities.Notifications;
 
-public class NotificationPreference : BaseAuditableEntity
+public class NotificationPreference : BaseEntity
 {
     public Guid UserId { get; set; }
     public User User { get; set; } = null!;

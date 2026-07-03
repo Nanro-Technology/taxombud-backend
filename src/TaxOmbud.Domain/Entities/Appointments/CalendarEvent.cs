@@ -3,7 +3,7 @@ using TaxOmbud.Domain.Common;
 
 namespace TaxOmbud.Domain.Entities.Appointments;
 
-public class CalendarEvent : BaseAuditableEntity
+public class CalendarEvent : BaseEntity
 {
     public string Title { get; set; } = null!;
     public string EventType { get; set; } = "Meeting"; // Meeting, Reminder, OutOfOffice

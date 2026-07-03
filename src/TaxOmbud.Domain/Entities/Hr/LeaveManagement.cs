@@ -3,7 +3,7 @@ using TaxOmbud.Domain.Common;
 
 namespace TaxOmbud.Domain.Entities.Hr;
 
-public class LeaveTypeEntity : BaseAuditableEntity
+public class LeaveTypeEntity : BaseEntity
 {
     public string Name { get; set; } = null!;
     public int DefaultDays { get; set; }
@@ -12,7 +12,7 @@ public class LeaveTypeEntity : BaseAuditableEntity
     public bool IsActive { get; set; } = true;
 }
 
-public class LeaveBalance : BaseAuditableEntity
+public class LeaveBalance : BaseEntity
 {
     public Guid EmployeeId { get; set; }
     public Guid LeaveTypeEntityId { get; set; }

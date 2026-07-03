@@ -4,7 +4,6 @@ using TaxOmbud.Application.Interfaces.Persistence;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Common.Responses;
 using TaxOmbud.Domain.Entities.Finance;
-using Microsoft.AspNetCore.Http;
 
 namespace TaxOmbud.Application.Services;
 
@@ -153,7 +152,7 @@ public class FinanceService : IFinanceService
             }
             
             entity.Status = "Paid";
-            entity.UpdatedAt = DateTime.UtcNow;
+            entity.LastModifiedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync(cancellationToken);
 
             response.StatusCode = StatusCodes.Status200OK;

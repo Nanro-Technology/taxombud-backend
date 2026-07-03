@@ -8,7 +8,7 @@ namespace TaxOmbud.Domain.Entities.Identity;
 /// Users are assigned exactly ONE role via a FK on the User entity (Estate Management pattern).
 /// System roles (IsSystemRole = true) cannot be deleted — only deactivated.
 /// </summary>
-public class Role : BaseAuditableEntity
+public class Role : BaseEntity
 {
     public string Name { get; set; } = null!;
     public string? Description { get; set; }

@@ -5,7 +5,7 @@ using TaxOmbud.Domain.Entities.Identity;
 namespace TaxOmbud.Domain.Entities.Cases;
 
 /// <summary>Officer notes/progress updates on a case.</summary>
-public class CaseNote : BaseAuditableEntity
+public class CaseNote : BaseEntity
 {
     public Guid CaseId { get; set; }
     public Case Case { get; set; } = null!;

@@ -4,7 +4,7 @@ using TaxOmbud.Domain.Entities.Identity;
 
 namespace TaxOmbud.Domain.Entities.Hr;
 
-public class EwaRequest : BaseAuditableEntity
+public class EwaRequest : BaseEntity
 {
     public Guid UserId { get; set; }
     public User User { get; set; } = null!;

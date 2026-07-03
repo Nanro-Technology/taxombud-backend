@@ -4,7 +4,7 @@ using TaxOmbud.Domain.Common;
 
 namespace TaxOmbud.Domain.Entities.Finance;
 
-public class Quote : BaseAuditableEntity
+public class Quote : BaseEntity
 {
     public string? QuoteNumber { get; set; }
     public string? Title { get; set; }
@@ -27,7 +27,7 @@ public class Quote : BaseAuditableEntity
     public ICollection<QuoteItem> Items { get; set; } = new List<QuoteItem>();
 }
 
-public class QuoteItem : BaseAuditableEntity
+public class QuoteItem : BaseEntity
 {
     public Guid QuoteId { get; set; }
     public Quote Quote { get; set; } = null!;

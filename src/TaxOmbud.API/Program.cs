@@ -4,6 +4,7 @@ using Serilog;
 using Serilog.Events;
 using TaxOmbud.Api.Middleware;
 using TaxOmbud.Api.Services;
+using TaxOmbud.Application.Middlewares;
 using TaxOmbud.Application;
 using TaxOmbud.Infrastructure;
 using TaxOmbud.Persistence.Data;
@@ -130,8 +131,7 @@ try
     // ─── Auto-migrate & Seed on startup (Estate Management pattern) ───────────
     await app.SeedDatabaseAsync();
 
-    // ─── Pipeline ─────────────────────────────────────────────────────────────
-    app.UseMiddleware<GlobalExceptionMiddleware>();
+    app.ConfigureCustomExceptionMiddleware();
     app.UseSerilogRequestLogging();
 
     if (app.Environment.IsDevelopment())

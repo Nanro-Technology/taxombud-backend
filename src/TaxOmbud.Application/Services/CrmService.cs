@@ -1,30 +1,9 @@
-using System;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
-using TaxOmbud.Common.Responses;
 using TaxOmbud.Application.Crm.DTOs;
 using TaxOmbud.Application.Interfaces.Persistence;
-using TaxOmbud.Application.Interfaces.InfrastructureService;
 using TaxOmbud.Application.Interfaces.Services;
-using TaxOmbud.Domain.Enums;
-using TaxOmbud.Domain.Entities.Hr;
-using TaxOmbud.Domain.Entities.Identity;
-using TaxOmbud.Domain.Entities.Taxpayers;
-using TaxOmbud.Domain.Entities.Officers;
-using TaxOmbud.Domain.Entities.Complaints;
-using TaxOmbud.Domain.Entities.Cases;
-using TaxOmbud.Domain.Entities.Documents;
-using TaxOmbud.Domain.Entities.Communications;
-using TaxOmbud.Domain.Entities.Appeals;
-using TaxOmbud.Domain.Entities.Appointments;
-using TaxOmbud.Domain.Entities.Notifications;
-using TaxOmbud.Domain.Entities.System;
-using FluentValidation;
+using TaxOmbud.Common.CustomException;
 using TaxOmbud.Domain.Entities.Crm;
-using TaxOmbud.Domain.Exceptions;
 
 namespace TaxOmbud.Application.Services;
 
@@ -242,9 +221,9 @@ public class CrmService : ICrmService
             StartAt = entity.StartAt,
             EndAt = entity.EndAt,
             CreatedAt = entity.CreatedAt,
-            CreatedBy = entity.CreatedBy,
-            UpdatedAt = entity.UpdatedAt,
-            UpdatedBy = entity.UpdatedBy
+            CreatedBy = entity.CreatedByUserId,
+            UpdatedAt = entity.LastModifiedAt,
+            UpdatedBy = entity.LastModifiedByUserId
         };
     }
 
@@ -270,9 +249,9 @@ public class CrmService : ICrmService
                 StartAt = x.StartAt,
                 EndAt = x.EndAt,
                 CreatedAt = x.CreatedAt,
-                CreatedBy = x.CreatedBy,
-                UpdatedAt = x.UpdatedAt,
-                UpdatedBy = x.UpdatedBy
+                CreatedBy = x.CreatedByUserId,
+                UpdatedAt = x.LastModifiedAt,
+                UpdatedBy = x.LastModifiedByUserId
             })
             .ToListAsync(cancellationToken);
     }
@@ -301,9 +280,9 @@ public class CrmService : ICrmService
             LoggedById = entity.LoggedById,
             OccurredAt = entity.OccurredAt,
             CreatedAt = entity.CreatedAt,
-            CreatedBy = entity.CreatedBy,
-            UpdatedAt = entity.UpdatedAt,
-            UpdatedBy = entity.UpdatedBy
+            CreatedBy = entity.CreatedByUserId,
+            UpdatedAt = entity.LastModifiedAt,
+            UpdatedBy = entity.LastModifiedByUserId
         };
     }
 
@@ -324,9 +303,9 @@ public class CrmService : ICrmService
                 LoggedById = x.LoggedById,
                 OccurredAt = x.OccurredAt,
                 CreatedAt = x.CreatedAt,
-                CreatedBy = x.CreatedBy,
-                UpdatedAt = x.UpdatedAt,
-                UpdatedBy = x.UpdatedBy
+                CreatedBy = x.CreatedByUserId,
+                UpdatedAt = x.LastModifiedAt,
+                UpdatedBy = x.LastModifiedByUserId
             })
             .ToListAsync(cancellationToken);
     }
@@ -350,9 +329,9 @@ public class CrmService : ICrmService
             Email = entity.Email,
             PrimaryTaxPayerId = entity.PrimaryTaxPayerId,
             CreatedAt = entity.CreatedAt,
-            CreatedBy = entity.CreatedBy,
-            UpdatedAt = entity.UpdatedAt,
-            UpdatedBy = entity.UpdatedBy
+            CreatedBy = entity.CreatedByUserId,
+            UpdatedAt = entity.LastModifiedAt,
+            UpdatedBy = entity.LastModifiedByUserId
         };
     }
 
@@ -368,9 +347,9 @@ public class CrmService : ICrmService
                 Email = x.Email,
                 PrimaryTaxPayerId = x.PrimaryTaxPayerId,
                 CreatedAt = x.CreatedAt,
-                CreatedBy = x.CreatedBy,
-                UpdatedAt = x.UpdatedAt,
-                UpdatedBy = x.UpdatedBy
+                CreatedBy = x.CreatedByUserId,
+                UpdatedAt = x.LastModifiedAt,
+                UpdatedBy = x.LastModifiedByUserId
             })
             .ToListAsync(cancellationToken);
     }

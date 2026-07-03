@@ -3,7 +3,7 @@ using TaxOmbud.Domain.Common;
 
 namespace TaxOmbud.Domain.Entities.System;
 
-public class ScheduledReport : BaseAuditableEntity
+public class ScheduledReport : BaseEntity
 {
     public string ReportName { get; set; } = null!;
     public string CronExpression { get; set; } = null!; // e.g. "0 6 * * *" for daily at 6:00

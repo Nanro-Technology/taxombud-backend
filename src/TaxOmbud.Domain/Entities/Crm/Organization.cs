@@ -3,7 +3,7 @@ using TaxOmbud.Domain.Common;
 
 namespace TaxOmbud.Domain.Entities.Crm;
 
-public class Organization : BaseAuditableEntity
+public class Organization : BaseEntity
 {
     public string Name { get; set; } = null!;
     public string? Phone { get; set; }

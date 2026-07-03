@@ -1,10 +1,6 @@
-using System;
-using System.Threading;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
-using TaxOmbud.Common.Responses;
 using TaxOmbud.Application.IdentityVerification.DTOs;
 using TaxOmbud.Application.Interfaces.Services;
+using TaxOmbud.Common.Responses;
 
 namespace TaxOmbud.Application.Services;
 

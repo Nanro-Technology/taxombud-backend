@@ -17,4 +17,4 @@ public record NotificationPreferenceDto(
     bool EmailEnabled,
     bool SmsEnabled,
     bool InAppEnabled
-);
+);
