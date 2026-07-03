@@ -2,7 +2,7 @@ using TaxOmbud.Domain.Common;
 
 namespace TaxOmbud.Domain.Entities.Communications;
 
-public class CommunicationTemplate : BaseAuditableEntity
+public class CommunicationTemplate : BaseEntity
 {
     public string Name { get; set; } = null!; // unique identifier key
     public string SubjectTemplate { get; set; } = null!;

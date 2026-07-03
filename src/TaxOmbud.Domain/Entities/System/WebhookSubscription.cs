@@ -2,7 +2,7 @@ using TaxOmbud.Domain.Common;
 
 namespace TaxOmbud.Domain.Entities.System;
 
-public class WebhookSubscription : BaseAuditableEntity
+public class WebhookSubscription : BaseEntity
 {
     public string Url { get; set; } = null!;
     public string Secret { get; set; } = null!; // HMAC-SHA256 signing secret key

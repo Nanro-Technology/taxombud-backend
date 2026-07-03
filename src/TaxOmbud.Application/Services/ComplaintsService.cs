@@ -1,20 +1,13 @@
-using System;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Collections.Generic;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
-using TaxOmbud.Application.Interfaces.Persistence;
-using TaxOmbud.Application.Interfaces.InfrastructureService;
-using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Application.Complaints.DTOs;
+using TaxOmbud.Application.Interfaces.InfrastructureService;
+using TaxOmbud.Application.Interfaces.Persistence;
+using TaxOmbud.Application.Interfaces.Services;
+using TaxOmbud.Common.CustomException;
 using TaxOmbud.Common.Responses;
-using TaxOmbud.Domain.Common;
-using TaxOmbud.Domain.Enums;
 using TaxOmbud.Domain.Entities.Complaints;
 using TaxOmbud.Domain.Entities.Documents;
-using TaxOmbud.Domain.Exceptions;
+using TaxOmbud.Domain.Enums;
 
 namespace TaxOmbud.Application.Services;
 
@@ -185,7 +178,7 @@ public class ComplaintsService : IComplaintsService
                 new TaxpayerSummary(c.Taxpayer.Id, $"{c.Taxpayer.FirstName} {c.Taxpayer.LastName}", c.Taxpayer.Email.Value, c.Taxpayer.Phone),
                 c.AssignedOfficer is null ? null : new OfficerSummary(c.AssignedOfficer.Id, $"{c.AssignedOfficer.User.FirstName} {c.AssignedOfficer.User.LastName}", c.AssignedOfficer.User.Email),
                 c.CreatedAt,
-                c.UpdatedAt
+                c.LastModifiedAt
             );
         }
         catch (Exception)
@@ -235,7 +228,7 @@ public class ComplaintsService : IComplaintsService
                 new TaxpayerSummary(c.Taxpayer.Id, $"{c.Taxpayer.FirstName} {c.Taxpayer.LastName}", c.Taxpayer.Email.Value, c.Taxpayer.Phone),
                 c.AssignedOfficer is null ? null : new OfficerSummary(c.AssignedOfficer.Id, $"{c.AssignedOfficer.User.FirstName} {c.AssignedOfficer.User.LastName}", c.AssignedOfficer.User.Email),
                 c.CreatedAt,
-                c.UpdatedAt
+                c.LastModifiedAt
             );
         }
         catch (Exception)
@@ -400,7 +393,7 @@ public class ComplaintsService : IComplaintsService
                 Body = request.Body,
                 Visibility = request.Visibility,
                 AuthorUserId = request.AuthorUserId,
-                CreatedAt = DateTimeOffset.UtcNow
+                CreatedAt = DateTime.UtcNow
             };
 
             _context.ComplaintNotes.Add(note);
@@ -550,7 +543,7 @@ public class ComplaintsService : IComplaintsService
             );
 
             complaint.UpdatePriority(request.Priority);
-            complaint.UpdatedAt = DateTimeOffset.UtcNow;
+            complaint.LastModifiedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync(cancellationToken);
 
@@ -705,7 +698,7 @@ public class ComplaintsService : IComplaintsService
                 FileSize = request.File.Length,
                 EntityType = DocumentEntityType.Complaint,
                 EntityId = request.ComplaintId,
-                CreatedAt = DateTimeOffset.UtcNow
+                CreatedAt = DateTime.UtcNow
             };
 
             _context.Documents.Add(doc);

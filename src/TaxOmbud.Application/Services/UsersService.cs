@@ -1,17 +1,10 @@
-using System;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Collections.Generic;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using TaxOmbud.Application.Interfaces.InfrastructureService;
 using TaxOmbud.Application.Interfaces.Persistence;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Application.Users.DTOs;
 using TaxOmbud.Common.Responses;
-using TaxOmbud.Domain.Common;
 using TaxOmbud.Domain.Entities.Identity;
-using TaxOmbud.Application.Interfaces.InfrastructureService;
 
 namespace TaxOmbud.Application.Services;
 
@@ -44,7 +37,7 @@ public class UsersService : IUsersService
                 query = query.Where(u =>
                     u.FirstName.Contains(request.Search) ||
                     u.LastName.Contains(request.Search) ||
-                    u.Email.Contains(request.Search));
+                    u.Email!.Contains(request.Search));
 
             if (!string.IsNullOrWhiteSpace(request.Status))
                 query = query.Where(u => u.Status.ToString() == request.Status);
@@ -62,14 +55,15 @@ public class UsersService : IUsersService
                     u.FirstName,
                     u.LastName,
                     $"{u.FirstName} {u.LastName}",
-                    u.Email,
+                    u.Email ?? string.Empty,
                     u.Phone,
                     u.JobTitle,
                     u.EmploymentType,
                     u.Department == null ? null : new DepartmentDto(u.Department.Id, u.Department.Name),
                     u.Status.ToString(),
                     u.CanSignIn,
-                    u.Role == null ? null : new RoleDto(u.Role.Id, u.Role.Name)
+                    u.Role == null ? null : new RoleDto(u.Role.Id, u.Role.Name),
+                    u.UserType.ToString()
                 ))
                 .ToListAsync(cancellationToken);
 
@@ -218,7 +212,7 @@ public class UsersService : IUsersService
                 return response;
             }
 
-            var user = User.Create(request.FirstName, request.LastName, new TaxOmbud.Domain.ValueObjects.Email(request.Email), request.Phone);
+            var user = User.Create(request.FirstName, request.LastName, new TaxOmbud.Common.Utilities.Email(request.Email), request.Phone);
             user.SetPasswordHash(_passwordHasher.Hash(request.Password));
             if (request.JobTitle is not null)
             {
@@ -238,7 +232,7 @@ public class UsersService : IUsersService
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "User created successfully.";
-            response.Data = new CreateUserResponse(user.Id, $"{user.FirstName} {user.LastName}", user.Email);
+            response.Data = new CreateUserResponse(user.Id, $"{user.FirstName} {user.LastName}", user.Email ?? string.Empty);
         }
         catch (Exception)
         {
@@ -396,7 +390,7 @@ public class UsersService : IUsersService
         u.FirstName,
         u.LastName,
         $"{u.FirstName} {u.LastName}",
-        u.Email,
+        u.Email ?? string.Empty,
         u.Phone,
         u.AltPhone,
         u.JobTitle,
@@ -404,6 +398,7 @@ public class UsersService : IUsersService
         u.Department == null ? null : new DepartmentDetailDto(u.Department.Id, u.Department.Name),
         u.Status.ToString(),
         u.CanSignIn,
-        u.Role == null ? null : new RoleDetailDto(u.Role.Id, u.Role.Name, u.Role.IsSystemRole)
+        u.Role == null ? null : new RoleDetailDto(u.Role.Id, u.Role.Name, u.Role.IsSystemRole),
+        u.UserType.ToString()
     );
 }

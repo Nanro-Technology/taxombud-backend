@@ -5,13 +5,19 @@ using TaxOmbud.Domain.Entities.Identity;
 using TaxOmbud.Domain.Entities.Officers;
 using TaxOmbud.Domain.Entities.Taxpayers;
 using TaxOmbud.Domain.Enums;
-using TaxOmbud.Domain.Exceptions;
+using TaxOmbud.Common.CustomException;
 using TaxOmbud.Domain.Events.Complaints;
 
 namespace TaxOmbud.Domain.Entities.Complaints;
 
-public class Complaint : BaseAuditableEntity
+public class Complaint : BaseEntity, IHasDomainEvents
 {
+    private readonly List<IDomainEvent> _domainEvents = new();
+    public IReadOnlyCollection<IDomainEvent> DomainEvents => _domainEvents.AsReadOnly();
+
+    public void AddDomainEvent(IDomainEvent domainEvent) => _domainEvents.Add(domainEvent);
+    public void RemoveDomainEvent(IDomainEvent domainEvent) => _domainEvents.Remove(domainEvent);
+    public void ClearDomainEvents() => _domainEvents.Clear();
     // ─── Properties ───────────────────────────────────────────────────────────
     public string ReferenceNumber { get; private set; } = null!;
     public string Subject { get; private set; } = null!;

@@ -30,4 +30,4 @@ public record OfficerListDto(
     string? EmployeeNumber,
     string? Specialisation,
     DateTimeOffset CreatedAt
-);
+);

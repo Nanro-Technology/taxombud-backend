@@ -3,7 +3,7 @@ using TaxOmbud.Domain.Common;
 
 namespace TaxOmbud.Domain.Entities.System;
 
-public class AnnouncementReadReceipt : BaseAuditableEntity
+public class AnnouncementReadReceipt : BaseEntity
 {
     public Guid AnnouncementId { get; set; }
     public Announcement Announcement { get; set; } = null!;

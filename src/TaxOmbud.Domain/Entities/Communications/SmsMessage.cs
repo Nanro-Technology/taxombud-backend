@@ -3,7 +3,7 @@ using TaxOmbud.Domain.Common;
 
 namespace TaxOmbud.Domain.Entities.Communications;
 
-public class SmsMessage : BaseAuditableEntity
+public class SmsMessage : BaseEntity
 {
     public string Provider { get; set; } = null!;
     public string? SenderId { get; set; }

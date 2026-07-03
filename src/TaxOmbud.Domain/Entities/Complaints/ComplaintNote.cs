@@ -3,7 +3,7 @@ using TaxOmbud.Domain.Common;
 
 namespace TaxOmbud.Domain.Entities.Complaints;
 
-public class ComplaintNote : BaseAuditableEntity
+public class ComplaintNote : BaseEntity
 {
     public Guid ComplaintId { get; set; }
     public Complaint Complaint { get; set; } = null!;

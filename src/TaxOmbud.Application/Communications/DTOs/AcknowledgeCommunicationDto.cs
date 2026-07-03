@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
-using TaxOmbud.Domain.Exceptions;
+using TaxOmbud.Common.CustomException;
 using TaxOmbud.Domain.Entities.Communications;
 using TaxOmbud.Common.Responses;
 

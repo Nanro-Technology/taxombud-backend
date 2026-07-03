@@ -1,19 +1,11 @@
-using System;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Http;
-using TaxOmbud.Common.Responses;
 using TaxOmbud.Application.Documents.DTOs;
-using TaxOmbud.Application.Interfaces.Persistence;
 using TaxOmbud.Application.Interfaces.InfrastructureService;
+using TaxOmbud.Application.Interfaces.Persistence;
 using TaxOmbud.Application.Interfaces.Services;
-using TaxOmbud.Domain.Enums;
+using TaxOmbud.Common.Responses;
 using TaxOmbud.Domain.Entities.Documents;
-using TaxOmbud.Domain.Common;
-using TaxOmbud.Domain.Exceptions;
+using TaxOmbud.Domain.Enums;
 
 namespace TaxOmbud.Application.Services;
 

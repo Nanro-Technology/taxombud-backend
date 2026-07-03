@@ -3,7 +3,7 @@ using TaxOmbud.Domain.Common;
 
 namespace TaxOmbud.Domain.Entities.System;
 
-public class DashboardWidget : BaseAuditableEntity
+public class DashboardWidget : BaseEntity
 {
     public string Name { get; set; } = null!;
     public string Description { get; set; } = null!;
@@ -13,7 +13,7 @@ public class DashboardWidget : BaseAuditableEntity
     public bool IsActive { get; set; } = true;
 }
 
-public class UserDashboardLayout : BaseAuditableEntity
+public class UserDashboardLayout : BaseEntity
 {
     public Guid UserId { get; set; }
     

@@ -1,14 +1,9 @@
-using TaxOmbud.Common.Utilities;
-using System;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
-using TaxOmbud.Common.Responses;
-using TaxOmbud.Application.Roles.DTOs;
 using TaxOmbud.Application.Interfaces.Persistence;
 using TaxOmbud.Application.Interfaces.Services;
+using TaxOmbud.Application.Roles.DTOs;
+using TaxOmbud.Common.Responses;
+using TaxOmbud.Common.Utilities;
 using TaxOmbud.Domain.Entities.Identity;
 
 namespace TaxOmbud.Application.Services;
@@ -38,7 +33,7 @@ public class RolesService : IRolesService
                 Description = request.Description,
                 IsSystemRole = false,
                 IsActive = true,
-                CreatedAt = DateTimeOffset.UtcNow
+                CreatedAt = DateTime.UtcNow
             };
 
             _context.Roles.Add(role);
@@ -86,7 +81,7 @@ public class RolesService : IRolesService
                     Id = Guid.NewGuid(),
                     RoleId = request.RoleId,
                     PermissionId = permId,
-                    CreatedAt = DateTimeOffset.UtcNow
+                    CreatedAt = DateTime.UtcNow
                 });
             }
 

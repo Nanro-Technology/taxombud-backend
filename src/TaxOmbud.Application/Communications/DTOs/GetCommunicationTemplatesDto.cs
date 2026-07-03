@@ -19,4 +19,4 @@ public record CommunicationTemplateDto(
     string Subject,
     string Body
 );
-
+

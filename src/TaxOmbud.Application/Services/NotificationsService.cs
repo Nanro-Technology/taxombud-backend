@@ -1,15 +1,9 @@
-using System;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Http;
-using TaxOmbud.Common.Responses;
-using TaxOmbud.Application.Notifications.DTOs;
-using TaxOmbud.Application.Interfaces.Persistence;
 using TaxOmbud.Application.Interfaces.InfrastructureService;
+using TaxOmbud.Application.Interfaces.Persistence;
 using TaxOmbud.Application.Interfaces.Services;
+using TaxOmbud.Application.Notifications.DTOs;
+using TaxOmbud.Common.Responses;
 using TaxOmbud.Domain.Entities.Notifications;
 
 namespace TaxOmbud.Application.Services;
@@ -130,7 +124,7 @@ public class NotificationsService : INotificationsService
                 Title = request.Title,
                 Message = request.Message,
                 IsRead = false,
-                CreatedAt = DateTimeOffset.UtcNow
+                CreatedAt = DateTime.UtcNow
             };
 
             _context.Notifications.Add(notification);

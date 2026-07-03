@@ -1,12 +1,5 @@
-using System;
 using FluentValidation;
 using TaxOmbud.Application.Users.DTOs;
-using System.Threading;
-using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
-using TaxOmbud.Domain.Enums;
-using DomainEmail = TaxOmbud.Domain.ValueObjects.Email;
-using DomainUser = TaxOmbud.Domain.Entities.Identity.User;
 
 namespace TaxOmbud.Application.Users.Validators;
 

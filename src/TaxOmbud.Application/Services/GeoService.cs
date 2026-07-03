@@ -1,27 +1,6 @@
-using System;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Collections.Generic;
-using Microsoft.EntityFrameworkCore;
-using TaxOmbud.Common.Responses;
 using TaxOmbud.Application.Geo.DTOs;
-using TaxOmbud.Application.Interfaces.Persistence;
-using TaxOmbud.Application.Interfaces.InfrastructureService;
 using TaxOmbud.Application.Interfaces.Services;
-using TaxOmbud.Domain.Enums;
-using TaxOmbud.Domain.Entities.Hr;
-using TaxOmbud.Domain.Entities.Identity;
-using TaxOmbud.Domain.Entities.Taxpayers;
-using TaxOmbud.Domain.Entities.Officers;
-using TaxOmbud.Domain.Entities.Complaints;
-using TaxOmbud.Domain.Entities.Cases;
-using TaxOmbud.Domain.Entities.Documents;
-using TaxOmbud.Domain.Entities.Communications;
-using TaxOmbud.Domain.Entities.Appeals;
-using TaxOmbud.Domain.Entities.Appointments;
-using TaxOmbud.Domain.Entities.Notifications;
-using TaxOmbud.Domain.Entities.System;
+using TaxOmbud.Common.Responses;
 
 namespace TaxOmbud.Application.Services;
 
@@ -46,14 +25,14 @@ public class GeoService : IGeoService
                 new CountryDto("CA", "Canada")
             };
 
-            response.StatusCode = Microsoft.AspNetCore.Http.StatusCodes.Status200OK;
+            response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Countries retrieved successfully.";
             response.Data = countries.AsReadOnly();
             return response;
         }
         catch (Exception)
         {
-            response.StatusCode = Microsoft.AspNetCore.Http.StatusCodes.Status500InternalServerError;
+            response.StatusCode = StatusCodes.Status500InternalServerError;
             response.Message = "An error occurred while retrieving countries.";
             return response;
         }
@@ -87,14 +66,14 @@ public class GeoService : IGeoService
                 });
             }
 
-            response.StatusCode = Microsoft.AspNetCore.Http.StatusCodes.Status200OK;
+            response.StatusCode = StatusCodes.Status200OK;
             response.Message = "States retrieved successfully.";
             response.Data = states.AsReadOnly();
             return response;
         }
         catch (Exception)
         {
-            response.StatusCode = Microsoft.AspNetCore.Http.StatusCodes.Status500InternalServerError;
+            response.StatusCode = StatusCodes.Status500InternalServerError;
             response.Message = "An error occurred while retrieving states.";
             return response;
         }

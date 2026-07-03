@@ -3,7 +3,7 @@ using TaxOmbud.Domain.Common;
 
 namespace TaxOmbud.Domain.Entities.Taxpayers;
 
-public class TaxpayerAddress : BaseAuditableEntity
+public class TaxpayerAddress : BaseEntity
 {
     public Guid TaxpayerId { get; set; }
     public Taxpayer Taxpayer { get; set; } = null!;

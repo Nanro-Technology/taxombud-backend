@@ -1,6 +1,5 @@
-using System;
-using TaxOmbud.Domain.Common;
 using TaxOmbud.Domain.Enums;
+using TaxOmbud.Domain.Common;
 
 namespace TaxOmbud.Domain.Events.Complaints;
 

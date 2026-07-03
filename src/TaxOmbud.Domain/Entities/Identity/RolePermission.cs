@@ -6,7 +6,7 @@ namespace TaxOmbud.Domain.Entities.Identity;
 /// <summary>
 /// Join table linking a Role to a Permission (both by Guid FK).
 /// </summary>
-public class RolePermission : BaseAuditableEntity
+public class RolePermission : BaseEntity
 {
     public Guid RoleId { get; set; }
     public Role Role { get; set; } = null!;

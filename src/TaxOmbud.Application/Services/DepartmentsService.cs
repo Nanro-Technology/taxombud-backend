@@ -1,15 +1,8 @@
-using System;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Http;
-using TaxOmbud.Common.Responses;
 using TaxOmbud.Application.Departments.DTOs;
 using TaxOmbud.Application.Interfaces.Persistence;
 using TaxOmbud.Application.Interfaces.Services;
-using TaxOmbud.Domain.Entities.Hr;
+using TaxOmbud.Common.Responses;
 using TaxOmbud.Domain.Entities.Identity;
 
 namespace TaxOmbud.Application.Services;
@@ -142,7 +135,7 @@ public class DepartmentsService : IDepartmentsService
                 department.Name,
                 department.RoutingMode,
                 department.Description,
-                department.HeadUser != null ? new HeadUserDto(department.HeadUser.Id, department.HeadUser.FullName, department.HeadUser.Email) : null
+                department.HeadUser != null ? new HeadUserDto(department.HeadUser.Id, department.HeadUser.FullName, department.HeadUser.Email ?? string.Empty) : null
             );
         }
         catch (Exception ex)
@@ -166,7 +159,7 @@ public class DepartmentsService : IDepartmentsService
                     d.Name,
                     d.RoutingMode,
                     d.Description,
-                    d.HeadUser != null ? new HeadUserDto(d.HeadUser.Id, d.HeadUser.FullName, d.HeadUser.Email) : null
+                    d.HeadUser != null ? new HeadUserDto(d.HeadUser.Id, d.HeadUser.FullName, d.HeadUser.Email ?? string.Empty) : null
                 ))
                 .ToListAsync(cancellationToken);
 

@@ -8,4 +8,4 @@ namespace TaxOmbud.Application.Lookups.DTOs;
 
 public record GetLookupsQuery(string Type);
 
-public record LookupDto(Guid Id, string Name, string Code, string? Description, int? SortOrder);
+public record LookupDto(Guid Id, string Name, string Code, string? Description, int? SortOrder);

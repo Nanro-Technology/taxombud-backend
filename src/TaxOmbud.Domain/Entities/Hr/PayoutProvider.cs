@@ -3,7 +3,7 @@ using TaxOmbud.Domain.Common;
 
 namespace TaxOmbud.Domain.Entities.Hr;
 
-public class PayoutProvider : BaseAuditableEntity
+public class PayoutProvider : BaseEntity
 {
     public string Name { get; set; } = null!;
     public string ProviderCode { get; set; } = null!;

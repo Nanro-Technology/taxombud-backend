@@ -2,7 +2,7 @@ using TaxOmbud.Domain.Common;
 
 namespace TaxOmbud.Domain.Entities.Hr;
 
-public class PayGrade : BaseAuditableEntity
+public class PayGrade : BaseEntity
 {
     public string Name { get; set; } = null!; // Grade name/level
     public int Level { get; set; } // Numerical order

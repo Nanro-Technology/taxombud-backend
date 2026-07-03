@@ -1,19 +1,10 @@
-using System;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Http;
-using TaxOmbud.Common.Responses;
 using TaxOmbud.Application.Appointments.DTOs;
 using TaxOmbud.Application.Interfaces.Persistence;
-using TaxOmbud.Application.Interfaces.InfrastructureService;
 using TaxOmbud.Application.Interfaces.Services;
-using TaxOmbud.Domain.Enums;
+using TaxOmbud.Common.Responses;
 using TaxOmbud.Domain.Entities.Appointments;
-using TaxOmbud.Domain.Common;
-using TaxOmbud.Domain.Exceptions;
+using TaxOmbud.Domain.Enums;
 
 namespace TaxOmbud.Application.Services;
 
@@ -172,11 +163,11 @@ public class AppointmentsService : IAppointmentsService
                 app.EndTime,
                 app.Status.ToString(),
                 app.Taxpayer != null ? new AppointmentTaxpayerDto(app.Taxpayer.Id, app.Taxpayer.FirstName + " " + app.Taxpayer.LastName, app.Taxpayer.Email.Value) : null,
-                app.Officer != null && app.Officer.User != null ? new AppointmentOfficerDto(app.Officer.Id, app.Officer.User.FullName, app.Officer.User.Email) : null,
+                app.Officer != null && app.Officer.User != null ? new AppointmentOfficerDto(app.Officer.Id, app.Officer.User.FullName, app.Officer.User.Email ?? string.Empty) : null,
                 app.Location,
                 app.MeetingUrl,
                 app.CreatedAt,
-                app.UpdatedAt
+                app.LastModifiedAt
             );
 
             response.StatusCode = StatusCodes.Status200OK;

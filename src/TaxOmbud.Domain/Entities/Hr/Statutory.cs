@@ -3,7 +3,7 @@ using TaxOmbud.Domain.Common;
 
 namespace TaxOmbud.Domain.Entities.Hr;
 
-public class StatutoryDeduction : BaseAuditableEntity
+public class StatutoryDeduction : BaseEntity
 {
     public string Name { get; set; } = null!;
     public string Code { get; set; } = null!;
@@ -15,7 +15,7 @@ public class StatutoryDeduction : BaseAuditableEntity
     public string Status { get; set; } = "Active";
 }
 
-public class StatutoryRule : BaseAuditableEntity
+public class StatutoryRule : BaseEntity
 {
     public Guid DeductionId { get; set; }
     public StatutoryDeduction Deduction { get; set; } = null!;

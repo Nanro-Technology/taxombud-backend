@@ -3,7 +3,7 @@ using TaxOmbud.Domain.Common;
 
 namespace TaxOmbud.Domain.Entities.Operations;
 
-public class Project : BaseAuditableEntity
+public class Project : BaseEntity
 {
     public string? Name { get; set; } // Note: "Title" in form maps to Name
     public string? Description { get; set; }
@@ -14,7 +14,7 @@ public class Project : BaseAuditableEntity
     public Guid? OwnerId { get; set; }
 }
 
-public class ProjectMember : BaseAuditableEntity
+public class ProjectMember : BaseEntity
 {
     public Guid ProjectId { get; set; }
     public Project Project { get; set; } = null!;

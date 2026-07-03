@@ -5,12 +5,11 @@ using TaxOmbud.Application.Communications.DTOs;
 using TaxOmbud.Application.Interfaces.InfrastructureService;
 using TaxOmbud.Application.Interfaces.Persistence;
 using TaxOmbud.Application.Interfaces.Services;
+using TaxOmbud.Common.CustomException;
 using TaxOmbud.Common.Responses;
 using TaxOmbud.Common.Utilities;
-using TaxOmbud.Domain.Common;
 using TaxOmbud.Domain.Entities.Communications;
 using TaxOmbud.Domain.Enums;
-using TaxOmbud.Domain.Exceptions;
 
 namespace TaxOmbud.Application.Services;
 
@@ -89,8 +88,8 @@ public class CommunicationsService : ICommunicationsService
             Topic = request.Topic,
             IsGroupChat = request.IsGroupChat,
             ParticipantIds = JsonSerializer.Serialize(participants.Select(p => p.ToString())),
-            CreatedAt = DateTimeOffset.UtcNow,
-            CreatedBy = _currentUser.UserId
+            CreatedAt = DateTime.UtcNow,
+            CreatedByUserId = _currentUser.UserId
         };
 
         _context.AgentChats.Add(newChat);
@@ -213,13 +212,13 @@ public class CommunicationsService : ICommunicationsService
             AgentChatId = request.ChatId,
             SenderId = _currentUser.UserId.Value,
             Content = request.Content,
-            CreatedAt = DateTimeOffset.UtcNow,
-            CreatedBy = _currentUser.UserId
+            CreatedAt = DateTime.UtcNow,
+            CreatedByUserId = _currentUser.UserId
         };
  
         _context.AgentChatMessages.Add(message);
         
-        chat.UpdatedAt = DateTimeOffset.UtcNow;
+        chat.LastModifiedAt = DateTime.UtcNow;
  
         await _context.SaveChangesAsync(cancellationToken);
  
@@ -270,8 +269,8 @@ public class CommunicationsService : ICommunicationsService
             {
                 Id = Guid.NewGuid(),
                 UserId = _currentUser.UserId.Value,
-                CreatedAt = DateTimeOffset.UtcNow,
-                CreatedBy = _currentUser.UserId
+                CreatedAt = DateTime.UtcNow,
+                CreatedByUserId = _currentUser.UserId
             };
             _context.AgentChatPreferences.Add(prefs);
         }
@@ -280,8 +279,8 @@ public class CommunicationsService : ICommunicationsService
         prefs.MarkAsAway = request.MarkAsAway;
         prefs.PlayNotificationSound = request.PlayNotificationSound;
         prefs.ShowBrowserNotifications = request.ShowBrowserNotifications;
-        prefs.UpdatedAt = DateTimeOffset.UtcNow;
-        prefs.UpdatedBy = _currentUser.UserId;
+        prefs.LastModifiedAt = DateTime.UtcNow;
+        prefs.LastModifiedByUserId = _currentUser.UserId;
 
         await _context.SaveChangesAsync(cancellationToken);
 
@@ -341,7 +340,7 @@ public class CommunicationsService : ICommunicationsService
         // Find chats where the user is a participant
         var chats = await _context.AgentChats
             .Where(c => c.ParticipantIds.Contains(userIdString) && !c.IsDeleted)
-            .OrderByDescending(c => c.UpdatedAt ?? c.CreatedAt)
+            .OrderByDescending(c => c.LastModifiedAt ?? c.CreatedAt)
             .ToListAsync(cancellationToken);
 
         var result = new List<AgentChatDto>();
@@ -368,7 +367,7 @@ public class CommunicationsService : ICommunicationsService
                 IsGroupChat = chat.IsGroupChat,
                 Participants = participants,
                 CreatedAt = chat.CreatedAt,
-                UpdatedAt = chat.UpdatedAt
+                UpdatedAt = chat.LastModifiedAt
             });
         }
 
@@ -397,7 +396,7 @@ public class CommunicationsService : ICommunicationsService
             Content = m.Content,
             IsPinned = m.IsPinned,
             CreatedAt = m.CreatedAt,
-            UpdatedAt = m.UpdatedAt
+            UpdatedAt = m.LastModifiedAt
         }).ToList();
     }
 
@@ -535,9 +534,9 @@ public class CommunicationsService : ICommunicationsService
             Status = entity.Status,
             Direction = entity.Direction,
             CreatedAt = entity.CreatedAt,
-            CreatedBy = entity.CreatedBy,
-            UpdatedAt = entity.UpdatedAt,
-            UpdatedBy = entity.UpdatedBy
+            CreatedBy = entity.CreatedByUserId,
+            UpdatedAt = entity.LastModifiedAt,
+            UpdatedBy = entity.LastModifiedByUserId
         };
     }
 
@@ -559,9 +558,9 @@ public class CommunicationsService : ICommunicationsService
                 Status = x.Status,
                 Direction = x.Direction,
                 CreatedAt = x.CreatedAt,
-                CreatedBy = x.CreatedBy,
-                UpdatedAt = x.UpdatedAt,
-                UpdatedBy = x.UpdatedBy
+                CreatedBy = x.CreatedByUserId,
+                UpdatedAt = x.LastModifiedAt,
+                UpdatedBy = x.LastModifiedByUserId
             })
             .ToListAsync(cancellationToken);
     }
@@ -576,12 +575,12 @@ public class CommunicationsService : ICommunicationsService
                         (string.IsNullOrEmpty(term) || 
                          u.FirstName.ToLower().Contains(term) || 
                          u.LastName.ToLower().Contains(term) || 
-                         u.Email.ToLower().Contains(term)))
+                         u.Email != null && u.Email.ToLower().Contains(term)))
             .Select(u => new AgentSummaryDto
             {
                 Id = u.Id,
                 FullName = u.FirstName + " " + u.LastName,
-                Email = u.Email,
+                Email = u.Email ?? string.Empty,
                 Role = _context.StaffProfiles.Where(sp => sp.UserId == u.Id && !sp.IsDeleted).Select(sp => sp.Title).FirstOrDefault()
             })
             .Take(50)

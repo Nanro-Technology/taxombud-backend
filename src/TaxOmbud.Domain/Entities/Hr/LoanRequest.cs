@@ -4,7 +4,7 @@ using TaxOmbud.Domain.Entities.Identity;
 
 namespace TaxOmbud.Domain.Entities.Hr;
 
-public class LoanRequest : BaseAuditableEntity
+public class LoanRequest : BaseEntity
 {
     public Guid UserId { get; set; }
     public User User { get; set; } = null!;

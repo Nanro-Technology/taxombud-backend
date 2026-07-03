@@ -4,7 +4,7 @@ using TaxOmbud.Domain.Common;
 
 namespace TaxOmbud.Domain.Entities.System;
 
-public class Announcement : BaseAuditableEntity
+public class Announcement : BaseEntity
 {
     public string Title { get; set; } = null!;
     public string Message { get; set; } = null!;

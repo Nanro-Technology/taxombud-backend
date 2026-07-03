@@ -2,12 +2,12 @@ using System;
 using TaxOmbud.Domain.Common;
 using TaxOmbud.Domain.Entities.Identity;
 using TaxOmbud.Domain.Enums;
-using TaxOmbud.Domain.ValueObjects;
+using TaxOmbud.Common.Utilities;
 
 namespace TaxOmbud.Domain.Entities.Taxpayers;
 
 /// <summary>Extended taxpayer profile linked to a portal User account.</summary>
-public class TaxpayerProfile : BaseAuditableEntity
+public class TaxpayerProfile : BaseEntity
 {
     public Guid UserId { get; set; }
     public User User { get; set; } = null!;

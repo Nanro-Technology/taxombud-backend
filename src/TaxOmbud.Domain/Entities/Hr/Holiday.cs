@@ -3,7 +3,7 @@ using TaxOmbud.Domain.Common;
 
 namespace TaxOmbud.Domain.Entities.Hr;
 
-public class Holiday : BaseAuditableEntity
+public class Holiday : BaseEntity
 {
     public string Name { get; set; } = null!;
     public DateTime StartDate { get; set; }

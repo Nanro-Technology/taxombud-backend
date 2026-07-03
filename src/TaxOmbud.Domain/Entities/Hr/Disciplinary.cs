@@ -3,7 +3,7 @@ using TaxOmbud.Domain.Common;
 
 namespace TaxOmbud.Domain.Entities.Hr;
 
-public class DisciplinaryCase : BaseAuditableEntity
+public class DisciplinaryCase : BaseEntity
 {
     public string CaseReference { get; set; } = null!;
     public Guid EmployeeId { get; set; }
@@ -21,7 +21,7 @@ public class DisciplinaryCase : BaseAuditableEntity
     public bool IsConfidential { get; set; } = false;
 }
 
-public class ExitRecord : BaseAuditableEntity
+public class ExitRecord : BaseEntity
 {
     public Guid EmployeeId { get; set; }
     public string ExitType { get; set; } = "Resignation"; // Resignation, Termination, Retirement

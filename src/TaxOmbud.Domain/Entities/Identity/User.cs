@@ -1,73 +1,71 @@
 using System;
 using System.Collections.Generic;
+using Microsoft.AspNetCore.Identity;
 using TaxOmbud.Domain.Common;
 using TaxOmbud.Domain.Enums;
-using TaxOmbud.Domain.ValueObjects;
+using TaxOmbud.Common.Utilities;
 
 namespace TaxOmbud.Domain.Entities.Identity;
 
-public class User : BaseAuditableEntity
+public class User : IdentityUser<Guid>, ISoftDelete
 {
-    // Core identity
-    public string Email { get; private set; } = null!;
-    public string Username { get; private set; } = null!;
-    public string PasswordHash { get; private set; } = null!;
-    public string FirstName { get; private set; } = null!;
-    public string LastName { get; private set; } = null!;
+    // Identity properties from the PRD & original class:
+    public string FirstName { get; set; } = string.Empty;
+    public string LastName { get; set; } = string.Empty;
     public string FullName => $"{FirstName} {LastName}";
-    public string? Phone { get; private set; }
-    public string? AltPhone { get; private set; }
-    public string? JobTitle { get; private set; }
+    public string? Phone { get; set; }
+    public string? AltPhone { get; set; }
+    public string? JobTitle { get; set; }
 
     // Org structure
-    public Guid? DepartmentId { get; private set; }
-    public Department? Department { get; private set; }
+    public Guid? DepartmentId { get; set; }
+    public Department? Department { get; set; }
 
-    public string? EmploymentType { get; private set; } // Contract, FullTime
-    public Guid? PayGradeId { get; private set; }
+    public string? EmploymentType { get; set; } // Contract, FullTime
+    public Guid? PayGradeId { get; set; }
 
     // Status
-    public UserStatus Status { get; private set; } = UserStatus.Active;
+    public UserStatus Status { get; set; } = UserStatus.Active;
     public bool IsActive => Status == UserStatus.Active;
-    public bool CanSignIn { get; private set; } = true;
+    public bool CanSignIn { get; set; } = true;
 
-    // Email verification
-    public bool EmailVerified { get; private set; } = false;
-    public string? EmailVerificationToken { get; private set; }
-    public DateTimeOffset? EmailVerificationTokenExpiresAt { get; private set; }
+    // Email verification & reset tokens
+    public bool EmailVerified { get; set; } = false;
+    public string? EmailVerificationToken { get; set; }
+    public DateTimeOffset? EmailVerificationTokenExpiresAt { get; set; }
+    public string? PasswordResetToken { get; set; }
+    public DateTimeOffset? PasswordResetTokenExpiresAt { get; set; }
 
-    // Password reset
-    public string? PasswordResetToken { get; private set; }
-    public DateTimeOffset? PasswordResetTokenExpiresAt { get; private set; }
+    // User Classification / UserType
+    public UserType UserType { get; set; } = UserType.StaffUser;
 
-    public int ProfileCompletionPct
-    {
-        get
-        {
-            int score = 0;
-            if (!string.IsNullOrWhiteSpace(FirstName)) score += 20;
-            if (!string.IsNullOrWhiteSpace(LastName)) score += 20;
-            if (!string.IsNullOrWhiteSpace(Email)) score += 20;
-            if (!string.IsNullOrWhiteSpace(Phone)) score += 20;
-            if (!string.IsNullOrWhiteSpace(JobTitle)) score += 20;
-            return score;
-        }
+    // ─── Role (Estate Management pattern)
+    public Guid? RoleId { get; set; }
+    public Role? Role { get; set; }
+
+    // Soft delete support
+    public bool IsDeleted { get; set; }
+    public DateTimeOffset? DeletedAt { get; set; }
+
+    // Audit fields (since it no longer inherits from BaseEntity/BaseAuditableEntity)
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? LastModifiedAt { get; set; }
+    public Guid? CreatedByUserId { get; set; }
+    public Guid? LastModifiedByUserId { get; set; }
+
+    // Compatibility wrapper for original Username property
+    public string Username 
+    { 
+        get => UserName ?? string.Empty; 
+        set => UserName = value; 
     }
 
-    // ─── Role (Estate Management pattern: one role per user via FK) ───────────
-    /// <summary>
-    /// The single role assigned to this user. All permissions are derived
-    /// from this role's RolePermissions collection.
-    /// </summary>
-    public Guid? RoleId { get; private set; }
-    public Role? Role { get; private set; }
-
     // Navigation
-    public ICollection<RefreshToken> RefreshTokens { get; private set; } = new List<RefreshToken>();
-    public MfaToken? MfaToken { get; private set; }
+    public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
+    public MfaToken? MfaToken { get; set; }
 
-    // ─── Factory ─────────────────────────────────────────────────────────────────
-    public static User Create(string firstName, string lastName, Email email, string? phone = null)
+    // ─── Factory 
+    public static User Create(string firstName, string lastName, Email email, string? phone = null, UserType userType = UserType.StaffUser)
     {
         return new User
         {
@@ -75,18 +73,21 @@ public class User : BaseAuditableEntity
             FirstName = firstName,
             LastName = lastName,
             Email = email.Value,
-            Username = email.Value,
+            UserName = email.Value,
             Phone = phone,
             Status = UserStatus.Active,
-            CanSignIn = true
+            CanSignIn = true,
+            UserType = userType
         };
     }
 
-    // ─── Mutators ─────────────────────────────────────────────────────────────────
+    // ─── Compatibility Mutators ──────────────────────────────────────────────────
     public void SetPasswordHash(string hash) => PasswordHash = hash;
-
-    /// <summary>Assigns the user to a single role (Estate Management pattern).</summary>
+    public void SetUserType(UserType userType) => UserType = userType;
     public void AssignRole(Guid? roleId) => RoleId = roleId;
+    public void SetDepartment(Guid? departmentId) => DepartmentId = departmentId;
+    public void SetPayGrade(Guid? payGradeId) => PayGradeId = payGradeId;
+    public void SetEmploymentType(string? type) => EmploymentType = type;
 
     public void Deactivate()
     {
@@ -107,10 +108,6 @@ public class User : BaseAuditableEntity
         Phone = phone;
         JobTitle = jobTitle;
     }
-
-    public void SetDepartment(Guid? departmentId) => DepartmentId = departmentId;
-    public void SetPayGrade(Guid? payGradeId) => PayGradeId = payGradeId;
-    public void SetEmploymentType(string? type) => EmploymentType = type;
 
     public void SetEmailVerificationToken(string token)
     {

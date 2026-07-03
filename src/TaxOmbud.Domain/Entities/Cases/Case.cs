@@ -5,14 +5,21 @@ using TaxOmbud.Domain.Entities.Identity;
 using TaxOmbud.Domain.Entities.Officers;
 using TaxOmbud.Domain.Entities.Complaints;
 using TaxOmbud.Domain.Enums;
-using TaxOmbud.Domain.Exceptions;
+using TaxOmbud.Common.CustomException;
 using TaxOmbud.Domain.Events.Cases;
-using TaxOmbud.Domain.ValueObjects;
+using TaxOmbud.Common.Utilities;
 
 namespace TaxOmbud.Domain.Entities.Cases;
 
-public class Case : BaseAuditableEntity
+public class Case : BaseEntity, IHasDomainEvents
 {
+    private readonly List<IDomainEvent> _domainEvents = new();
+    public IReadOnlyCollection<IDomainEvent> DomainEvents => _domainEvents.AsReadOnly();
+
+    public void AddDomainEvent(IDomainEvent domainEvent) => _domainEvents.Add(domainEvent);
+    public void RemoveDomainEvent(IDomainEvent domainEvent) => _domainEvents.Remove(domainEvent);
+    public void ClearDomainEvents() => _domainEvents.Clear();
+
     public ReferenceNumber CaseNumber { get; private set; } = null!;
     
     public Guid ComplaintId { get; set; }
@@ -58,7 +65,7 @@ public class Case : BaseAuditableEntity
         Priority = priority;
         Status = CaseStatus.Open;
         CurrentStage = "b1";
-        CreatedAt = DateTimeOffset.UtcNow;
+        CreatedAt = DateTime.UtcNow;
     }
 
     public void Open(ReferenceNumber caseNumber)

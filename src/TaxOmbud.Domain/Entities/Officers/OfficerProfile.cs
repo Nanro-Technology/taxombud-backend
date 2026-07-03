@@ -5,7 +5,7 @@ using TaxOmbud.Domain.Entities.Identity;
 namespace TaxOmbud.Domain.Entities.Officers;
 
 /// <summary>Extended profile data for staff members who handle cases.</summary>
-public class OfficerProfile : BaseAuditableEntity
+public class OfficerProfile : BaseEntity
 {
     public Guid UserId { get; set; }
     public User User { get; set; } = null!;

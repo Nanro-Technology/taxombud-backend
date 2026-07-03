@@ -4,7 +4,7 @@ using TaxOmbud.Domain.Common;
 
 namespace TaxOmbud.Domain.Entities.Communications;
 
-public class MailboxMessage : BaseAuditableEntity
+public class MailboxMessage : BaseEntity
 {
     public Guid SenderId { get; set; }
     
@@ -18,7 +18,7 @@ public class MailboxMessage : BaseAuditableEntity
     public ICollection<MailboxAttachment> Attachments { get; set; } = new List<MailboxAttachment>();
 }
 
-public class MailboxRecipient : BaseAuditableEntity
+public class MailboxRecipient : BaseEntity
 {
     public Guid MessageId { get; set; }
     public MailboxMessage Message { get; set; } = null!;
@@ -32,7 +32,7 @@ public class MailboxRecipient : BaseAuditableEntity
     public bool IsStarred { get; set; } = false;
 }
 
-public class MailboxAttachment : BaseAuditableEntity
+public class MailboxAttachment : BaseEntity
 {
     public Guid MessageId { get; set; }
     public MailboxMessage Message { get; set; } = null!;

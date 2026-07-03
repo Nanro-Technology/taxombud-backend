@@ -1,11 +1,10 @@
 using System;
-namespace TaxOmbud.Domain.Entities.Finance;
-public class InvoiceItem
-{
+using TaxOmbud.Domain.Common;
 
-    public Guid Id { get; set; }
-    public DateTime CreatedAt { get; set; }
-    public DateTime? UpdatedAt { get; set; }
+namespace TaxOmbud.Domain.Entities.Finance;
+
+public class InvoiceItem : BaseEntity
+{
 
     public Guid InvoiceId { get; set; }
     public Invoice? Invoice { get; set; }

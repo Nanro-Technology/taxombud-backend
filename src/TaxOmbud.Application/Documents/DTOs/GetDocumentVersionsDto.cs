@@ -5,7 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Mapster;
 using Microsoft.EntityFrameworkCore;
-using TaxOmbud.Domain.Exceptions;
+using TaxOmbud.Common.CustomException;
 using TaxOmbud.Domain.Entities.Documents;
 using TaxOmbud.Common.Responses;
 

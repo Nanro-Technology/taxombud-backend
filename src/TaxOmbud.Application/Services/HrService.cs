@@ -1,17 +1,10 @@
-using System;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Http;
-using TaxOmbud.Common.Responses;
 using TaxOmbud.Application.Hr.DTOs;
-using TaxOmbud.Application.Interfaces.Persistence;
 using TaxOmbud.Application.Interfaces.InfrastructureService;
+using TaxOmbud.Application.Interfaces.Persistence;
 using TaxOmbud.Application.Interfaces.Services;
+using TaxOmbud.Common.Responses;
 using TaxOmbud.Domain.Entities.Hr;
-using TaxOmbud.Domain.Common;
 
 namespace TaxOmbud.Application.Services;
 
@@ -386,9 +379,9 @@ public class HrService : IHrService
             {
                 var searchLower = request.Search.ToLower();
                 query = query.Where(s =>
-                    s.User.FirstName.ToLower().Contains(searchLower) ||
-                    s.User.LastName.ToLower().Contains(searchLower) ||
-                    s.User.Email.Contains(searchLower));
+                    s.User!.FirstName!.ToLower().Contains(searchLower) ||
+                    s.User!.LastName!.ToLower().Contains(searchLower) ||
+                    s.User!.Email!.Contains(searchLower));
             }
 
             var total = await query.CountAsync(cancellationToken);
@@ -400,7 +393,7 @@ public class HrService : IHrService
                     s.Id,
                     s.UserId,
                     s.User.FullName,
-                    s.User.Email,
+                    s.User!.Email ?? string.Empty,
                     s.User.Phone,
                     s.User.JobTitle,
                     s.User.Department != null ? s.User.Department.Name : "Unassigned",
@@ -449,7 +442,7 @@ public class HrService : IHrService
                 staff.User.FirstName,
                 staff.User.LastName,
                 staff.User.FullName,
-                staff.User.Email,
+                staff.User.Email ?? string.Empty,
                 staff.User.Phone,
                 staff.User.JobTitle,
                 staff.User.Department != null ? new StaffDepartmentDto(staff.User.Department.Id, staff.User.Department.Name) : null,

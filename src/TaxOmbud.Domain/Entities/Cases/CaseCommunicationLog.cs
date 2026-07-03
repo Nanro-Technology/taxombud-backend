@@ -4,7 +4,7 @@ using TaxOmbud.Domain.Enums;
 
 namespace TaxOmbud.Domain.Entities.Cases;
 
-public class CaseCommunicationLog : BaseAuditableEntity
+public class CaseCommunicationLog : BaseEntity
 {
     public Guid CaseId { get; set; }
     public Case Case { get; set; } = null!;

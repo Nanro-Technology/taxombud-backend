@@ -1,18 +1,11 @@
-using System;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Collections.Generic;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using TaxOmbud.Application.Cases.DTOs;
 using TaxOmbud.Application.Interfaces.Persistence;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Common.Responses;
-using TaxOmbud.Domain.Common;
 using TaxOmbud.Domain.Entities.Cases;
-using TaxOmbud.Domain.Entities.Documents;
 using TaxOmbud.Domain.Entities.Complaints;
+using TaxOmbud.Domain.Entities.Documents;
 using TaxOmbud.Domain.Enums;
 
 namespace TaxOmbud.Application.Services;
@@ -249,7 +242,7 @@ public class CasesService : ICasesService
                 c.Priority,
                 c.Status.ToString(),
                 c.CurrentStage,
-                c.AssignedOfficer is null ? null : new CaseOfficerDto(c.AssignedOfficer.Id, $"{c.AssignedOfficer.User.FirstName} {c.AssignedOfficer.User.LastName}", c.AssignedOfficer.User.Email),
+                c.AssignedOfficer is null ? null : new CaseOfficerDto(c.AssignedOfficer.Id, $"{c.AssignedOfficer.User.FirstName} {c.AssignedOfficer.User.LastName}", c.AssignedOfficer.User.Email ?? string.Empty),
                 c.Department is null ? null : new CaseDepartmentDto(c.Department.Id, c.Department.Name),
                 c.DueDate,
                 c.ClosedAt,
@@ -280,7 +273,7 @@ public class CasesService : ICasesService
             var findings = await _context.CaseFindings
                 .Where(f => f.CaseId == request.CaseId)
                 .OrderByDescending(f => f.CreatedAt)
-                .Select(f => new CaseFindingDto(f.Id, f.CaseId, f.Description, f.CreatedAt, f.CreatedBy))
+                .Select(f => new CaseFindingDto(f.Id, f.CaseId, f.Description, f.CreatedAt, f.CreatedByUserId))
                 .ToListAsync(cancellationToken);
 
             response.StatusCode = StatusCodes.Status200OK;
@@ -387,7 +380,7 @@ public class CasesService : ICasesService
                 complaint.CurrentStage,
                 complaint.Description,
                 complaint.CreatedAt,
-                complaint.UpdatedAt
+                complaint.LastModifiedAt
             );
         }
         catch (Exception)
@@ -452,7 +445,7 @@ public class CasesService : ICasesService
                 CaseId = request.CaseId,
                 Content = request.Text,
                 IsInternal = !request.IsExternal,
-                CreatedAt = DateTimeOffset.UtcNow
+                CreatedAt = DateTime.UtcNow
             };
 
             _context.CaseNotes.Add(note);
@@ -480,7 +473,7 @@ public class CasesService : ICasesService
                 Id = Guid.NewGuid(),
                 CaseId = request.CaseId,
                 Description = request.Description,
-                CreatedAt = DateTimeOffset.UtcNow
+                CreatedAt = DateTime.UtcNow
             };
 
             _context.CaseFindings.Add(finding);
@@ -599,7 +592,7 @@ public class CasesService : ICasesService
                 Id = Guid.NewGuid(),
                 CaseId = request.CaseId,
                 RecommendationText = request.RecommendationText,
-                CreatedAt = DateTimeOffset.UtcNow
+                CreatedAt = DateTime.UtcNow
             };
 
             caseEntity.Recommendations.Add(rec);
@@ -699,7 +692,7 @@ public class CasesService : ICasesService
                 FileName = request.File.FileName,
                 ContentType = request.File.ContentType,
                 FileSize = request.File.Length,
-                CreatedAt = DateTimeOffset.UtcNow
+                CreatedAt = DateTime.UtcNow
             };
 
             _context.Documents.Add(doc);

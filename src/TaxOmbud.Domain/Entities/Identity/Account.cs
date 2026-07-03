@@ -2,7 +2,7 @@ using TaxOmbud.Domain.Common;
 
 namespace TaxOmbud.Domain.Entities.Identity;
 
-public class Account : BaseAuditableEntity
+public class Account : BaseEntity
 {
     public string Name { get; set; } = null!; // Zone name, e.g. "South West"
     public string? Phone { get; set; }

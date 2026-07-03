@@ -3,7 +3,7 @@ using TaxOmbud.Domain.Common;
 
 namespace TaxOmbud.Domain.Entities.Hr;
 
-public class StaffDocument : BaseAuditableEntity
+public class StaffDocument : BaseEntity
 {
     public Guid StaffProfileId { get; set; }
     public StaffProfile StaffProfile { get; set; } = null!;
@@ -13,7 +13,7 @@ public class StaffDocument : BaseAuditableEntity
     public string? DocumentType { get; set; } // Resume, ID Card, Certificate
 }
 
-public class StaffNote : BaseAuditableEntity
+public class StaffNote : BaseEntity
 {
     public Guid StaffProfileId { get; set; }
     public StaffProfile StaffProfile { get; set; } = null!;
@@ -22,7 +22,7 @@ public class StaffNote : BaseAuditableEntity
     public Guid AddedByUserId { get; set; }
 }
 
-public class DepartmentMovement : BaseAuditableEntity
+public class DepartmentMovement : BaseEntity
 {
     public Guid StaffProfileId { get; set; }
     public StaffProfile StaffProfile { get; set; } = null!;

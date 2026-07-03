@@ -3,7 +3,7 @@ using TaxOmbud.Domain.Common;
 
 namespace TaxOmbud.Domain.Entities.Hr;
 
-public class Remittance : BaseAuditableEntity
+public class Remittance : BaseEntity
 {
     public Guid RunId { get; set; }
     public PayrollRun Run { get; set; } = null!;

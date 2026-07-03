@@ -15,7 +15,7 @@ using TaxOmbud.Domain.Entities.Appointments;
 using TaxOmbud.Domain.Entities.Notifications;
 using TaxOmbud.Domain.Entities.System;
 using TaxOmbud.Domain.Entities.Hr;
-using TaxOmbud.Domain.ValueObjects;
+using TaxOmbud.Common.Utilities;
 using TaxOmbud.Application.Interfaces.InfrastructureService;
 
 namespace TaxOmbud.Persistence.Data;
@@ -165,28 +165,52 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     // ─── Audit ───────────────────────────────────────────────────────────────
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
-        var now = DateTimeOffset.UtcNow;
+        var now = DateTime.UtcNow;
         var userId = _currentUser.UserId;
 
-        foreach (var entry in ChangeTracker.Entries<BaseAuditableEntity>())
+        foreach (var entry in ChangeTracker.Entries())
         {
-            switch (entry.State)
+            if (entry.Entity is BaseEntity baseEntity)
             {
-                case EntityState.Added:
-                    entry.Entity.CreatedAt = now;
-                    entry.Entity.CreatedBy = userId;
-                    break;
-                case EntityState.Modified:
-                    entry.Entity.UpdatedAt = now;
-                    entry.Entity.UpdatedBy = userId;
-                    break;
-                case EntityState.Deleted when entry.Entity is ISoftDelete sd:
-                    entry.State = EntityState.Modified;
-                    sd.IsDeleted = true;
-                    sd.DeletedAt = now;
-                    entry.Entity.UpdatedAt = now;
-                    entry.Entity.UpdatedBy = userId;
-                    break;
+                switch (entry.State)
+                {
+                    case EntityState.Added:
+                        baseEntity.CreatedAt = now;
+                        baseEntity.CreatedByUserId = userId;
+                        break;
+                    case EntityState.Modified:
+                        baseEntity.LastModifiedAt = now;
+                        baseEntity.LastModifiedByUserId = userId;
+                        break;
+                    case EntityState.Deleted when baseEntity is ISoftDelete sd:
+                        entry.State = EntityState.Modified;
+                        sd.IsDeleted = true;
+                        sd.DeletedAt = DateTimeOffset.UtcNow;
+                        baseEntity.LastModifiedAt = now;
+                        baseEntity.LastModifiedByUserId = userId;
+                        break;
+                }
+            }
+            else if (entry.Entity is User user)
+            {
+                switch (entry.State)
+                {
+                    case EntityState.Added:
+                        user.CreatedAt = now;
+                        user.CreatedByUserId = userId;
+                        break;
+                    case EntityState.Modified:
+                        user.LastModifiedAt = now;
+                        user.LastModifiedByUserId = userId;
+                        break;
+                    case EntityState.Deleted:
+                        entry.State = EntityState.Modified;
+                        user.IsDeleted = true;
+                        user.DeletedAt = DateTimeOffset.UtcNow;
+                        user.LastModifiedAt = now;
+                        user.LastModifiedByUserId = userId;
+                        break;
+                }
             }
         }
 

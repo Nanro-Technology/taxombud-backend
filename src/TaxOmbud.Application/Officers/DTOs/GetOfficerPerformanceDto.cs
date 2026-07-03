@@ -5,7 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using TaxOmbud.Domain.Common;
-using TaxOmbud.Domain.Exceptions;
+using TaxOmbud.Common.CustomException;
 using TaxOmbud.Domain.Enums;
 using TaxOmbud.Common.Responses;
 
@@ -18,4 +18,4 @@ public record OfficerPerformanceDto(
     string OfficerName,
     int CasesHandled,
     double AverageResolutionDays
-);
+);

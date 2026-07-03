@@ -1,14 +1,8 @@
-using System;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Collections.Generic;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
-using TaxOmbud.Common.Responses;
-using TaxOmbud.Application.Wallet.DTOs;
 using TaxOmbud.Application.Interfaces.Persistence;
 using TaxOmbud.Application.Interfaces.Services;
+using TaxOmbud.Application.Wallet.DTOs;
+using TaxOmbud.Common.Responses;
 using TaxOmbud.Domain.Entities.Hr;
 
 namespace TaxOmbud.Application.Services;
@@ -91,7 +85,7 @@ public class WalletService : IWalletService
                 Amount = -request.Amount,
                 Type = "debit",
                 Reference = "WithdrawalRequest",
-                CreatedAt = DateTimeOffset.UtcNow
+                CreatedAt = DateTime.UtcNow
             };
 
             _context.WalletTransactions.Add(tx);

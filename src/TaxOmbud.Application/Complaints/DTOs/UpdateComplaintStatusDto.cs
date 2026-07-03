@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using TaxOmbud.Domain.Enums;
-using TaxOmbud.Domain.Exceptions;
+using TaxOmbud.Common.CustomException;
 using TaxOmbud.Common.Responses;
 
 namespace TaxOmbud.Application.Complaints.DTOs;

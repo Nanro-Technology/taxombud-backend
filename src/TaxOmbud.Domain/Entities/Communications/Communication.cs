@@ -4,7 +4,7 @@ using TaxOmbud.Domain.Enums;
 
 namespace TaxOmbud.Domain.Entities.Communications;
 
-public class Communication : BaseAuditableEntity
+public class Communication : BaseEntity
 {
     public string Recipient { get; set; } = null!;
     public string Subject { get; set; } = null!;
