@@ -21,6 +21,7 @@ public class AuthService : IAuthService
     private readonly IEmailService _emailService;
     private readonly ITokenService _tokenService;
 
+
     public AuthService(
         IGenericRepository<User> userRepo,
         IGenericRepository<RefreshToken> refreshTokenRepo,
@@ -51,14 +52,14 @@ public class AuthService : IAuthService
             if (user is null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
-                response.Message = "User not found.";
+                response.Message = Constants.Messages.AuthUserNotFound;
                 return response;
             }
 
             if (!_passwordHasher.Verify(request.CurrentPassword, user.PasswordHash ?? string.Empty))
             {
                 response.StatusCode = StatusCodes.Status400BadRequest;
-                response.Message = "Current password is incorrect.";
+                response.Message = Constants.Messages.AuthPasswordIncorrect;
                 return response;
             }
 
@@ -73,7 +74,7 @@ public class AuthService : IAuthService
             await _userRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Success";
+            response.Message = Constants.Messages.Success;
         }
         catch (Exception ex)
         {
@@ -95,7 +96,7 @@ public class AuthService : IAuthService
             if (user is null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
-                response.Message = "User not found.";
+                response.Message = Constants.Messages.AuthUserNotFound;
                 return response;
             }
 
@@ -103,14 +104,14 @@ public class AuthService : IAuthService
             if (!_passwordHasher.Verify(request.Password, user.PasswordHash ?? string.Empty))
             {
                 response.StatusCode = StatusCodes.Status400BadRequest;
-                response.Message = "Password confirmation failed.";
+                response.Message = Constants.Messages.AuthPasswordConfirmationFailed;
                 return response;
             }
 
             if (user.MfaToken is null || !user.MfaToken.IsEnabled)
             {
                 response.StatusCode = StatusCodes.Status200OK;
-                response.Message = "Success";
+                response.Message = Constants.Messages.Success;
                 return response;
             }
 
@@ -119,7 +120,7 @@ public class AuthService : IAuthService
             await _userRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Success";
+            response.Message = Constants.Messages.Success;
         }
         catch (Exception ex)
         {
@@ -142,7 +143,7 @@ public class AuthService : IAuthService
             if (user is null)
             {
                 response.StatusCode = StatusCodes.Status200OK;
-                response.Message = "Success";
+                response.Message = Constants.Messages.Success;
                 return response;
             }
 
@@ -162,7 +163,7 @@ public class AuthService : IAuthService
                 cancellationToken: cancellationToken);
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Success";
+            response.Message = Constants.Messages.Success;
         }
         catch (Exception ex)
         {
@@ -188,14 +189,14 @@ public class AuthService : IAuthService
             if (user is null || !_passwordHasher.Verify(request.Password, user.PasswordHash ?? string.Empty))
             {
                 response.StatusCode = StatusCodes.Status400BadRequest;
-                response.Message = "Invalid email or password.";
+                response.Message = Constants.Messages.InvalidCredentials;
                 return response;
             }
 
             if (!user.IsActive || !user.CanSignIn)
             {
                 response.StatusCode = StatusCodes.Status403Forbidden;
-                response.Message = "This account has been disabled.";
+                response.Message = Constants.Messages.AuthAccountDisabled;
                 return response;
             }
 
@@ -227,7 +228,7 @@ public class AuthService : IAuthService
             await _refreshTokenRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Success";
+            response.Message = Constants.Messages.Success;
             response.Data = new LoginResponse(
                 AccessToken: accessToken,
                 RefreshToken: refreshToken,
@@ -260,7 +261,7 @@ public class AuthService : IAuthService
             }
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Success";
+            response.Message = Constants.Messages.Success;
         }
         catch (Exception ex)
         {
@@ -285,21 +286,21 @@ public class AuthService : IAuthService
             if (storedToken is null)
             {
                 response.StatusCode = StatusCodes.Status400BadRequest;
-                response.Message = "Invalid refresh token.";
+                response.Message = Constants.Messages.AuthInvalidRefreshToken;
                 return response;
             }
 
             if (storedToken.IsRevoked)
             {
                 response.StatusCode = StatusCodes.Status400BadRequest;
-                response.Message = "Refresh token has been revoked.";
+                response.Message = Constants.Messages.AuthRefreshTokenRevoked;
                 return response;
             }
 
             if (storedToken.ExpiresAt < DateTime.UtcNow)
             {
                 response.StatusCode = StatusCodes.Status400BadRequest;
-                response.Message = "Refresh token has expired. Please log in again.";
+                response.Message = Constants.Messages.AuthRefreshTokenExpired;
                 return response;
             }
 
@@ -337,7 +338,7 @@ public class AuthService : IAuthService
             await _refreshTokenRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Success";
+            response.Message = Constants.Messages.Success;
             response.Data = new RefreshTokenResponse(accessToken, newRefreshToken, expiry);
         }
         catch (Exception ex)
@@ -379,7 +380,7 @@ public class AuthService : IAuthService
             await _userRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Success";
+            response.Message = Constants.Messages.Success;
             response.Data = new RegisterResponse(user.Id, user.Email ?? string.Empty, user.FullName);
         }
         catch (Exception ex)
@@ -402,7 +403,7 @@ public class AuthService : IAuthService
             if (user is null)
             {
                 response.StatusCode = StatusCodes.Status400BadRequest;
-                response.Message = "Invalid or expired reset token.";
+                response.Message = Constants.Messages.AuthInvalidResetToken;
                 return response;
             }
 
@@ -410,7 +411,7 @@ public class AuthService : IAuthService
                 user.PasswordResetTokenExpiresAt < DateTimeOffset.UtcNow)
             {
                 response.StatusCode = StatusCodes.Status400BadRequest;
-                response.Message = "Invalid or expired reset token.";
+                response.Message = Constants.Messages.AuthInvalidResetToken;
                 return response;
             }
 
@@ -426,7 +427,7 @@ public class AuthService : IAuthService
             await _userRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Success";
+            response.Message = Constants.Messages.Success;
         }
         catch (Exception ex)
         {
@@ -448,7 +449,7 @@ public class AuthService : IAuthService
             if (user is null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
-                response.Message = "User not found.";
+                response.Message = Constants.Messages.AuthUserNotFound;
                 return response;
             }
 
@@ -492,7 +493,7 @@ public class AuthService : IAuthService
             var qrUri = $"otpauth://totp/{issuer}:{label}?secret={secretBase32}&issuer={issuer}&algorithm=SHA1&digits=6&period=30";
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Success";
+            response.Message = Constants.Messages.Success;
             response.Data = new SetupMfaResponse(
                 QrCodeUri: qrUri,
                 SecretKey: secretBase32,
@@ -517,21 +518,21 @@ public class AuthService : IAuthService
             if (user is null)
             {
                 response.StatusCode = StatusCodes.Status400BadRequest;
-                response.Message = "Invalid or expired verification token.";
+                response.Message = Constants.Messages.AuthInvalidVerificationToken;
                 return response;
             }
 
             if (user.EmailVerificationTokenExpiresAt < DateTimeOffset.UtcNow)
             {
                 response.StatusCode = StatusCodes.Status400BadRequest;
-                response.Message = "Verification token has expired. Please request a new one.";
+                response.Message = Constants.Messages.AuthVerificationTokenExpired;
                 return response;
             }
 
             if (user.EmailVerified)
             {
                 response.StatusCode = StatusCodes.Status200OK;
-                response.Message = "Success";
+                response.Message = Constants.Messages.Success;
                 return response;
             }
 
@@ -540,7 +541,7 @@ public class AuthService : IAuthService
             await _userRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Success";
+            response.Message = Constants.Messages.Success;
         }
         catch (Exception ex)
         {
@@ -560,7 +561,7 @@ public class AuthService : IAuthService
             if (mfaToken is null)
             {
                 response.StatusCode = StatusCodes.Status400BadRequest;
-                response.Message = "MFA has not been set up. Please call /mfa/setup first.";
+                response.Message = Constants.Messages.AuthMfaNotSetUp;
                 return response;
             }
 
@@ -575,7 +576,7 @@ public class AuthService : IAuthService
             if (!isValid)
             {
                 response.StatusCode = StatusCodes.Status400BadRequest;
-                response.Message = "Invalid TOTP code.";
+                response.Message = Constants.Messages.AuthInvalidTotp;
                 return response;
             }
 
@@ -584,7 +585,7 @@ public class AuthService : IAuthService
             await _mfaTokenRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Success";
+            response.Message = Constants.Messages.Success;
         }
         catch (Exception ex)
         {

@@ -8,6 +8,7 @@ using TaxOmbud.Common.Responses;
 using TaxOmbud.Domain.Entities.Complaints;
 using TaxOmbud.Domain.Entities.Documents;
 using TaxOmbud.Domain.Enums;
+using TaxOmbud.Common.Utilities;
 
 namespace TaxOmbud.Application.Services;
 
@@ -39,7 +40,7 @@ public class ComplaintsService : IComplaintsService
         _currentUser = currentUser;
     }
 
-    // ─── Queries ───────────────────────────────────────────────────────────────
+    // ─── Queries ────────────────────────────────────────────────────────────────
 
     public async Task<Response<PagedResult<ComplaintSummaryDto>>> GetComplaintsAsync(GetComplaintsQuery request, CancellationToken cancellationToken = default)
     {
@@ -79,13 +80,13 @@ public class ComplaintsService : IComplaintsService
                 .ToListAsync(cancellationToken);
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Complaints retrieved successfully.";
+            response.Message = Constants.Messages.ComplaintsRetrieved;
             response.Data = new PagedResult<ComplaintSummaryDto>(items, total, request.Page, request.PageSize);
         }
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = "An error occurred while retrieving complaints.";
+            response.Message = Constants.Messages.ComplaintRetrieveError;
         }
         return response;
     }
@@ -116,13 +117,13 @@ public class ComplaintsService : IComplaintsService
                 .ToListAsync(cancellationToken);
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Complaints retrieved successfully.";
+            response.Message = Constants.Messages.ComplaintsRetrieved;
             response.Data = new PagedResult<ComplaintSummaryDto>(items, total, request.Page, request.PageSize);
         }
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = "An error occurred while retrieving complaints.";
+            response.Message = Constants.Messages.ComplaintRetrieveError;
         }
         return response;
     }
@@ -137,16 +138,16 @@ public class ComplaintsService : IComplaintsService
                 .Include(x => x.AssignedOfficer).ThenInclude(o => o!.User)
                 .FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken);
 
-            if (c is null) { response.StatusCode = StatusCodes.Status404NotFound; response.Message = "Complaint not found."; return response; }
+            if (c is null) { response.StatusCode = StatusCodes.Status404NotFound; response.Message = Constants.Messages.ComplaintNotFound; return response; }
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Complaint retrieved successfully.";
+            response.Message = Constants.Messages.ComplaintRetrieved;
             response.Data = MapToDetail(c);
         }
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = "An error occurred while retrieving the complaint.";
+            response.Message = Constants.Messages.ComplaintGetError;
         }
         return response;
     }
@@ -161,16 +162,16 @@ public class ComplaintsService : IComplaintsService
                 .Include(x => x.AssignedOfficer).ThenInclude(o => o!.User)
                 .FirstOrDefaultAsync(x => x.ReferenceNumber == request.ReferenceNumber, cancellationToken);
 
-            if (c is null) { response.StatusCode = StatusCodes.Status404NotFound; response.Message = "Complaint not found."; return response; }
+            if (c is null) { response.StatusCode = StatusCodes.Status404NotFound; response.Message = Constants.Messages.ComplaintNotFound; return response; }
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Complaint retrieved successfully.";
+            response.Message = Constants.Messages.ComplaintRetrieved;
             response.Data = MapToDetail(c);
         }
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = "An error occurred while retrieving the complaint.";
+            response.Message = Constants.Messages.ComplaintGetError;
         }
         return response;
     }
@@ -187,13 +188,13 @@ public class ComplaintsService : IComplaintsService
                 .ToListAsync(cancellationToken);
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Notes retrieved successfully.";
+            response.Message = Constants.Messages.NotesRetrieved;
             response.Data = notes.AsReadOnly();
         }
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = "An error occurred while retrieving notes.";
+            response.Message = Constants.Messages.ComplaintNotesError;
         }
         return response;
     }
@@ -210,13 +211,13 @@ public class ComplaintsService : IComplaintsService
                 .ToListAsync(cancellationToken);
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Documents retrieved successfully.";
+            response.Message = Constants.Messages.DocumentsRetrieved;
             response.Data = documents.AsReadOnly();
         }
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = "An error occurred while retrieving documents.";
+            response.Message = Constants.Messages.ComplaintDocsError;
         }
         return response;
     }
@@ -235,13 +236,13 @@ public class ComplaintsService : IComplaintsService
                 .ToListAsync(cancellationToken);
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Timeline retrieved successfully.";
+            response.Message = Constants.Messages.TimelineRetrieved;
             response.Data = history.AsReadOnly();
         }
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = "An error occurred while retrieving the timeline.";
+            response.Message = Constants.Messages.ComplaintTimelineError;
         }
         return response;
     }
@@ -260,13 +261,13 @@ public class ComplaintsService : IComplaintsService
                 .ToListAsync(cancellationToken);
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Related complaints retrieved successfully.";
+            response.Message = Constants.Messages.RelatedComplaintsRetrieved;
             response.Data = links.AsReadOnly();
         }
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = "An error occurred while retrieving related complaints.";
+            response.Message = Constants.Messages.ComplaintRelatedError;
         }
         return response;
     }
@@ -288,13 +289,13 @@ public class ComplaintsService : IComplaintsService
             await _complaintRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Complaint submitted successfully.";
+            response.Message = Constants.Messages.ComplaintSubmitted;
             response.Data = new SubmitComplaintResponse(complaint.Id, refNumber, complaint.Status.ToString());
         }
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = "An error occurred while submitting the complaint.";
+            response.Message = Constants.Messages.ComplaintSubmitError;
         }
         return response;
     }
@@ -313,13 +314,13 @@ public class ComplaintsService : IComplaintsService
             await _noteRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Note added successfully.";
+            response.Message = Constants.Messages.NoteAdded;
             response.Data = note.Id;
         }
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = "An error occurred while adding the note.";
+            response.Message = Constants.Messages.ComplaintNoteAddError;
         }
         return response;
     }
@@ -330,14 +331,14 @@ public class ComplaintsService : IComplaintsService
         try
         {
             var complaint = await _complaintRepo.GetByIdAsync(request.ComplaintId);
-            if (complaint is null) { response.StatusCode = StatusCodes.Status404NotFound; response.Message = "Complaint not found."; return response; }
+            if (complaint is null) { response.StatusCode = StatusCodes.Status404NotFound; response.Message = Constants.Messages.ComplaintNotFound; return response; }
 
             complaint.Assign(request.OfficerId, request.AssignedByUserId);
             await _complaintRepo.UpdateAsync(complaint);
             await _complaintRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Complaint assigned successfully.";
+            response.Message = Constants.Messages.ComplaintAssigned;
         }
         catch (Exception ex)
         {
@@ -353,14 +354,14 @@ public class ComplaintsService : IComplaintsService
         try
         {
             var complaint = await _complaintRepo.GetByIdAsync(request.ComplaintId);
-            if (complaint is null) { response.StatusCode = StatusCodes.Status404NotFound; response.Message = "Complaint not found."; return response; }
+            if (complaint is null) { response.StatusCode = StatusCodes.Status404NotFound; response.Message = Constants.Messages.ComplaintNotFound; return response; }
 
             complaint.Escalate(request.Reason, request.EscalatedByUserId);
             await _complaintRepo.UpdateAsync(complaint);
             await _complaintRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Complaint escalated successfully.";
+            response.Message = Constants.Messages.ComplaintEscalated;
         }
         catch (Exception ex) { response.StatusCode = StatusCodes.Status400BadRequest; response.Message = ex.Message; }
         return response;
@@ -372,14 +373,14 @@ public class ComplaintsService : IComplaintsService
         try
         {
             var complaint = await _complaintRepo.GetByIdAsync(request.ComplaintId);
-            if (complaint is null) { response.StatusCode = StatusCodes.Status404NotFound; response.Message = "Complaint not found."; return response; }
+            if (complaint is null) { response.StatusCode = StatusCodes.Status404NotFound; response.Message = Constants.Messages.ComplaintNotFound; return response; }
 
             complaint.Close(request.Reason, request.ClosedByUserId);
             await _complaintRepo.UpdateAsync(complaint);
             await _complaintRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Complaint closed successfully.";
+            response.Message = Constants.Messages.ComplaintClosed;
         }
         catch (Exception ex) { response.StatusCode = StatusCodes.Status400BadRequest; response.Message = ex.Message; }
         return response;
@@ -391,14 +392,14 @@ public class ComplaintsService : IComplaintsService
         try
         {
             var complaint = await _complaintRepo.GetByIdAsync(request.ComplaintId);
-            if (complaint is null) { response.StatusCode = StatusCodes.Status404NotFound; response.Message = "Complaint not found."; return response; }
+            if (complaint is null) { response.StatusCode = StatusCodes.Status404NotFound; response.Message = Constants.Messages.ComplaintNotFound; return response; }
 
             complaint.Reopen(request.ReopenedByUserId);
             await _complaintRepo.UpdateAsync(complaint);
             await _complaintRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Complaint reopened successfully.";
+            response.Message = Constants.Messages.ComplaintReopened;
         }
         catch (Exception ex) { response.StatusCode = StatusCodes.Status400BadRequest; response.Message = ex.Message; }
         return response;
@@ -410,7 +411,7 @@ public class ComplaintsService : IComplaintsService
         try
         {
             var complaint = await _complaintRepo.GetByIdAsync(request.Id);
-            if (complaint is null) { response.StatusCode = StatusCodes.Status404NotFound; response.Message = "Complaint not found."; return response; }
+            if (complaint is null) { response.StatusCode = StatusCodes.Status404NotFound; response.Message = Constants.Messages.ComplaintNotFound; return response; }
 
             complaint.UpdateDetails(request.Subject, request.Description, request.TaxType, request.TaxPeriod,
                 request.ComplaintCategory, request.TaxOfficeRef, request.TinNumber);
@@ -421,12 +422,12 @@ public class ComplaintsService : IComplaintsService
             await _complaintRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Complaint updated successfully.";
+            response.Message = Constants.Messages.ComplaintUpdated;
         }
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = "An error occurred while updating the complaint.";
+            response.Message = Constants.Messages.ComplaintUpdateError;
         }
         return response;
     }
@@ -437,7 +438,7 @@ public class ComplaintsService : IComplaintsService
         try
         {
             var complaint = await _complaintRepo.GetByIdAsync(request.ComplaintId);
-            if (complaint is null) { response.StatusCode = StatusCodes.Status404NotFound; response.Message = "Complaint not found."; return response; }
+            if (complaint is null) { response.StatusCode = StatusCodes.Status404NotFound; response.Message = Constants.Messages.ComplaintNotFound; return response; }
 
             var userId = _currentUser.UserId ?? Guid.Empty;
             switch (request.Status)
@@ -458,13 +459,13 @@ public class ComplaintsService : IComplaintsService
             await _complaintRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Complaint status updated.";
+            response.Message = Constants.Messages.ComplaintStatusUpdated;
         }
         catch (DomainException ex) { response.StatusCode = StatusCodes.Status400BadRequest; response.Message = ex.Message; }
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = "An error occurred while updating the status.";
+            response.Message = Constants.Messages.ComplaintStatusUpdateError;
         }
         return response;
     }
@@ -475,18 +476,18 @@ public class ComplaintsService : IComplaintsService
         try
         {
             var complaint = await _complaintRepo.GetByIdAsync(request.Id);
-            if (complaint is null) { response.StatusCode = StatusCodes.Status404NotFound; response.Message = "Complaint not found."; return response; }
+            if (complaint is null) { response.StatusCode = StatusCodes.Status404NotFound; response.Message = Constants.Messages.ComplaintNotFound; return response; }
 
             await _complaintRepo.RemoveAsync(complaint);
             await _complaintRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Complaint deleted successfully.";
+            response.Message = Constants.Messages.ComplaintDeleted;
         }
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = "An error occurred while deleting the complaint.";
+            response.Message = Constants.Messages.ComplaintDeleteError;
         }
         return response;
     }
@@ -508,12 +509,12 @@ public class ComplaintsService : IComplaintsService
             await _linkRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Complaints linked successfully.";
+            response.Message = Constants.Messages.ComplaintsLinked;
         }
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = "An error occurred while linking complaints.";
+            response.Message = Constants.Messages.ComplaintLinkError;
         }
         return response;
     }
@@ -537,13 +538,13 @@ public class ComplaintsService : IComplaintsService
             await _documentRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Document uploaded successfully.";
+            response.Message = Constants.Messages.DocumentUploaded;
             response.Data = docId;
         }
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = "An error occurred while uploading the document.";
+            response.Message = Constants.Messages.ComplaintDocUploadError;
         }
         return response;
     }
