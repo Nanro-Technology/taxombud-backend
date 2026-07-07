@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using TaxOmbud.Application.Interfaces.Persistence;
+using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Application.Tasks.DTOs;
 using TaxOmbud.Common.CustomException;
@@ -9,17 +9,15 @@ namespace TaxOmbud.Application.Services;
 
 public class TasksService : ITasksService
 {
-    private readonly IApplicationDbContext _context;
+    private readonly IGenericRepository<CaseTask> _taskRepo;
 
-    public TasksService(
-        IApplicationDbContext context
-    )
+    public TasksService(IGenericRepository<CaseTask> taskRepo)
     {
-        _context = context;
+        _taskRepo = taskRepo;
     }
 
     public async Task<Guid> CreateCaseTaskAsync(CreateCaseTaskCommand request, CancellationToken cancellationToken = default)
-{
+    {
         var entity = new CaseTask
         {
             Title = request.Title,
@@ -31,34 +29,27 @@ public class TasksService : ITasksService
             LinkedCaseId = request.LinkedCaseId
         };
 
-        _context.CaseTasks.Add(entity);
-        await _context.SaveChangesAsync(cancellationToken);
-
+        await _taskRepo.AddAsync(entity);
+        await _taskRepo.SaveAsync();
         return entity.Id;
     }
 
     public async Task<DeleteCaseTaskCommand> DeleteCaseTaskAsync(DeleteCaseTaskCommand request, CancellationToken cancellationToken = default)
-{
-        var entity = await _context.CaseTasks.FindAsync(new object[] { request.Id }, cancellationToken);
-
+    {
+        var entity = await _taskRepo.GetByIdAsync(request.Id);
         if (entity == null)
-        {
             throw new NotFoundException(nameof(CaseTask), request.Id);
-        }
 
-        _context.CaseTasks.Remove(entity);
-        await _context.SaveChangesAsync(cancellationToken);
+        await _taskRepo.RemoveAsync(entity);
+        await _taskRepo.SaveAsync();
         return request;
     }
 
     public async Task<UpdateCaseTaskCommand> UpdateCaseTaskAsync(UpdateCaseTaskCommand request, CancellationToken cancellationToken = default)
-{
-        var entity = await _context.CaseTasks.FindAsync(new object[] { request.Id }, cancellationToken);
-
+    {
+        var entity = await _taskRepo.GetByIdAsync(request.Id);
         if (entity == null)
-        {
             throw new NotFoundException(nameof(CaseTask), request.Id);
-        }
 
         entity.Title = request.Title;
         entity.Description = request.Description;
@@ -68,20 +59,16 @@ public class TasksService : ITasksService
         entity.AssignedToId = request.AssignedToId;
         entity.LinkedCaseId = request.LinkedCaseId;
 
-        await _context.SaveChangesAsync(cancellationToken);
+        await _taskRepo.UpdateAsync(entity);
+        await _taskRepo.SaveAsync();
         return request;
     }
 
     public async Task<CaseTaskDto> GetCaseTaskByIdAsync(GetCaseTaskByIdQuery request, CancellationToken cancellationToken = default)
-{
-        var entity = await _context.CaseTasks
-            .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken);
-
+    {
+        var entity = await _taskRepo.FindAsync(x => x.Id == request.Id);
         if (entity == null)
-        {
             throw new NotFoundException(nameof(CaseTask), request.Id);
-        }
 
         return new CaseTaskDto
         {
@@ -101,8 +88,8 @@ public class TasksService : ITasksService
     }
 
     public async Task<List<CaseTaskDto>> GetCaseTasksAsync(GetCaseTasksQuery request, CancellationToken cancellationToken = default)
-{
-        return await _context.CaseTasks
+    {
+        return await _taskRepo.Query()
             .AsNoTracking()
             .Select(x => new CaseTaskDto
             {
@@ -121,5 +108,4 @@ public class TasksService : ITasksService
             })
             .ToListAsync(cancellationToken);
     }
-
 }

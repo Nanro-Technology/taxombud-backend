@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using TaxOmbud.Application.Complaints.DTOs;
 using TaxOmbud.Application.Interfaces.InfrastructureService;
-using TaxOmbud.Application.Interfaces.Persistence;
+using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Common.CustomException;
 using TaxOmbud.Common.Responses;
@@ -13,16 +13,28 @@ namespace TaxOmbud.Application.Services;
 
 public class ComplaintsService : IComplaintsService
 {
-    private readonly IApplicationDbContext _context;
+    private readonly IGenericRepository<Complaint> _complaintRepo;
+    private readonly IGenericRepository<ComplaintNote> _noteRepo;
+    private readonly IGenericRepository<ComplaintStatusHistory> _historyRepo;
+    private readonly IGenericRepository<ComplaintLink> _linkRepo;
+    private readonly IGenericRepository<Document> _documentRepo;
     private readonly IFileStorageService _storage;
     private readonly ICurrentUser _currentUser;
 
     public ComplaintsService(
-        IApplicationDbContext context,
+        IGenericRepository<Complaint> complaintRepo,
+        IGenericRepository<ComplaintNote> noteRepo,
+        IGenericRepository<ComplaintStatusHistory> historyRepo,
+        IGenericRepository<ComplaintLink> linkRepo,
+        IGenericRepository<Document> documentRepo,
         IFileStorageService storage,
         ICurrentUser currentUser)
     {
-        _context = context;
+        _complaintRepo = complaintRepo;
+        _noteRepo = noteRepo;
+        _historyRepo = historyRepo;
+        _linkRepo = linkRepo;
+        _documentRepo = documentRepo;
         _storage = storage;
         _currentUser = currentUser;
     }
@@ -34,14 +46,13 @@ public class ComplaintsService : IComplaintsService
         var response = new Response<PagedResult<ComplaintSummaryDto>>();
         try
         {
-            var query = _context.Complaints
+            var query = _complaintRepo.Query()
                 .Include(c => c.Taxpayer)
                 .Include(c => c.AssignedOfficer).ThenInclude(o => o!.User)
                 .AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(request.Search))
-                query = query.Where(c => c.ReferenceNumber.Contains(request.Search) ||
-                                         c.Subject.Contains(request.Search));
+                query = query.Where(c => c.ReferenceNumber.Contains(request.Search) || c.Subject.Contains(request.Search));
 
             if (!string.IsNullOrWhiteSpace(request.Status))
                 query = query.Where(c => c.Status.ToString() == request.Status);
@@ -56,26 +67,15 @@ public class ComplaintsService : IComplaintsService
                 query = query.Where(c => c.AssignedOfficerId == request.AssignedOfficerId.Value);
 
             var total = await query.CountAsync(cancellationToken);
-            var items = await query
-                .OrderByDescending(c => c.CreatedAt)
-                .Skip((request.Page - 1) * request.PageSize)
-                .Take(request.PageSize)
+            var items = await query.OrderByDescending(c => c.CreatedAt)
+                .Skip((request.Page - 1) * request.PageSize).Take(request.PageSize)
                 .Select(c => new ComplaintSummaryDto(
-                    c.Id,
-                    c.ReferenceNumber,
-                    c.Subject,
-                    c.TaxType,
-                    c.TaxPeriod,
-                    c.ComplaintCategory,
-                    c.Status.ToString(),
-                    c.CurrentStage,
-                    c.Priority,
-                    c.TaxpayerId,
+                    c.Id, c.ReferenceNumber, c.Subject, c.TaxType, c.TaxPeriod, c.ComplaintCategory,
+                    c.Status.ToString(), c.CurrentStage, c.Priority, c.TaxpayerId,
                     c.Taxpayer != null ? $"{c.Taxpayer.FirstName} {c.Taxpayer.LastName}" : null,
                     c.AssignedOfficerId,
                     c.AssignedOfficer != null ? $"{c.AssignedOfficer.User.FirstName} {c.AssignedOfficer.User.LastName}" : null,
-                    c.CreatedAt
-                ))
+                    c.CreatedAt))
                 .ToListAsync(cancellationToken);
 
             response.StatusCode = StatusCodes.Status200OK;
@@ -95,36 +95,24 @@ public class ComplaintsService : IComplaintsService
         var response = new Response<PagedResult<ComplaintSummaryDto>>();
         try
         {
-            var query = _context.Complaints
+            var query = _complaintRepo.Query()
                 .Include(c => c.Taxpayer)
                 .Include(c => c.AssignedOfficer).ThenInclude(o => o!.User)
                 .AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(request.Search))
-                query = query.Where(c => c.ReferenceNumber.Contains(request.Search) ||
-                                         c.Subject.Contains(request.Search));
+                query = query.Where(c => c.ReferenceNumber.Contains(request.Search) || c.Subject.Contains(request.Search));
 
             var total = await query.CountAsync(cancellationToken);
-            var items = await query
-                .OrderByDescending(c => c.CreatedAt)
-                .Skip((request.Page - 1) * request.PageSize)
-                .Take(request.PageSize)
+            var items = await query.OrderByDescending(c => c.CreatedAt)
+                .Skip((request.Page - 1) * request.PageSize).Take(request.PageSize)
                 .Select(c => new ComplaintSummaryDto(
-                    c.Id,
-                    c.ReferenceNumber,
-                    c.Subject,
-                    c.TaxType,
-                    c.TaxPeriod,
-                    c.ComplaintCategory,
-                    c.Status.ToString(),
-                    c.CurrentStage,
-                    c.Priority,
-                    c.TaxpayerId,
+                    c.Id, c.ReferenceNumber, c.Subject, c.TaxType, c.TaxPeriod, c.ComplaintCategory,
+                    c.Status.ToString(), c.CurrentStage, c.Priority, c.TaxpayerId,
                     c.Taxpayer != null ? $"{c.Taxpayer.FirstName} {c.Taxpayer.LastName}" : null,
                     c.AssignedOfficerId,
                     c.AssignedOfficer != null ? $"{c.AssignedOfficer.User.FirstName} {c.AssignedOfficer.User.LastName}" : null,
-                    c.CreatedAt
-                ))
+                    c.CreatedAt))
                 .ToListAsync(cancellationToken);
 
             response.StatusCode = StatusCodes.Status200OK;
@@ -144,42 +132,16 @@ public class ComplaintsService : IComplaintsService
         var response = new Response<ComplaintDetailDto>();
         try
         {
-            var c = await _context.Complaints
+            var c = await _complaintRepo.Query()
                 .Include(x => x.Taxpayer)
                 .Include(x => x.AssignedOfficer).ThenInclude(o => o!.User)
                 .FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken);
 
-            if (c is null)
-            {
-                response.StatusCode = StatusCodes.Status404NotFound;
-                response.Message = "Complaint not found.";
-                return response;
-            }
+            if (c is null) { response.StatusCode = StatusCodes.Status404NotFound; response.Message = "Complaint not found."; return response; }
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Complaint retrieved successfully.";
-            response.Data = new ComplaintDetailDto(
-                c.Id,
-                c.ReferenceNumber,
-                c.Subject,
-                c.Description,
-                c.TaxType,
-                c.TaxPeriod,
-                c.ComplaintCategory,
-                c.TaxOfficeRef,
-                c.TinNumber,
-                c.Status.ToString(),
-                c.CurrentStage,
-                c.Priority,
-                c.RequiresApprovalToClose,
-                c.ClosedAt,
-                c.ClosureReason,
-                c.WithdrawalReason,
-                new TaxpayerSummary(c.Taxpayer.Id, $"{c.Taxpayer.FirstName} {c.Taxpayer.LastName}", c.Taxpayer.Email.Value, c.Taxpayer.Phone),
-                c.AssignedOfficer is null ? null : new OfficerSummary(c.AssignedOfficer.Id, $"{c.AssignedOfficer.User.FirstName} {c.AssignedOfficer.User.LastName}", c.AssignedOfficer.User.Email),
-                c.CreatedAt,
-                c.LastModifiedAt
-            );
+            response.Data = MapToDetail(c);
         }
         catch (Exception)
         {
@@ -194,42 +156,16 @@ public class ComplaintsService : IComplaintsService
         var response = new Response<ComplaintDetailDto>();
         try
         {
-            var c = await _context.Complaints
+            var c = await _complaintRepo.Query()
                 .Include(x => x.Taxpayer)
                 .Include(x => x.AssignedOfficer).ThenInclude(o => o!.User)
                 .FirstOrDefaultAsync(x => x.ReferenceNumber == request.ReferenceNumber, cancellationToken);
 
-            if (c is null)
-            {
-                response.StatusCode = StatusCodes.Status404NotFound;
-                response.Message = "Complaint not found.";
-                return response;
-            }
+            if (c is null) { response.StatusCode = StatusCodes.Status404NotFound; response.Message = "Complaint not found."; return response; }
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Complaint retrieved successfully.";
-            response.Data = new ComplaintDetailDto(
-                c.Id,
-                c.ReferenceNumber,
-                c.Subject,
-                c.Description,
-                c.TaxType,
-                c.TaxPeriod,
-                c.ComplaintCategory,
-                c.TaxOfficeRef,
-                c.TinNumber,
-                c.Status.ToString(),
-                c.CurrentStage,
-                c.Priority,
-                c.RequiresApprovalToClose,
-                c.ClosedAt,
-                c.ClosureReason,
-                c.WithdrawalReason,
-                new TaxpayerSummary(c.Taxpayer.Id, $"{c.Taxpayer.FirstName} {c.Taxpayer.LastName}", c.Taxpayer.Email.Value, c.Taxpayer.Phone),
-                c.AssignedOfficer is null ? null : new OfficerSummary(c.AssignedOfficer.Id, $"{c.AssignedOfficer.User.FirstName} {c.AssignedOfficer.User.LastName}", c.AssignedOfficer.User.Email),
-                c.CreatedAt,
-                c.LastModifiedAt
-            );
+            response.Data = MapToDetail(c);
         }
         catch (Exception)
         {
@@ -244,7 +180,7 @@ public class ComplaintsService : IComplaintsService
         var response = new Response<IReadOnlyList<ComplaintNoteDto>>();
         try
         {
-            var notes = await _context.ComplaintNotes
+            var notes = await _noteRepo.Query()
                 .Where(n => n.ComplaintId == request.ComplaintId)
                 .OrderByDescending(n => n.CreatedAt)
                 .Select(n => new ComplaintNoteDto(n.Id, n.Body, n.Visibility, n.AuthorUserId, n.CreatedAt))
@@ -267,7 +203,7 @@ public class ComplaintsService : IComplaintsService
         var response = new Response<IReadOnlyList<ComplaintDocumentDto>>();
         try
         {
-            var documents = await _context.Documents
+            var documents = await _documentRepo.Query()
                 .Where(d => d.EntityType == DocumentEntityType.Complaint && d.EntityId == request.ComplaintId)
                 .OrderByDescending(d => d.CreatedAt)
                 .Select(d => new ComplaintDocumentDto(d.Id, d.FileName, d.ContentType, d.FileSize, d.CreatedAt))
@@ -290,17 +226,12 @@ public class ComplaintsService : IComplaintsService
         var response = new Response<IReadOnlyList<TimelineEventDto>>();
         try
         {
-            var history = await _context.ComplaintStatusHistory
+            var history = await _historyRepo.Query()
                 .Where(h => h.ComplaintId == request.ComplaintId)
                 .OrderBy(h => h.CreatedAt)
                 .Select(h => new TimelineEventDto(
-                    "StatusChange",
-                    $"Status changed from {h.OldStatus} to {h.NewStatus}",
-                    h.OldStatus.ToString(),
-                    h.NewStatus.ToString(),
-                    h.ChangedByUserId.ToString(),
-                    h.TransitionedAt
-                ))
+                    "StatusChange", $"Status changed from {h.OldStatus} to {h.NewStatus}",
+                    h.OldStatus.ToString(), h.NewStatus.ToString(), h.ChangedByUserId.ToString(), h.TransitionedAt))
                 .ToListAsync(cancellationToken);
 
             response.StatusCode = StatusCodes.Status200OK;
@@ -320,17 +251,12 @@ public class ComplaintsService : IComplaintsService
         var response = new Response<IReadOnlyList<RelatedComplaintDto>>();
         try
         {
-            var links = await _context.ComplaintLinks
+            var links = await _linkRepo.Query()
                 .Where(l => l.SourceComplaintId == request.ComplaintId || l.TargetComplaintId == request.ComplaintId)
                 .Include(l => l.TargetComplaint)
                 .Select(l => new RelatedComplaintDto(
-                    l.Id,
-                    l.TargetComplaintId,
-                    l.TargetComplaint.ReferenceNumber,
-                    l.TargetComplaint.Subject,
-                    l.TargetComplaint.Status.ToString(),
-                    l.LinkType
-                ))
+                    l.Id, l.TargetComplaintId, l.TargetComplaint.ReferenceNumber,
+                    l.TargetComplaint.Subject, l.TargetComplaint.Status.ToString(), l.LinkType))
                 .ToListAsync(cancellationToken);
 
             response.StatusCode = StatusCodes.Status200OK;
@@ -354,20 +280,12 @@ public class ComplaintsService : IComplaintsService
         {
             var refNumber = $"TOC-{DateTimeOffset.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString()[..6].ToUpper()}";
             var complaint = Complaint.Create(
-                request.TaxpayerId,
-                request.TaxType,
-                request.TaxPeriod,
-                request.ComplaintCategory,
-                request.Subject,
-                request.Description,
-                refNumber,
-                request.TaxOfficeRef,
-                request.TinNumber
-            );
+                request.TaxpayerId, request.TaxType, request.TaxPeriod, request.ComplaintCategory,
+                request.Subject, request.Description, refNumber, request.TaxOfficeRef, request.TinNumber);
 
             complaint.Submit();
-            _context.Complaints.Add(complaint);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _complaintRepo.AddAsync(complaint);
+            await _complaintRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Complaint submitted successfully.";
@@ -388,16 +306,11 @@ public class ComplaintsService : IComplaintsService
         {
             var note = new ComplaintNote
             {
-                Id = Guid.NewGuid(),
-                ComplaintId = request.ComplaintId,
-                Body = request.Body,
-                Visibility = request.Visibility,
-                AuthorUserId = request.AuthorUserId,
-                CreatedAt = DateTime.UtcNow
+                Id = Guid.NewGuid(), ComplaintId = request.ComplaintId, Body = request.Body,
+                Visibility = request.Visibility, AuthorUserId = request.AuthorUserId, CreatedAt = DateTime.UtcNow
             };
-
-            _context.ComplaintNotes.Add(note);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _noteRepo.AddAsync(note);
+            await _noteRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Note added successfully.";
@@ -416,16 +329,12 @@ public class ComplaintsService : IComplaintsService
         var response = new Response<object?>();
         try
         {
-            var complaint = await _context.Complaints.FindAsync(new object[] { request.ComplaintId }, cancellationToken);
-            if (complaint is null)
-            {
-                response.StatusCode = StatusCodes.Status404NotFound;
-                response.Message = "Complaint not found.";
-                return response;
-            }
+            var complaint = await _complaintRepo.GetByIdAsync(request.ComplaintId);
+            if (complaint is null) { response.StatusCode = StatusCodes.Status404NotFound; response.Message = "Complaint not found."; return response; }
 
             complaint.Assign(request.OfficerId, request.AssignedByUserId);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _complaintRepo.UpdateAsync(complaint);
+            await _complaintRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Complaint assigned successfully.";
@@ -443,25 +352,17 @@ public class ComplaintsService : IComplaintsService
         var response = new Response<object?>();
         try
         {
-            var complaint = await _context.Complaints.FindAsync(new object[] { request.ComplaintId }, cancellationToken);
-            if (complaint is null)
-            {
-                response.StatusCode = StatusCodes.Status404NotFound;
-                response.Message = "Complaint not found.";
-                return response;
-            }
+            var complaint = await _complaintRepo.GetByIdAsync(request.ComplaintId);
+            if (complaint is null) { response.StatusCode = StatusCodes.Status404NotFound; response.Message = "Complaint not found."; return response; }
 
             complaint.Escalate(request.Reason, request.EscalatedByUserId);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _complaintRepo.UpdateAsync(complaint);
+            await _complaintRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Complaint escalated successfully.";
         }
-        catch (Exception ex)
-        {
-            response.StatusCode = StatusCodes.Status400BadRequest;
-            response.Message = ex.Message;
-        }
+        catch (Exception ex) { response.StatusCode = StatusCodes.Status400BadRequest; response.Message = ex.Message; }
         return response;
     }
 
@@ -470,25 +371,17 @@ public class ComplaintsService : IComplaintsService
         var response = new Response<object?>();
         try
         {
-            var complaint = await _context.Complaints.FindAsync(new object[] { request.ComplaintId }, cancellationToken);
-            if (complaint is null)
-            {
-                response.StatusCode = StatusCodes.Status404NotFound;
-                response.Message = "Complaint not found.";
-                return response;
-            }
+            var complaint = await _complaintRepo.GetByIdAsync(request.ComplaintId);
+            if (complaint is null) { response.StatusCode = StatusCodes.Status404NotFound; response.Message = "Complaint not found."; return response; }
 
             complaint.Close(request.Reason, request.ClosedByUserId);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _complaintRepo.UpdateAsync(complaint);
+            await _complaintRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Complaint closed successfully.";
         }
-        catch (Exception ex)
-        {
-            response.StatusCode = StatusCodes.Status400BadRequest;
-            response.Message = ex.Message;
-        }
+        catch (Exception ex) { response.StatusCode = StatusCodes.Status400BadRequest; response.Message = ex.Message; }
         return response;
     }
 
@@ -497,25 +390,17 @@ public class ComplaintsService : IComplaintsService
         var response = new Response<object?>();
         try
         {
-            var complaint = await _context.Complaints.FindAsync(new object[] { request.ComplaintId }, cancellationToken);
-            if (complaint is null)
-            {
-                response.StatusCode = StatusCodes.Status404NotFound;
-                response.Message = "Complaint not found.";
-                return response;
-            }
+            var complaint = await _complaintRepo.GetByIdAsync(request.ComplaintId);
+            if (complaint is null) { response.StatusCode = StatusCodes.Status404NotFound; response.Message = "Complaint not found."; return response; }
 
             complaint.Reopen(request.ReopenedByUserId);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _complaintRepo.UpdateAsync(complaint);
+            await _complaintRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Complaint reopened successfully.";
         }
-        catch (Exception ex)
-        {
-            response.StatusCode = StatusCodes.Status400BadRequest;
-            response.Message = ex.Message;
-        }
+        catch (Exception ex) { response.StatusCode = StatusCodes.Status400BadRequest; response.Message = ex.Message; }
         return response;
     }
 
@@ -524,32 +409,19 @@ public class ComplaintsService : IComplaintsService
         var response = new Response<object?>();
         try
         {
-            var complaint = await _context.Complaints.FindAsync(new object[] { request.Id }, cancellationToken);
-            if (complaint is null)
-            {
-                response.StatusCode = StatusCodes.Status404NotFound;
-                response.Message = "Complaint not found.";
-                return response;
-            }
+            var complaint = await _complaintRepo.GetByIdAsync(request.Id);
+            if (complaint is null) { response.StatusCode = StatusCodes.Status404NotFound; response.Message = "Complaint not found."; return response; }
 
-            complaint.UpdateDetails(
-                request.Subject,
-                request.Description,
-                request.TaxType,
-                request.TaxPeriod,
-                request.ComplaintCategory,
-                request.TaxOfficeRef,
-                request.TinNumber
-            );
-
+            complaint.UpdateDetails(request.Subject, request.Description, request.TaxType, request.TaxPeriod,
+                request.ComplaintCategory, request.TaxOfficeRef, request.TinNumber);
             complaint.UpdatePriority(request.Priority);
             complaint.LastModifiedAt = DateTime.UtcNow;
 
-            await _context.SaveChangesAsync(cancellationToken);
+            await _complaintRepo.UpdateAsync(complaint);
+            await _complaintRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Complaint updated successfully.";
-            response.Data = null;
         }
         catch (Exception)
         {
@@ -564,53 +436,31 @@ public class ComplaintsService : IComplaintsService
         var response = new Response<object?>();
         try
         {
-            var complaint = await _context.Complaints.FindAsync(new object[] { request.ComplaintId }, cancellationToken);
-            if (complaint is null)
-            {
-                response.StatusCode = StatusCodes.Status404NotFound;
-                response.Message = "Complaint not found.";
-                return response;
-            }
+            var complaint = await _complaintRepo.GetByIdAsync(request.ComplaintId);
+            if (complaint is null) { response.StatusCode = StatusCodes.Status404NotFound; response.Message = "Complaint not found."; return response; }
 
             var userId = _currentUser.UserId ?? Guid.Empty;
-
             switch (request.Status)
             {
-                case ComplaintStatus.Submitted:
-                    complaint.Submit();
-                    break;
-                case ComplaintStatus.UnderReview:
-                    complaint.Reopen(userId);
-                    break;
-                case ComplaintStatus.Escalated:
-                    complaint.Escalate(request.Reason ?? "Status updated to Escalated.", userId);
-                    break;
-                case ComplaintStatus.Resolved:
-                    complaint.Resolve(userId);
-                    break;
-                case ComplaintStatus.Closed:
-                    complaint.Close(request.Reason ?? "Status updated to Closed.", userId);
-                    break;
-                case ComplaintStatus.Withdrawn:
-                    complaint.Withdraw(request.Reason ?? "Status updated to Withdrawn.", userId);
-                    break;
+                case ComplaintStatus.Submitted: complaint.Submit(); break;
+                case ComplaintStatus.UnderReview: complaint.Reopen(userId); break;
+                case ComplaintStatus.Escalated: complaint.Escalate(request.Reason ?? "Status updated to Escalated.", userId); break;
+                case ComplaintStatus.Resolved: complaint.Resolve(userId); break;
+                case ComplaintStatus.Closed: complaint.Close(request.Reason ?? "Status updated to Closed.", userId); break;
+                case ComplaintStatus.Withdrawn: complaint.Withdraw(request.Reason ?? "Status updated to Withdrawn.", userId); break;
                 default:
                     response.StatusCode = StatusCodes.Status400BadRequest;
                     response.Message = $"Invalid or unsupported status transition to '{request.Status}'.";
                     return response;
             }
 
-            await _context.SaveChangesAsync(cancellationToken);
+            await _complaintRepo.UpdateAsync(complaint);
+            await _complaintRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Complaint status updated.";
-            response.Data = null;
         }
-        catch (DomainException ex)
-        {
-            response.StatusCode = StatusCodes.Status400BadRequest;
-            response.Message = ex.Message;
-        }
+        catch (DomainException ex) { response.StatusCode = StatusCodes.Status400BadRequest; response.Message = ex.Message; }
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
@@ -624,20 +474,14 @@ public class ComplaintsService : IComplaintsService
         var response = new Response<object?>();
         try
         {
-            var complaint = await _context.Complaints.FindAsync(new object[] { request.Id }, cancellationToken);
-            if (complaint is null)
-            {
-                response.StatusCode = StatusCodes.Status404NotFound;
-                response.Message = "Complaint not found.";
-                return response;
-            }
+            var complaint = await _complaintRepo.GetByIdAsync(request.Id);
+            if (complaint is null) { response.StatusCode = StatusCodes.Status404NotFound; response.Message = "Complaint not found."; return response; }
 
-            _context.Complaints.Remove(complaint);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _complaintRepo.RemoveAsync(complaint);
+            await _complaintRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Complaint deleted successfully.";
-            response.Data = null;
         }
         catch (Exception)
         {
@@ -660,13 +504,11 @@ public class ComplaintsService : IComplaintsService
                 LinkType = request.LinkType ?? "related",
                 LinkedByUserId = _currentUser.UserId ?? Guid.Empty
             };
-
-            _context.ComplaintLinks.Add(link);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _linkRepo.AddAsync(link);
+            await _linkRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Complaints linked successfully.";
-            response.Data = null;
         }
         catch (Exception)
         {
@@ -682,27 +524,17 @@ public class ComplaintsService : IComplaintsService
         try
         {
             await using var stream = request.File.OpenReadStream();
-            var path = await _storage.StoreAsync(
-                stream,
-                request.File.FileName,
-                request.File.ContentType,
-                cancellationToken);
+            var path = await _storage.StoreAsync(stream, request.File.FileName, request.File.ContentType, cancellationToken);
 
             var docId = Guid.NewGuid();
             var doc = new Document
             {
-                Id = docId,
-                FileName = request.File.FileName,
-                FilePath = path,
-                ContentType = request.File.ContentType,
-                FileSize = request.File.Length,
-                EntityType = DocumentEntityType.Complaint,
-                EntityId = request.ComplaintId,
-                CreatedAt = DateTime.UtcNow
+                Id = docId, FileName = request.File.FileName, FilePath = path,
+                ContentType = request.File.ContentType, FileSize = request.File.Length,
+                EntityType = DocumentEntityType.Complaint, EntityId = request.ComplaintId, CreatedAt = DateTime.UtcNow
             };
-
-            _context.Documents.Add(doc);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _documentRepo.AddAsync(doc);
+            await _documentRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Document uploaded successfully.";
@@ -715,4 +547,15 @@ public class ComplaintsService : IComplaintsService
         }
         return response;
     }
+
+    // ─── Private helpers ───────────────────────────────────────────────────────
+
+    private static ComplaintDetailDto MapToDetail(Complaint c) => new(
+        c.Id, c.ReferenceNumber, c.Subject, c.Description, c.TaxType, c.TaxPeriod, c.ComplaintCategory,
+        c.TaxOfficeRef, c.TinNumber, c.Status.ToString(), c.CurrentStage, c.Priority,
+        c.RequiresApprovalToClose, c.ClosedAt, c.ClosureReason, c.WithdrawalReason,
+        new TaxpayerSummary(c.Taxpayer.Id, $"{c.Taxpayer.FirstName} {c.Taxpayer.LastName}", c.Taxpayer.Email.Value, c.Taxpayer.Phone),
+        c.AssignedOfficer is null ? null : new OfficerSummary(c.AssignedOfficer.Id, $"{c.AssignedOfficer.User.FirstName} {c.AssignedOfficer.User.LastName}", c.AssignedOfficer.User.Email),
+        c.CreatedAt, c.LastModifiedAt
+    );
 }

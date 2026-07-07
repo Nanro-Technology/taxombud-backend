@@ -1,22 +1,32 @@
 using Microsoft.EntityFrameworkCore;
 using TaxOmbud.Application.Interfaces.InfrastructureService;
-using TaxOmbud.Application.Interfaces.Persistence;
+using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Application.Users.DTOs;
 using TaxOmbud.Common.Responses;
 using TaxOmbud.Domain.Entities.Identity;
+using TaxOmbud.Domain.Entities.System;
 
 namespace TaxOmbud.Application.Services;
 
 public class UsersService : IUsersService
 {
-    private readonly IApplicationDbContext _context;
+    // ── Repositories ─────────────────────────────────────────────────────────
+    private readonly IGenericRepository<User> _userRepo;
+    private readonly IGenericRepository<AuditLog> _auditRepo;
+
+    // ── Infrastructure services ───────────────────────────────────────────────
     private readonly ICurrentUser _currentUser;
     private readonly IPasswordHasher _passwordHasher;
 
-    public UsersService(IApplicationDbContext context, ICurrentUser currentUser, IPasswordHasher passwordHasher)
+    public UsersService(
+        IGenericRepository<User> userRepo,
+        IGenericRepository<AuditLog> auditRepo,
+        ICurrentUser currentUser,
+        IPasswordHasher passwordHasher)
     {
-        _context = context;
+        _userRepo = userRepo;
+        _auditRepo = auditRepo;
         _currentUser = currentUser;
         _passwordHasher = passwordHasher;
     }
@@ -28,7 +38,7 @@ public class UsersService : IUsersService
         var response = new Response<PagedResult<UserListDto>>();
         try
         {
-            var query = _context.Users
+            var query = _userRepo.Query()
                 .Include(u => u.Department)
                 .Include(u => u.Role)
                 .AsQueryable();
@@ -84,7 +94,7 @@ public class UsersService : IUsersService
         var response = new Response<UserDetailDto>();
         try
         {
-            var u = await _context.Users
+            var u = await _userRepo.Query()
                 .Include(x => x.Department)
                 .Include(x => x.Role)
                 .FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken);
@@ -121,7 +131,7 @@ public class UsersService : IUsersService
                 return response;
             }
 
-            var u = await _context.Users
+            var u = await _userRepo.Query()
                 .Include(x => x.Department)
                 .Include(x => x.Role)
                 .FirstOrDefaultAsync(x => x.Id == userId.Value, cancellationToken);
@@ -150,7 +160,7 @@ public class UsersService : IUsersService
         var response = new Response<PagedResult<AuditLogDto>>();
         try
         {
-            var query = _context.AuditLogs
+            var query = _auditRepo.Query()
                 .Where(a => a.UserId == request.UserId);
 
             if (!string.IsNullOrWhiteSpace(request.EntityType))
@@ -204,8 +214,7 @@ public class UsersService : IUsersService
         var response = new Response<CreateUserResponse>();
         try
         {
-            var exists = await _context.Users.AnyAsync(u => u.Email == request.Email, cancellationToken);
-            if (exists)
+            if (await _userRepo.ExistsAsync(u => u.Email == request.Email))
             {
                 response.StatusCode = StatusCodes.Status400BadRequest;
                 response.Message = "A user with this email already exists.";
@@ -215,20 +224,14 @@ public class UsersService : IUsersService
             var user = User.Create(request.FirstName, request.LastName, new TaxOmbud.Common.Utilities.Email(request.Email), request.Phone);
             user.SetPasswordHash(_passwordHasher.Hash(request.Password));
             if (request.JobTitle is not null)
-            {
                 user.UpdateProfile(request.FirstName, request.LastName, request.Phone, request.JobTitle);
-            }
             if (request.EmploymentType is not null)
-            {
                 user.SetEmploymentType(request.EmploymentType);
-            }
             if (request.DepartmentId.HasValue)
-            {
                 user.SetDepartment(request.DepartmentId.Value);
-            }
 
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _userRepo.AddAsync(user);
+            await _userRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "User created successfully.";
@@ -247,7 +250,7 @@ public class UsersService : IUsersService
         var response = new Response<object?>();
         try
         {
-            var user = await _context.Users.FindAsync(new object[] { request.Id }, cancellationToken);
+            var user = await _userRepo.GetByIdAsync(request.Id);
             if (user is null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
@@ -259,7 +262,8 @@ public class UsersService : IUsersService
             if (request.EmploymentType is not null) user.SetEmploymentType(request.EmploymentType);
             if (request.DepartmentId.HasValue) user.SetDepartment(request.DepartmentId.Value);
 
-            await _context.SaveChangesAsync(cancellationToken);
+            await _userRepo.UpdateAsync(user);
+            await _userRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "User updated successfully.";
@@ -285,7 +289,7 @@ public class UsersService : IUsersService
                 return response;
             }
 
-            var user = await _context.Users.FindAsync(new object[] { userId.Value }, cancellationToken);
+            var user = await _userRepo.GetByIdAsync(userId.Value);
             if (user is null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
@@ -300,7 +304,8 @@ public class UsersService : IUsersService
                 user.JobTitle
             );
 
-            await _context.SaveChangesAsync(cancellationToken);
+            await _userRepo.UpdateAsync(user);
+            await _userRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Profile updated successfully.";
@@ -318,7 +323,7 @@ public class UsersService : IUsersService
         var response = new Response<object?>();
         try
         {
-            var user = await _context.Users.FindAsync(new object[] { request.Id }, cancellationToken);
+            var user = await _userRepo.GetByIdAsync(request.Id);
             if (user is null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
@@ -327,15 +332,12 @@ public class UsersService : IUsersService
             }
 
             if (request.Activate)
-            {
                 user.Activate();
-            }
             else
-            {
                 user.Deactivate();
-            }
 
-            await _context.SaveChangesAsync(cancellationToken);
+            await _userRepo.UpdateAsync(user);
+            await _userRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "User status updated successfully.";
@@ -353,9 +355,7 @@ public class UsersService : IUsersService
         var response = new Response<object?>();
         try
         {
-            var user = await _context.Users
-                .FirstOrDefaultAsync(u => u.Id == request.Id, cancellationToken);
-
+            var user = await _userRepo.FindAsync(u => u.Id == request.Id);
             if (user is null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
@@ -363,11 +363,11 @@ public class UsersService : IUsersService
                 return response;
             }
 
-            // Estate Management pattern: one role per user
             var roleId = request.RoleIds.FirstOrDefault();
             user.AssignRole(roleId == Guid.Empty ? null : roleId);
 
-            await _context.SaveChangesAsync(cancellationToken);
+            await _userRepo.UpdateAsync(user);
+            await _userRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Role assigned successfully.";
@@ -380,10 +380,7 @@ public class UsersService : IUsersService
         return response;
     }
 
-    // ApplyPermissionOverridesAsync removed — UserPermissionOverride entity has been deleted
-    // as part of the Estate Management RBAC refactor (permissions are role-based only).
-
-    // ─── Private helpers ──────────────────────────────────────────────────────
+    // ─── Private helpers ───────────────────────────────────────────────────────
 
     private static UserDetailDto MapToDetailDto(User u) => new(
         u.Id,

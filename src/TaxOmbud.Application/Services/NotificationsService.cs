@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using TaxOmbud.Application.Interfaces.InfrastructureService;
-using TaxOmbud.Application.Interfaces.Persistence;
+using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Application.Notifications.DTOs;
 using TaxOmbud.Common.Responses;
@@ -10,15 +10,17 @@ namespace TaxOmbud.Application.Services;
 
 public class NotificationsService : INotificationsService
 {
-    private readonly IApplicationDbContext _context;
+    private readonly IGenericRepository<Notification> _notificationRepo;
+    private readonly IGenericRepository<NotificationPreference> _preferenceRepo;
     private readonly ICurrentUser _currentUser;
 
     public NotificationsService(
-        IApplicationDbContext context,
-        ICurrentUser currentUser
-    )
+        IGenericRepository<Notification> notificationRepo,
+        IGenericRepository<NotificationPreference> preferenceRepo,
+        ICurrentUser currentUser)
     {
-        _context = context;
+        _notificationRepo = notificationRepo;
+        _preferenceRepo = preferenceRepo;
         _currentUser = currentUser;
     }
 
@@ -27,7 +29,7 @@ public class NotificationsService : INotificationsService
         var response = new Response<object?>();
         try
         {
-            var notification = await _context.Notifications.FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken);
+            var notification = await _notificationRepo.FindAsync(x => x.Id == request.Id);
             if (notification == null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
@@ -35,8 +37,8 @@ public class NotificationsService : INotificationsService
                 return response;
             }
 
-            _context.Notifications.Remove(notification);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _notificationRepo.RemoveAsync(notification);
+            await _notificationRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Notification deleted successfully.";
@@ -54,7 +56,7 @@ public class NotificationsService : INotificationsService
         var response = new Response<object?>();
         try
         {
-            var notification = await _context.Notifications.FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken);
+            var notification = await _notificationRepo.FindAsync(x => x.Id == request.Id);
             if (notification == null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
@@ -64,7 +66,8 @@ public class NotificationsService : INotificationsService
 
             notification.IsRead = true;
             notification.ReadAt = DateTimeOffset.UtcNow;
-            await _context.SaveChangesAsync(cancellationToken);
+            await _notificationRepo.UpdateAsync(notification);
+            await _notificationRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Notification marked as read.";
@@ -89,17 +92,17 @@ public class NotificationsService : INotificationsService
         }
         try
         {
-            var unreadNotifications = await _context.Notifications
-                .Where(n => n.UserId == currentUserId.Value && !n.IsRead)
-                .ToListAsync(cancellationToken);
+            var unread = await _notificationRepo.FindAllAsync(
+                n => n.UserId == currentUserId.Value && !n.IsRead);
 
-            foreach (var n in unreadNotifications)
+            foreach (var n in unread)
             {
                 n.IsRead = true;
                 n.ReadAt = DateTimeOffset.UtcNow;
+                await _notificationRepo.UpdateAsync(n);
             }
 
-            await _context.SaveChangesAsync(cancellationToken);
+            await _notificationRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "All notifications marked as read.";
@@ -127,8 +130,8 @@ public class NotificationsService : INotificationsService
                 CreatedAt = DateTime.UtcNow
             };
 
-            _context.Notifications.Add(notification);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _notificationRepo.AddAsync(notification);
+            await _notificationRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Success";
@@ -154,9 +157,7 @@ public class NotificationsService : INotificationsService
         }
         try
         {
-            var existingPrefs = await _context.NotificationPreferences
-                .Where(p => p.UserId == currentUserId.Value)
-                .ToListAsync(cancellationToken);
+            var existingPrefs = await _preferenceRepo.FindAllAsync(p => p.UserId == currentUserId.Value);
 
             foreach (var prefUpdate in request.Preferences)
             {
@@ -166,10 +167,11 @@ public class NotificationsService : INotificationsService
                     existing.EmailEnabled = prefUpdate.Email;
                     existing.SmsEnabled = prefUpdate.Sms;
                     existing.InAppEnabled = prefUpdate.InApp;
+                    await _preferenceRepo.UpdateAsync(existing);
                 }
                 else
                 {
-                    _context.NotificationPreferences.Add(new NotificationPreference
+                    await _preferenceRepo.AddAsync(new NotificationPreference
                     {
                         UserId = currentUserId.Value,
                         EventType = prefUpdate.Type,
@@ -180,7 +182,7 @@ public class NotificationsService : INotificationsService
                 }
             }
 
-            await _context.SaveChangesAsync(cancellationToken);
+            await _preferenceRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Success";
@@ -200,17 +202,15 @@ public class NotificationsService : INotificationsService
         {
             var userId = _currentUser.UserId ?? Guid.Empty;
 
-            var query = _context.Notifications
+            var query = _notificationRepo.Query()
                 .Where(n => n.UserId == userId)
-                .AsNoTracking()
-                .AsQueryable();
+                .AsNoTracking();
 
             if (request.UnreadOnly == true)
                 query = query.Where(n => !n.IsRead);
 
             var total = await query.CountAsync(cancellationToken);
-            var unreadCount = await _context.Notifications
-                .CountAsync(n => n.UserId == userId && !n.IsRead, cancellationToken);
+            var unreadCount = await _notificationRepo.CountAsync(n => n.UserId == userId && !n.IsRead);
 
             var items = await query
                 .OrderByDescending(n => n.CreatedAt)
@@ -226,10 +226,9 @@ public class NotificationsService : INotificationsService
                 ))
                 .ToListAsync(cancellationToken);
 
-            var dto = new MyNotificationsDto(items, total, unreadCount, request.Page, request.PageSize);
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Success";
-            response.Data = dto;
+            response.Data = new MyNotificationsDto(items, total, unreadCount, request.Page, request.PageSize);
         }
         catch (Exception ex)
         {
@@ -251,7 +250,7 @@ public class NotificationsService : INotificationsService
         }
         try
         {
-            var preferences = await _context.NotificationPreferences
+            var preferences = await _preferenceRepo.Query()
                 .Where(p => p.UserId == currentUserId.Value)
                 .AsNoTracking()
                 .Select(p => new NotificationPreferenceDto(p.EventType, true, p.EmailEnabled, p.SmsEnabled, p.InAppEnabled))
@@ -281,9 +280,8 @@ public class NotificationsService : INotificationsService
         }
         try
         {
-            var count = await _context.Notifications
-                .Where(n => n.UserId == currentUserId.Value && !n.IsRead)
-                .CountAsync(cancellationToken);
+            var count = await _notificationRepo.CountAsync(
+                n => n.UserId == currentUserId.Value && !n.IsRead);
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Success";

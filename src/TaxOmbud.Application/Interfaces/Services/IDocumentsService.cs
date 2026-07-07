@@ -1,6 +1,5 @@
 using TaxOmbud.Application.Documents.DTOs;
 using TaxOmbud.Common.Responses;
-using TaxOmbud.Domain.Common;
 
 namespace TaxOmbud.Application.Interfaces.Services;
 

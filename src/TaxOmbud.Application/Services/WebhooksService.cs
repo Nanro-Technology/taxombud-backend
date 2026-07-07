@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using TaxOmbud.Application.Interfaces.Persistence;
+using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Application.Webhooks.DTOs;
 using TaxOmbud.Common.Responses;
@@ -9,11 +9,11 @@ namespace TaxOmbud.Application.Services;
 
 public class WebhooksService : IWebhooksService
 {
-    private readonly IApplicationDbContext _context;
+    private readonly IGenericRepository<WebhookSubscription> _webhookRepo;
 
-    public WebhooksService(IApplicationDbContext context)
+    public WebhooksService(IGenericRepository<WebhookSubscription> webhookRepo)
     {
-        _context = context;
+        _webhookRepo = webhookRepo;
     }
 
     public async Task<Response<CreatedWebhookResponse>> CreateWebhookAsync(CreateWebhookCommand request, CancellationToken cancellationToken = default)
@@ -30,8 +30,8 @@ public class WebhooksService : IWebhooksService
                 IsActive = true
             };
 
-            _context.WebhookSubscriptions.Add(webhook);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _webhookRepo.AddAsync(webhook);
+            await _webhookRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Webhook subscription created successfully.";
@@ -50,8 +50,7 @@ public class WebhooksService : IWebhooksService
         var response = new Response<object?>();
         try
         {
-            var webhook = await _context.WebhookSubscriptions
-                .FirstOrDefaultAsync(w => w.Id == request.Id, cancellationToken);
+            var webhook = await _webhookRepo.FindAsync(w => w.Id == request.Id);
 
             if (webhook == null)
             {
@@ -60,8 +59,8 @@ public class WebhooksService : IWebhooksService
                 return response;
             }
 
-            _context.WebhookSubscriptions.Remove(webhook);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _webhookRepo.RemoveAsync(webhook);
+            await _webhookRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Webhook subscription deleted successfully.";
@@ -80,8 +79,7 @@ public class WebhooksService : IWebhooksService
         var response = new Response<RotateSecretResponseDto>();
         try
         {
-            var webhook = await _context.WebhookSubscriptions
-                .FirstOrDefaultAsync(w => w.Id == request.Id, cancellationToken);
+            var webhook = await _webhookRepo.FindAsync(w => w.Id == request.Id);
 
             if (webhook == null)
             {
@@ -92,7 +90,8 @@ public class WebhooksService : IWebhooksService
 
             webhook.Secret = request.NewSecret;
             webhook.LastModifiedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync(cancellationToken);
+            await _webhookRepo.UpdateAsync(webhook);
+            await _webhookRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Webhook secret rotated successfully.";
@@ -111,8 +110,7 @@ public class WebhooksService : IWebhooksService
         var response = new Response<object?>();
         try
         {
-            var webhook = await _context.WebhookSubscriptions
-                .FirstOrDefaultAsync(w => w.Id == request.Id, cancellationToken);
+            var webhook = await _webhookRepo.FindAsync(w => w.Id == request.Id);
 
             if (webhook == null)
             {
@@ -126,7 +124,8 @@ public class WebhooksService : IWebhooksService
             webhook.IsActive = request.IsActive;
             webhook.LastModifiedAt = DateTime.UtcNow;
 
-            await _context.SaveChangesAsync(cancellationToken);
+            await _webhookRepo.UpdateAsync(webhook);
+            await _webhookRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Webhook subscription updated successfully.";
@@ -145,7 +144,7 @@ public class WebhooksService : IWebhooksService
         var response = new Response<WebhookDetailDto>();
         try
         {
-            var webhook = await _context.WebhookSubscriptions
+            var webhook = await _webhookRepo.Query()
                 .AsNoTracking()
                 .FirstOrDefaultAsync(w => w.Id == request.Id, cancellationToken);
 
@@ -180,7 +179,7 @@ public class WebhooksService : IWebhooksService
         var response = new Response<IEnumerable<WebhookDto>>();
         try
         {
-            var webhooks = await _context.WebhookSubscriptions
+            var webhooks = await _webhookRepo.Query()
                 .AsNoTracking()
                 .OrderByDescending(w => w.CreatedAt)
                 .Select(w => new WebhookDto(

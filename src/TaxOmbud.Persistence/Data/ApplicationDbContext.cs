@@ -1,4 +1,5 @@
 using System.Reflection;
+using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TaxOmbud.Application.Interfaces.Persistence;
@@ -23,13 +24,16 @@ namespace TaxOmbud.Persistence.Data;
 public class ApplicationDbContext : DbContext, IApplicationDbContext
 {
     private readonly ICurrentUser _currentUser;
+    private readonly IMediator _mediator;
 
     public ApplicationDbContext(
         DbContextOptions options,
-        ICurrentUser currentUser)
+        ICurrentUser currentUser,
+        IMediator mediator)
         : base(options)
     {
         _currentUser = currentUser;
+        _mediator = mediator;
     }
 
     // ─── Identity & RBAC ─────────────────────────────────────────────────────
@@ -214,7 +218,24 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             }
         }
 
-        return await base.SaveChangesAsync(cancellationToken);
+        var result = await base.SaveChangesAsync(cancellationToken);
+
+        // ─── Dispatch domain events AFTER data is committed ───────────────────
+        var domainEntities = ChangeTracker.Entries<IHasDomainEvents>()
+            .Select(e => e.Entity)
+            .Where(e => e.DomainEvents.Any())
+            .ToList();
+
+        var domainEvents = domainEntities
+            .SelectMany(e => e.DomainEvents)
+            .ToList();
+
+        domainEntities.ForEach(e => e.ClearDomainEvents());
+
+        foreach (var domainEvent in domainEvents)
+            await _mediator.Publish(domainEvent, cancellationToken);
+
+        return result;
     }
 }
 

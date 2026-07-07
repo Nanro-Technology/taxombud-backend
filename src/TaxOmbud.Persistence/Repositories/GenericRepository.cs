@@ -9,7 +9,7 @@ using TaxOmbud.Common.Responses;
 
 namespace TaxOmbud.Persistence.Repositories;
 
-public class GenericRepository<T> : IGenericRepository<T> where T : BaseEntity
+public class GenericRepository<T> : IGenericRepository<T> where T : class
 {
     protected readonly ApplicationDbContext _dbContext;
     protected readonly DbSet<T> _dbSet;
@@ -158,7 +158,7 @@ public class GenericRepository<T> : IGenericRepository<T> where T : BaseEntity
         => await _dbSet.CountAsync(expression);
 
     public virtual async Task<bool> ExistsAsync(Guid id)
-        => await _dbSet.AnyAsync(e => e.Id == id);
+        => await _dbSet.AnyAsync(e => EF.Property<Guid>(e, "Id") == id);
 
     public virtual async Task<bool> ExistsAsync(Expression<Func<T, bool>> expression)
         => await _dbSet.AnyAsync(expression);

@@ -3,6 +3,7 @@ using System.Net;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using TaxOmbud.Common.Responses;
 using TaxOmbud.Common.CustomException;
@@ -10,7 +11,7 @@ using ApplicationException = TaxOmbud.Common.CustomException.ApplicationExceptio
 
 namespace TaxOmbud.Application.Middlewares;
 
-public class ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddleware> logger)
+public class ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddleware> logger, IHostEnvironment env)
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -51,7 +52,7 @@ public class ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddlewa
         );
     }
 
-    private static async Task HandleExceptionAsync(HttpContext context, Exception exception)
+    private async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
         context.Response.ContentType = "application/json";
         context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
@@ -63,7 +64,7 @@ public class ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddlewa
             ApplicationException => exception.Message,
             UnauthorizedAccessException =>
                 "User does not have required permission to access this endpoint",
-            _ => exception.Message,
+            _ => env.IsDevelopment() ? exception.Message : "An unexpected error occurred. Please contact the administrator.",
         };
 
         await context.Response.WriteAsync(

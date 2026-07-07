@@ -1,5 +1,8 @@
+using System;
+using System.Threading;
+using System.Threading.Tasks;
 using MediatR;
-using TaxOmbud.Application.Interfaces.Persistence;
+using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Domain.Entities.Complaints;
 using TaxOmbud.Domain.Enums;
 using TaxOmbud.Domain.Events.Complaints;
@@ -8,11 +11,11 @@ namespace TaxOmbud.Application.EventHandlers;
 
 public class ComplaintEscalatedEventHandler : INotificationHandler<ComplaintEscalatedEvent>
 {
-    private readonly IApplicationDbContext _context;
+    private readonly IGenericRepository<ComplaintStatusHistory> _historyRepo;
 
-    public ComplaintEscalatedEventHandler(IApplicationDbContext context)
+    public ComplaintEscalatedEventHandler(IGenericRepository<ComplaintStatusHistory> historyRepo)
     {
-        _context = context;
+        _historyRepo = historyRepo;
     }
 
     public async Task Handle(ComplaintEscalatedEvent notification, CancellationToken cancellationToken)
@@ -28,7 +31,7 @@ public class ComplaintEscalatedEventHandler : INotificationHandler<ComplaintEsca
             Reason = notification.Reason
         };
 
-        _context.ComplaintStatusHistory.Add(history);
+        await _historyRepo.AddAsync(history);
         await Task.CompletedTask;
     }
 }

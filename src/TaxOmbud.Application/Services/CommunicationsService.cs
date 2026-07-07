@@ -3,27 +3,50 @@ using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using TaxOmbud.Application.Communications.DTOs;
 using TaxOmbud.Application.Interfaces.InfrastructureService;
-using TaxOmbud.Application.Interfaces.Persistence;
+using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Common.CustomException;
 using TaxOmbud.Common.Responses;
 using TaxOmbud.Common.Utilities;
 using TaxOmbud.Domain.Entities.Communications;
+using TaxOmbud.Domain.Entities.Identity;
+using TaxOmbud.Domain.Entities.Hr;
 using TaxOmbud.Domain.Enums;
 
 namespace TaxOmbud.Application.Services;
 
 public class CommunicationsService : ICommunicationsService
 {
-    private readonly IApplicationDbContext _context;
+    private readonly IGenericRepository<CommunicationLog> _communicationRepo;
+    private readonly IGenericRepository<AgentChat> _agentChatRepo;
+    private readonly IGenericRepository<SmsMessage> _smsRepo;
+    private readonly IGenericRepository<CommunicationTemplate> _templateRepo;
+    private readonly IGenericRepository<AgentChatMessage> _messageRepo;
+    private readonly IGenericRepository<AgentChatPreference> _preferenceRepo;
+    private readonly IGenericRepository<User> _userRepo;
+    private readonly IGenericRepository<StaffProfile> _staffRepo;
     private readonly ICurrentUser _currentUser;
 
     public CommunicationsService(
-        IApplicationDbContext context,
+        IGenericRepository<CommunicationLog> communicationRepo,
+        IGenericRepository<AgentChat> agentChatRepo,
+        IGenericRepository<SmsMessage> smsRepo,
+        IGenericRepository<CommunicationTemplate> templateRepo,
+        IGenericRepository<AgentChatMessage> messageRepo,
+        IGenericRepository<AgentChatPreference> preferenceRepo,
+        IGenericRepository<User> userRepo,
+        IGenericRepository<StaffProfile> staffRepo,
         ICurrentUser currentUser
     )
     {
-        _context = context;
+        _communicationRepo = communicationRepo;
+        _agentChatRepo = agentChatRepo;
+        _smsRepo = smsRepo;
+        _templateRepo = templateRepo;
+        _messageRepo = messageRepo;
+        _preferenceRepo = preferenceRepo;
+        _userRepo = userRepo;
+        _staffRepo = staffRepo;
         _currentUser = currentUser;
     }
 
@@ -32,12 +55,10 @@ public class CommunicationsService : ICommunicationsService
         var response = new Response<object?>();
         try
         {
-            var communication = await _context.CommunicationLogs
-                .FirstOrDefaultAsync(c => c.Id == request.CommunicationId, cancellationToken);
-
+            var communication = await _communicationRepo.FindAsync(c => c.Id == request.CommunicationId);
             if (communication == null)
             {
-                throw new NotFoundException(nameof(Communication), request.CommunicationId);
+                throw new NotFoundException(nameof(CommunicationLog), request.CommunicationId);
             }
 
             response.StatusCode = StatusCodes.Status200OK;
@@ -52,7 +73,7 @@ public class CommunicationsService : ICommunicationsService
     }
 
     public async Task<Guid> CreateAgentChatAsync(CreateAgentChatCommand request, CancellationToken cancellationToken = default)
-{
+    {
         if (_currentUser.UserId == null) throw new UnauthorizedAccessException();
 
         var participants = request.ParticipantIds.ToList();
@@ -67,9 +88,7 @@ public class CommunicationsService : ICommunicationsService
             var p1 = participants[0].ToString();
             var p2 = participants[1].ToString();
 
-            var existingChat = await _context.AgentChats
-                .Where(c => !c.IsGroupChat && !c.IsDeleted)
-                .ToListAsync(cancellationToken);
+            var existingChat = await _agentChatRepo.FindAllAsync(c => !c.IsGroupChat && !c.IsDeleted);
 
             var chat = existingChat.FirstOrDefault(c => 
                 c.ParticipantIds.Contains(p1) && 
@@ -92,14 +111,14 @@ public class CommunicationsService : ICommunicationsService
             CreatedByUserId = _currentUser.UserId
         };
 
-        _context.AgentChats.Add(newChat);
-        await _context.SaveChangesAsync(cancellationToken);
+        await _agentChatRepo.AddAsync(newChat);
+        await _agentChatRepo.SaveAsync();
 
         return newChat.Id;
     }
 
     public async Task<Guid> CreateSmsMessageAsync(CreateSmsMessageCommand request, CancellationToken cancellationToken = default)
-{
+    {
         var entity = new SmsMessage
         {
             Provider = request.Provider ?? string.Empty,
@@ -113,23 +132,23 @@ public class CommunicationsService : ICommunicationsService
             Status = "Pending"
         };
 
-        _context.SmsMessages.Add(entity);
-        await _context.SaveChangesAsync(cancellationToken);
+        await _smsRepo.AddAsync(entity);
+        await _smsRepo.SaveAsync();
 
         return entity.Id;
     }
 
     public async Task<DeleteSmsMessageCommand> DeleteSmsMessageAsync(DeleteSmsMessageCommand request, CancellationToken cancellationToken = default)
-{
-        var entity = await _context.SmsMessages.FindAsync(new object[] { request.Id }, cancellationToken);
+    {
+        var entity = await _smsRepo.GetByIdAsync(request.Id);
 
         if (entity == null)
         {
             throw new NotFoundException(nameof(SmsMessage), request.Id);
         }
 
-        _context.SmsMessages.Remove(entity);
-        await _context.SaveChangesAsync(cancellationToken);
+        await _smsRepo.RemoveAsync(entity);
+        await _smsRepo.SaveAsync();
         return request;
     }
 
@@ -156,8 +175,8 @@ public class CommunicationsService : ICommunicationsService
                 SentByUserId = actorUserId
             };
 
-            _context.CommunicationLogs.Add(log);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _communicationRepo.AddAsync(log);
+            await _communicationRepo.SaveAsync();
 
             var data = new LoggedCommunicationResponse(log.Id, log.Channel, log.Subject, log.Recipient, log.IsSent, log.SentAt);
             methodResponse.StatusCode = StatusCodes.Status200OK;
@@ -173,13 +192,11 @@ public class CommunicationsService : ICommunicationsService
     }
 
     public async Task<Response<RenderedTemplateDto>> RenderCommunicationTemplateAsync(RenderCommunicationTemplateCommand request, CancellationToken cancellationToken = default)
-{
-        var template = await _context.CommunicationTemplates
-            .AsNoTracking()
-            .FirstOrDefaultAsync(t => t.Id == request.TemplateId, cancellationToken);
+    {
+        var template = await _templateRepo.FindAsync(t => t.Id == request.TemplateId);
 
         if (template == null)
-            throw new NotFoundException(nameof(Domain.Entities.Communications.CommunicationTemplate), request.TemplateId);
+            throw new NotFoundException(nameof(CommunicationTemplate), request.TemplateId);
 
         var subject = template.SubjectTemplate;
         var body = template.BodyTemplate;
@@ -201,8 +218,7 @@ public class CommunicationsService : ICommunicationsService
     {
         if (_currentUser.UserId == null) throw new UnauthorizedAccessException();
  
-        var chat = await _context.AgentChats
-            .FirstOrDefaultAsync(c => c.Id == request.ChatId && !c.IsDeleted, cancellationToken);
+        var chat = await _agentChatRepo.FindAsync(c => c.Id == request.ChatId && !c.IsDeleted);
  
         if (chat == null) throw new ArgumentException("Chat not found");
  
@@ -216,52 +232,49 @@ public class CommunicationsService : ICommunicationsService
             CreatedByUserId = _currentUser.UserId
         };
  
-        _context.AgentChatMessages.Add(message);
+        await _messageRepo.AddAsync(message);
         
         chat.LastModifiedAt = DateTime.UtcNow;
+        await _agentChatRepo.UpdateAsync(chat);
  
-        await _context.SaveChangesAsync(cancellationToken);
+        await _messageRepo.SaveAsync();
  
         return message.Id;
     }
 
     public async Task<Response<object?>> SendCommunicationAsync(SendCommunicationCommand request, CancellationToken cancellationToken = default)
-{
+    {
         var response = new Response<object?>();
-        var communication = await _context.CommunicationLogs
-            .FirstOrDefaultAsync(c => c.Id == request.CommunicationId, cancellationToken);
+        var communication = await _communicationRepo.FindAsync(c => c.Id == request.CommunicationId);
 
         if (communication == null)
-            throw new NotFoundException(nameof(Domain.Entities.Communications.Communication), request.CommunicationId);
+            throw new NotFoundException(nameof(CommunicationLog), request.CommunicationId);
 
         if (communication.IsSent)
             return new Response<object?> { StatusCode = StatusCodes.Status400BadRequest, Message = "Communication has already been sent." };
         try
         {
+            communication.IsSent = true;
+            communication.SentAt = DateTimeOffset.UtcNow;
 
-        // In a real application, we would integrate with an email/SMS provider here.
-        // For now, we just mark it as sent.
-        communication.IsSent = true;
-        communication.SentAt = DateTimeOffset.UtcNow;
+            await _communicationRepo.UpdateAsync(communication);
+            await _communicationRepo.SaveAsync();
 
-        await _context.SaveChangesAsync(cancellationToken);
-
-        return new Response<object?> { StatusCode = StatusCodes.Status200OK, Message = "Success" };
-    
+            return new Response<object?> { StatusCode = StatusCodes.Status200OK, Message = "Success" };
         }
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
             response.Message = Constants.Messages.ServerError;
             return response;
-        }}
+        }
+    }
 
     public async Task<object?> UpdateAgentChatPreferencesAsync(UpdateAgentChatPreferencesCommand request, CancellationToken cancellationToken = default)
-{
+    {
         if (_currentUser.UserId == null) throw new UnauthorizedAccessException();
 
-        var prefs = await _context.AgentChatPreferences
-            .FirstOrDefaultAsync(p => p.UserId == _currentUser.UserId.Value, cancellationToken);
+        var prefs = await _preferenceRepo.FindAsync(p => p.UserId == _currentUser.UserId.Value);
 
         if (prefs == null)
         {
@@ -272,7 +285,11 @@ public class CommunicationsService : ICommunicationsService
                 CreatedAt = DateTime.UtcNow,
                 CreatedByUserId = _currentUser.UserId
             };
-            _context.AgentChatPreferences.Add(prefs);
+            await _preferenceRepo.AddAsync(prefs);
+        }
+        else
+        {
+            await _preferenceRepo.UpdateAsync(prefs);
         }
 
         prefs.DoNotDisturb = request.DoNotDisturb;
@@ -282,14 +299,14 @@ public class CommunicationsService : ICommunicationsService
         prefs.LastModifiedAt = DateTime.UtcNow;
         prefs.LastModifiedByUserId = _currentUser.UserId;
 
-        await _context.SaveChangesAsync(cancellationToken);
+        await _preferenceRepo.SaveAsync();
 
         return null;
     }
 
     public async Task<UpdateSmsMessageCommand> UpdateSmsMessageAsync(UpdateSmsMessageCommand request, CancellationToken cancellationToken = default)
-{
-        var entity = await _context.SmsMessages.FindAsync(new object[] { request.Id }, cancellationToken);
+    {
+        var entity = await _smsRepo.GetByIdAsync(request.Id);
 
         if (entity == null)
         {
@@ -298,16 +315,16 @@ public class CommunicationsService : ICommunicationsService
 
         entity.Status = request.Status;
 
-        await _context.SaveChangesAsync(cancellationToken);
+        await _smsRepo.UpdateAsync(entity);
+        await _smsRepo.SaveAsync();
         return request;
     }
 
     public async Task<AgentChatPreferenceDto> GetAgentChatPreferencesAsync(GetAgentChatPreferencesQuery request, CancellationToken cancellationToken = default)
-{
+    {
         if (_currentUser.UserId == null) return new AgentChatPreferenceDto();
 
-        var prefs = await _context.AgentChatPreferences
-            .FirstOrDefaultAsync(p => p.UserId == _currentUser.UserId.Value, cancellationToken);
+        var prefs = await _preferenceRepo.FindAsync(p => p.UserId == _currentUser.UserId.Value);
 
         if (prefs == null)
         {
@@ -333,12 +350,12 @@ public class CommunicationsService : ICommunicationsService
     }
 
     public async Task<List<AgentChatDto>> GetAgentChatsAsync(GetAgentChatsQuery request, CancellationToken cancellationToken = default)
-{
+    {
         if (_currentUser.UserId == null) return new List<AgentChatDto>();
         var userIdString = _currentUser.UserId.Value.ToString();
 
         // Find chats where the user is a participant
-        var chats = await _context.AgentChats
+        var chats = await _agentChatRepo.Query()
             .Where(c => c.ParticipantIds.Contains(userIdString) && !c.IsDeleted)
             .OrderByDescending(c => c.LastModifiedAt ?? c.CreatedAt)
             .ToListAsync(cancellationToken);
@@ -350,7 +367,7 @@ public class CommunicationsService : ICommunicationsService
             var pIds = JsonSerializer.Deserialize<List<string>>(chat.ParticipantIds) ?? new List<string>();
             var pGuids = pIds.Select(id => Guid.TryParse(id, out var guid) ? guid : Guid.Empty).Where(g => g != Guid.Empty).ToList();
 
-            var participants = await _context.Users
+            var participants = await _userRepo.Query()
                 .Where(u => pGuids.Contains(u.Id))
                 .Select(u => new AgentSummaryDto
                 {
@@ -375,15 +392,15 @@ public class CommunicationsService : ICommunicationsService
     }
 
     public async Task<List<AgentChatMessageDto>> GetChatMessagesAsync(GetChatMessagesQuery request, CancellationToken cancellationToken = default)
-{
-        var messages = await _context.AgentChatMessages
+    {
+        var messages = await _messageRepo.Query()
             .Where(m => m.AgentChatId == request.ChatId && !m.IsDeleted)
             .OrderBy(m => m.CreatedAt)
             .ToListAsync(cancellationToken);
 
         // Fetch user names for senders
         var senderIds = messages.Select(m => m.SenderId).Distinct().ToList();
-        var users = await _context.Users
+        var users = await _userRepo.Query()
             .Where(u => senderIds.Contains(u.Id))
             .ToDictionaryAsync(u => u.Id, u => u.FirstName + " " + u.LastName, cancellationToken);
 
@@ -401,48 +418,45 @@ public class CommunicationsService : ICommunicationsService
     }
 
     public async Task<Response<CommunicationDetailDto>> GetCommunicationByIdAsync(GetCommunicationByIdQuery request, CancellationToken cancellationToken = default)
-{
+    {
         var response = new Response<CommunicationDetailDto>();
-        var log = await _context.CommunicationLogs
-            .AsNoTracking()
-            .FirstOrDefaultAsync(c => c.Id == request.Id, cancellationToken);
+        var log = await _communicationRepo.FindAsync(c => c.Id == request.Id);
 
         if (log == null)
             return new Response<CommunicationDetailDto> { StatusCode = StatusCodes.Status404NotFound, Message = "Communication log not found." };
         try
         {
+            var dto = new CommunicationDetailDto(
+                log.Id,
+                log.Channel,
+                log.Direction.ToString(),
+                log.Subject,
+                log.Body,
+                log.Recipient,
+                log.RecipientName,
+                log.RelatedEntityId,
+                log.RelatedEntityType,
+                log.IsSent,
+                log.SentAt,
+                log.ErrorMessage,
+                log.SentByUserId,
+                log.CreatedAt
+            );
 
-        var dto = new CommunicationDetailDto(
-            log.Id,
-            log.Channel,
-            log.Direction.ToString(),
-            log.Subject,
-            log.Body,
-            log.Recipient,
-            log.RecipientName,
-            log.RelatedEntityId,
-            log.RelatedEntityType,
-            log.IsSent,
-            log.SentAt,
-            log.ErrorMessage,
-            log.SentByUserId,
-            log.CreatedAt
-        );
-
-        return new Response<CommunicationDetailDto> { StatusCode = StatusCodes.Status200OK, Message = "Success", Data = dto };
-    
+            return new Response<CommunicationDetailDto> { StatusCode = StatusCodes.Status200OK, Message = "Success", Data = dto };
         }
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
             response.Message = Constants.Messages.ServerError;
             return response;
-        }}
+        }
+    }
 
     public async Task<Response<PagedResult<CommunicationListDto>>> GetCommunicationsAsync(GetCommunicationsQuery request, CancellationToken cancellationToken = default)
-{
+    {
         var response = new Response<PagedResult<CommunicationListDto>>();
-        var query = _context.CommunicationLogs.AsNoTracking().AsQueryable();
+        var query = _communicationRepo.Query().AsNoTracking().AsQueryable();
 
         if (request.RelatedEntityId.HasValue)
             query = query.Where(c => c.RelatedEntityId == request.RelatedEntityId.Value);
@@ -489,7 +503,7 @@ public class CommunicationsService : ICommunicationsService
         var response = new Response<List<CommunicationTemplateDto>>();
         try
         {
-            var templates = await _context.CommunicationTemplates
+            var templates = await _templateRepo.Query()
                 .AsNoTracking()
                 .Select(t => new CommunicationTemplateDto(
                     t.Id,
@@ -513,8 +527,8 @@ public class CommunicationsService : ICommunicationsService
     }
 
     public async Task<SmsMessageDto> GetSmsMessageByIdAsync(GetSmsMessageByIdQuery request, CancellationToken cancellationToken = default)
-{
-        var entity = await _context.SmsMessages.FindAsync(new object[] { request.Id }, cancellationToken);
+    {
+        var entity = await _smsRepo.GetByIdAsync(request.Id);
 
         if (entity == null)
         {
@@ -541,8 +555,8 @@ public class CommunicationsService : ICommunicationsService
     }
 
     public async Task<List<SmsMessageDto>> GetSmsMessagesAsync(GetSmsMessagesQuery request, CancellationToken cancellationToken = default)
-{
-        return await _context.SmsMessages
+    {
+        return await _smsRepo.Query()
             .AsNoTracking()
             .OrderByDescending(x => x.CreatedAt)
             .Select(x => new SmsMessageDto
@@ -566,11 +580,10 @@ public class CommunicationsService : ICommunicationsService
     }
 
     public async Task<List<AgentSummaryDto>> SearchAgentsAsync(SearchAgentsQuery request, CancellationToken cancellationToken = default)
-{
+    {
         var term = request.SearchTerm?.ToLower() ?? "";
 
-        // We fetch from Users and conditionally join StaffProfiles
-        var agents = await _context.Users
+        var agents = await _userRepo.Query()
             .Where(u => !u.IsDeleted && 
                         (string.IsNullOrEmpty(term) || 
                          u.FirstName.ToLower().Contains(term) || 
@@ -581,12 +594,11 @@ public class CommunicationsService : ICommunicationsService
                 Id = u.Id,
                 FullName = u.FirstName + " " + u.LastName,
                 Email = u.Email ?? string.Empty,
-                Role = _context.StaffProfiles.Where(sp => sp.UserId == u.Id && !sp.IsDeleted).Select(sp => sp.Title).FirstOrDefault()
+                Role = _staffRepo.Query().Where(sp => sp.UserId == u.Id && !sp.IsDeleted).Select(sp => sp.Title).FirstOrDefault()
             })
             .Take(50)
             .ToListAsync(cancellationToken);
 
         return agents;
     }
-
 }

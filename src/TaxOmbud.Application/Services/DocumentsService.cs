@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using TaxOmbud.Application.Documents.DTOs;
 using TaxOmbud.Application.Interfaces.InfrastructureService;
-using TaxOmbud.Application.Interfaces.Persistence;
+using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Common.Responses;
 using TaxOmbud.Domain.Entities.Documents;
@@ -11,15 +11,17 @@ namespace TaxOmbud.Application.Services;
 
 public class DocumentsService : IDocumentsService
 {
-    private readonly IApplicationDbContext _context;
+    private readonly IGenericRepository<Document> _docRepo;
+    private readonly IGenericRepository<DocumentVersion> _versionRepo;
     private readonly IFileStorageService _storage;
 
     public DocumentsService(
-        IApplicationDbContext context,
-        IFileStorageService storage
-    )
+        IGenericRepository<Document> docRepo,
+        IGenericRepository<DocumentVersion> versionRepo,
+        IFileStorageService storage)
     {
-        _context = context;
+        _docRepo = docRepo;
+        _versionRepo = versionRepo;
         _storage = storage;
     }
 
@@ -28,7 +30,7 @@ public class DocumentsService : IDocumentsService
         var response = new Response<AddedVersionResponse>();
         try
         {
-            var doc = await _context.Documents
+            var doc = await _docRepo.Query()
                 .Include(d => d.Versions)
                 .FirstOrDefaultAsync(d => d.Id == request.DocumentId, cancellationToken);
 
@@ -51,7 +53,8 @@ public class DocumentsService : IDocumentsService
             doc.Versions.Add(version);
             doc.FilePath = request.FilePath;
 
-            await _context.SaveChangesAsync(cancellationToken);
+            await _docRepo.UpdateAsync(doc);
+            await _docRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Success";
@@ -70,9 +73,7 @@ public class DocumentsService : IDocumentsService
         var response = new Response<object?>();
         try
         {
-            var document = await _context.Documents
-                .FirstOrDefaultAsync(d => d.Id == request.DocumentId, cancellationToken);
-
+            var document = await _docRepo.FindAsync(d => d.Id == request.DocumentId);
             if (document == null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
@@ -81,7 +82,8 @@ public class DocumentsService : IDocumentsService
             }
 
             document.Classification = request.Classification;
-            await _context.SaveChangesAsync(cancellationToken);
+            await _docRepo.UpdateAsync(document);
+            await _docRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Success";
@@ -117,8 +119,8 @@ public class DocumentsService : IDocumentsService
                 EntityId = request.EntityId
             };
 
-            _context.Documents.Add(doc);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _docRepo.AddAsync(doc);
+            await _docRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Success";
@@ -137,7 +139,7 @@ public class DocumentsService : IDocumentsService
         var response = new Response<object?>();
         try
         {
-            var doc = await _context.Documents.FirstOrDefaultAsync(d => d.Id == request.Id, cancellationToken);
+            var doc = await _docRepo.FindAsync(d => d.Id == request.Id);
             if (doc == null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
@@ -146,8 +148,8 @@ public class DocumentsService : IDocumentsService
             }
 
             await _storage.DeleteAsync(doc.FilePath, cancellationToken);
-            _context.Documents.Remove(doc);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _docRepo.RemoveAsync(doc);
+            await _docRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Success";
@@ -165,7 +167,7 @@ public class DocumentsService : IDocumentsService
         var response = new Response<DocumentDetailDto>();
         try
         {
-            var doc = await _context.Documents
+            var doc = await _docRepo.Query()
                 .Include(d => d.Versions)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(d => d.Id == request.Id, cancellationToken);
@@ -177,21 +179,13 @@ public class DocumentsService : IDocumentsService
                 return response;
             }
 
-            var dto = new DocumentDetailDto(
-                doc.Id,
-                doc.FileName,
-                doc.ContentType,
-                doc.FileSize,
-                doc.EntityType.ToString(),
-                doc.EntityId,
-                doc.FilePath,
-                doc.CreatedAt,
-                doc.Versions.Select(v => new DocumentVersionDto(v.Id, v.VersionNumber, v.FilePath, v.CreatedAt))
-            );
-
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Success";
-            response.Data = dto;
+            response.Data = new DocumentDetailDto(
+                doc.Id, doc.FileName, doc.ContentType, doc.FileSize,
+                doc.EntityType.ToString(), doc.EntityId, doc.FilePath, doc.CreatedAt,
+                doc.Versions.Select(v => new DocumentVersionDto(v.Id, v.VersionNumber, v.FilePath, v.CreatedAt))
+            );
         }
         catch (Exception ex)
         {
@@ -206,7 +200,7 @@ public class DocumentsService : IDocumentsService
         var response = new Response<PagedResult<DocumentListDto>>();
         try
         {
-            var query = _context.Documents.AsNoTracking().AsQueryable();
+            var query = _docRepo.Query().AsNoTracking();
 
             if (request.EntityId.HasValue)
                 query = query.Where(d => d.EntityId == request.EntityId.Value);
@@ -220,21 +214,14 @@ public class DocumentsService : IDocumentsService
                 .Skip((request.Page - 1) * request.PageSize)
                 .Take(request.PageSize)
                 .Select(d => new DocumentListDto(
-                    d.Id,
-                    d.FileName,
-                    d.ContentType,
-                    d.FileSize,
-                    d.EntityType.ToString(),
-                    d.EntityId,
-                    d.FilePath,
-                    d.CreatedAt
+                    d.Id, d.FileName, d.ContentType, d.FileSize,
+                    d.EntityType.ToString(), d.EntityId, d.FilePath, d.CreatedAt
                 ))
                 .ToListAsync(cancellationToken);
 
-            var pagedResult = new PagedResult<DocumentListDto>(items.AsReadOnly(), total, request.Page, request.PageSize);
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Success";
-            response.Data = pagedResult;
+            response.Data = new PagedResult<DocumentListDto>(items.AsReadOnly(), total, request.Page, request.PageSize);
         }
         catch (Exception ex)
         {
@@ -249,24 +236,18 @@ public class DocumentsService : IDocumentsService
         var response = new Response<List<DocumentVersionDto>>();
         try
         {
-            var documentExists = await _context.Documents.AnyAsync(d => d.Id == request.DocumentId, cancellationToken);
-            if (!documentExists)
+            if (!await _docRepo.ExistsAsync(d => d.Id == request.DocumentId))
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
                 response.Message = "Document not found.";
                 return response;
             }
 
-            var versions = await _context.DocumentVersions
+            var versions = await _versionRepo.Query()
                 .Where(v => v.DocumentId == request.DocumentId)
                 .AsNoTracking()
                 .OrderByDescending(v => v.VersionNumber)
-                .Select(v => new DocumentVersionDto(
-                    v.Id,
-                    v.VersionNumber,
-                    v.FilePath,
-                    v.CreatedAt
-                ))
+                .Select(v => new DocumentVersionDto(v.Id, v.VersionNumber, v.FilePath, v.CreatedAt))
                 .ToListAsync(cancellationToken);
 
             response.StatusCode = StatusCodes.Status200OK;
@@ -286,7 +267,7 @@ public class DocumentsService : IDocumentsService
         var response = new Response<DocumentDownloadUrlDto>();
         try
         {
-            var doc = await _context.Documents.AsNoTracking().FirstOrDefaultAsync(d => d.Id == request.Id, cancellationToken);
+            var doc = await _docRepo.FindAsync(d => d.Id == request.Id);
             if (doc == null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;

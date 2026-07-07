@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using TaxOmbud.Application.Appointments.DTOs;
-using TaxOmbud.Application.Interfaces.Persistence;
+using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Common.Responses;
 using TaxOmbud.Domain.Entities.Appointments;
@@ -10,13 +10,11 @@ namespace TaxOmbud.Application.Services;
 
 public class AppointmentsService : IAppointmentsService
 {
-    private readonly IApplicationDbContext _context;
+    private readonly IGenericRepository<Appointment> _appointmentRepo;
 
-    public AppointmentsService(
-        IApplicationDbContext context
-    )
+    public AppointmentsService(IGenericRepository<Appointment> appointmentRepo)
     {
-        _context = context;
+        _appointmentRepo = appointmentRepo;
     }
 
     public async Task<Response<BookAppointmentResponse>> BookAppointmentAsync(BookAppointmentCommand request, CancellationToken cancellationToken = default)
@@ -38,22 +36,15 @@ public class AppointmentsService : IAppointmentsService
                 MeetingUrl = request.MeetingUrl
             };
 
-            _context.Appointments.Add(appointment);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _appointmentRepo.AddAsync(appointment);
+            await _appointmentRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Appointment booked successfully.";
             response.Data = new BookAppointmentResponse(
-                appointment.Id,
-                appointment.Title,
-                appointment.Description,
-                appointment.StartTime,
-                appointment.EndTime,
-                appointment.Status.ToString(),
-                appointment.TaxpayerId,
-                appointment.OfficerId,
-                appointment.Location,
-                appointment.MeetingUrl
+                appointment.Id, appointment.Title, appointment.Description,
+                appointment.StartTime, appointment.EndTime, appointment.Status.ToString(),
+                appointment.TaxpayerId, appointment.OfficerId, appointment.Location, appointment.MeetingUrl
             );
             return response;
         }
@@ -70,9 +61,7 @@ public class AppointmentsService : IAppointmentsService
         var response = new Response<object?>();
         try
         {
-            var entity = await _context.Appointments
-                .FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken);
-
+            var entity = await _appointmentRepo.FindAsync(x => x.Id == request.Id);
             if (entity == null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
@@ -87,7 +76,8 @@ public class AppointmentsService : IAppointmentsService
             entity.Location = request.Location;
             entity.MeetingUrl = request.MeetingUrl;
 
-            await _context.SaveChangesAsync(cancellationToken);
+            await _appointmentRepo.UpdateAsync(entity);
+            await _appointmentRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Appointment updated successfully.";
@@ -106,7 +96,7 @@ public class AppointmentsService : IAppointmentsService
         var response = new Response<object?>();
         try
         {
-            var app = await _context.Appointments.FirstOrDefaultAsync(a => a.Id == request.AppointmentId, cancellationToken);
+            var app = await _appointmentRepo.FindAsync(a => a.Id == request.AppointmentId);
             if (app == null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
@@ -122,7 +112,8 @@ public class AppointmentsService : IAppointmentsService
             }
 
             app.Status = newStatus;
-            await _context.SaveChangesAsync(cancellationToken);
+            await _appointmentRepo.UpdateAsync(app);
+            await _appointmentRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Appointment status updated successfully.";
@@ -141,7 +132,7 @@ public class AppointmentsService : IAppointmentsService
         var response = new Response<AppointmentDetailDto>();
         try
         {
-            var app = await _context.Appointments
+            var app = await _appointmentRepo.Query()
                 .Include(a => a.Taxpayer)
                 .Include(a => a.Officer!)
                     .ThenInclude(o => o.User)
@@ -155,24 +146,14 @@ public class AppointmentsService : IAppointmentsService
                 return response;
             }
 
-            var dto = new AppointmentDetailDto(
-                app.Id,
-                app.Title,
-                app.Description,
-                app.StartTime,
-                app.EndTime,
-                app.Status.ToString(),
-                app.Taxpayer != null ? new AppointmentTaxpayerDto(app.Taxpayer.Id, app.Taxpayer.FirstName + " " + app.Taxpayer.LastName, app.Taxpayer.Email.Value) : null,
-                app.Officer != null && app.Officer.User != null ? new AppointmentOfficerDto(app.Officer.Id, app.Officer.User.FullName, app.Officer.User.Email ?? string.Empty) : null,
-                app.Location,
-                app.MeetingUrl,
-                app.CreatedAt,
-                app.LastModifiedAt
-            );
-
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Appointment retrieved successfully.";
-            response.Data = dto;
+            response.Data = new AppointmentDetailDto(
+                app.Id, app.Title, app.Description, app.StartTime, app.EndTime, app.Status.ToString(),
+                app.Taxpayer != null ? new AppointmentTaxpayerDto(app.Taxpayer.Id, app.Taxpayer.FirstName + " " + app.Taxpayer.LastName, app.Taxpayer.Email.Value) : null,
+                app.Officer != null && app.Officer.User != null ? new AppointmentOfficerDto(app.Officer.Id, app.Officer.User.FullName, app.Officer.User.Email ?? string.Empty) : null,
+                app.Location, app.MeetingUrl, app.CreatedAt, app.LastModifiedAt
+            );
             return response;
         }
         catch (Exception)
@@ -188,12 +169,11 @@ public class AppointmentsService : IAppointmentsService
         var response = new Response<IEnumerable<AppointmentListDto>>();
         try
         {
-            var query = _context.Appointments
+            var query = _appointmentRepo.Query()
                 .Include(a => a.Taxpayer)
                 .Include(a => a.Officer!)
                     .ThenInclude(o => o.User)
-                .AsNoTracking()
-                .AsQueryable();
+                .AsNoTracking();
 
             if (request.TaxpayerId.HasValue)
                 query = query.Where(a => a.TaxpayerId == request.TaxpayerId.Value);
@@ -202,23 +182,15 @@ public class AppointmentsService : IAppointmentsService
                 query = query.Where(a => a.OfficerId == request.OfficerId.Value);
 
             if (!string.IsNullOrWhiteSpace(request.Status) && Enum.TryParse<AppointmentStatus>(request.Status, true, out var appStatus))
-            {
                 query = query.Where(a => a.Status == appStatus);
-            }
 
             var list = await query
                 .OrderByDescending(a => a.StartTime)
                 .Select(a => new AppointmentListDto(
-                    a.Id,
-                    a.Title,
-                    a.Description,
-                    a.StartTime,
-                    a.EndTime,
-                    a.Status.ToString(),
+                    a.Id, a.Title, a.Description, a.StartTime, a.EndTime, a.Status.ToString(),
                     a.Taxpayer != null ? a.Taxpayer.FirstName + " " + a.Taxpayer.LastName : "Unknown",
                     a.Officer != null && a.Officer.User != null ? a.Officer.User.FullName : "Unassigned",
-                    a.Location,
-                    a.MeetingUrl
+                    a.Location, a.MeetingUrl
                 ))
                 .ToListAsync(cancellationToken);
 
@@ -243,22 +215,18 @@ public class AppointmentsService : IAppointmentsService
             var startOfDay = request.Date.Date;
             var endOfDay = startOfDay.AddDays(1);
 
-            var existingAppointments = await _context.Appointments
-                .Where(a => a.OfficerId == request.OfficerId
-                         && a.StartTime >= startOfDay
-                         && a.EndTime < endOfDay
-                         && a.Status != AppointmentStatus.Cancelled)
-                .ToListAsync(cancellationToken);
+            var existingAppointments = await _appointmentRepo.FindAllAsync(
+                a => a.OfficerId == request.OfficerId
+                     && a.StartTime >= startOfDay
+                     && a.EndTime < endOfDay
+                     && a.Status != AppointmentStatus.Cancelled);
 
             var slots = new List<TimeSlotDto>();
             for (int i = 9; i < 17; i++)
             {
                 var slotStart = new DateTimeOffset(startOfDay.AddHours(i), request.Date.Offset);
                 var slotEnd = slotStart.AddHours(1);
-
-                var isBooked = existingAppointments.Any(a =>
-                    (a.StartTime < slotEnd && a.EndTime > slotStart));
-
+                var isBooked = existingAppointments.Any(a => a.StartTime < slotEnd && a.EndTime > slotStart);
                 slots.Add(new TimeSlotDto(slotStart, slotEnd, !isBooked));
             }
 
@@ -283,7 +251,7 @@ public class AppointmentsService : IAppointmentsService
             var startDate = new DateTimeOffset(request.Year, request.Month, 1, 0, 0, 0, TimeSpan.Zero);
             var endDate = startDate.AddMonths(1);
 
-            var query = _context.Appointments
+            var query = _appointmentRepo.Query()
                 .AsNoTracking()
                 .Where(a => a.StartTime >= startDate && a.StartTime < endDate);
 
@@ -295,13 +263,7 @@ public class AppointmentsService : IAppointmentsService
 
             var appointments = await query
                 .OrderBy(a => a.StartTime)
-                .Select(a => new CalendarEventDto(
-                    a.Id,
-                    a.Title,
-                    a.StartTime,
-                    a.EndTime,
-                    a.Status.ToString()
-                ))
+                .Select(a => new CalendarEventDto(a.Id, a.Title, a.StartTime, a.EndTime, a.Status.ToString()))
                 .ToListAsync(cancellationToken);
 
             response.StatusCode = StatusCodes.Status200OK;

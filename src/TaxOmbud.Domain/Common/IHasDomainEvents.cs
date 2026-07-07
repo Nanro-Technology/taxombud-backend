@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-
 namespace TaxOmbud.Domain.Common;
 
 public interface IHasDomainEvents

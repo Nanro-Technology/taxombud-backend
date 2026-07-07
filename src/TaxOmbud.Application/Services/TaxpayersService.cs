@@ -1,22 +1,28 @@
 using Microsoft.EntityFrameworkCore;
 using TaxOmbud.Application.Complaints.DTOs;
 using TaxOmbud.Application.Interfaces.InfrastructureService;
-using TaxOmbud.Application.Interfaces.Persistence;
+using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Application.Taxpayers.DTOs;
 using TaxOmbud.Common.Responses;
+using TaxOmbud.Domain.Entities.Complaints;
 using TaxOmbud.Domain.Entities.Taxpayers;
 
 namespace TaxOmbud.Application.Services;
 
 public class TaxpayersService : ITaxpayersService
 {
-    private readonly IApplicationDbContext _context;
+    private readonly IGenericRepository<TaxpayerProfile> _taxpayerRepo;
+    private readonly IGenericRepository<Complaint> _complaintRepo;
     private readonly ICurrentUser _currentUser;
 
-    public TaxpayersService(IApplicationDbContext context, ICurrentUser currentUser)
+    public TaxpayersService(
+        IGenericRepository<TaxpayerProfile> taxpayerRepo,
+        IGenericRepository<Complaint> complaintRepo,
+        ICurrentUser currentUser)
     {
-        _context = context;
+        _taxpayerRepo = taxpayerRepo;
+        _complaintRepo = complaintRepo;
         _currentUser = currentUser;
     }
 
@@ -27,7 +33,7 @@ public class TaxpayersService : ITaxpayersService
         var response = new Response<PagedResult<TaxpayerListDto>>();
         try
         {
-            var query = _context.TaxpayerProfiles
+            var query = _taxpayerRepo.Query()
                 .Include(t => t.User)
                 .AsQueryable();
 
@@ -50,19 +56,9 @@ public class TaxpayersService : ITaxpayersService
                 .Skip((request.Page - 1) * request.PageSize)
                 .Take(request.PageSize)
                 .Select(t => new TaxpayerListDto(
-                    t.Id,
-                    t.UserId,
-                    $"{t.User.FirstName} {t.User.LastName}",
-                    t.User!.Email ?? string.Empty,
-                    t.User.Phone,
-                    t.TaxpayerType.ToString(),
-                    t.TinNumber,
-                    t.Nin,
-                    t.Bvn,
-                    t.CompanyName,
-                    t.RcNumber,
-                    t.IsVerified,
-                    t.CreatedAt
+                    t.Id, t.UserId, $"{t.User.FirstName} {t.User.LastName}",
+                    t.User!.Email ?? string.Empty, t.User.Phone, t.TaxpayerType.ToString(),
+                    t.TinNumber, t.Nin, t.Bvn, t.CompanyName, t.RcNumber, t.IsVerified, t.CreatedAt
                 ))
                 .ToListAsync(cancellationToken);
 
@@ -83,7 +79,7 @@ public class TaxpayersService : ITaxpayersService
         var response = new Response<TaxpayerDetailDto>();
         try
         {
-            var t = await _context.TaxpayerProfiles
+            var t = await _taxpayerRepo.Query()
                 .Include(x => x.User)
                 .FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken);
 
@@ -111,7 +107,7 @@ public class TaxpayersService : ITaxpayersService
         var response = new Response<TaxpayerDetailDto>();
         try
         {
-            var t = await _context.TaxpayerProfiles
+            var t = await _taxpayerRepo.Query()
                 .Include(x => x.User)
                 .FirstOrDefaultAsync(x => x.TinNumber == request.Tin, cancellationToken);
 
@@ -147,7 +143,7 @@ public class TaxpayersService : ITaxpayersService
                 return response;
             }
 
-            var t = await _context.TaxpayerProfiles
+            var t = await _taxpayerRepo.Query()
                 .Include(x => x.User)
                 .FirstOrDefaultAsync(x => x.UserId == currentUserId.Value, cancellationToken);
 
@@ -175,7 +171,7 @@ public class TaxpayersService : ITaxpayersService
         var response = new Response<PagedResult<ComplaintSummaryDto>>();
         try
         {
-            var query = _context.Complaints
+            var query = _complaintRepo.Query()
                 .Include(c => c.Taxpayer)
                 .Include(c => c.AssignedOfficer).ThenInclude(o => o!.User)
                 .Where(c => c.TaxpayerId == request.TaxpayerId);
@@ -186,19 +182,10 @@ public class TaxpayersService : ITaxpayersService
                 .Skip((request.Page - 1) * request.PageSize)
                 .Take(request.PageSize)
                 .Select(c => new ComplaintSummaryDto(
-                    c.Id,
-                    c.ReferenceNumber,
-                    c.Subject,
-                    c.TaxType,
-                    c.TaxPeriod,
-                    c.ComplaintCategory,
-                    c.Status.ToString(),
-                    c.CurrentStage,
-                    c.Priority,
-                    c.TaxpayerId,
-                    c.Taxpayer != null ? $"{c.Taxpayer.FirstName} {c.Taxpayer.LastName}" : null,
-                    c.AssignedOfficerId,
-                    c.AssignedOfficer != null ? $"{c.AssignedOfficer.User.FirstName} {c.AssignedOfficer.User.LastName}" : null,
+                    c.Id, c.ReferenceNumber, c.Subject, c.TaxType, c.TaxPeriod, c.ComplaintCategory,
+                    c.Status.ToString(), c.CurrentStage, c.Priority,
+                    c.TaxpayerId, c.Taxpayer != null ? $"{c.Taxpayer.FirstName} {c.Taxpayer.LastName}" : null,
+                    c.AssignedOfficerId, c.AssignedOfficer != null ? $"{c.AssignedOfficer.User.FirstName} {c.AssignedOfficer.User.LastName}" : null,
                     c.CreatedAt
                 ))
                 .ToListAsync(cancellationToken);
@@ -239,7 +226,7 @@ public class TaxpayersService : ITaxpayersService
         var response = new Response<object?>();
         try
         {
-            var taxpayer = await _context.TaxpayerProfiles
+            var taxpayer = await _taxpayerRepo.Query()
                 .Include(t => t.User)
                 .FirstOrDefaultAsync(t => t.Id == request.TaxpayerId, cancellationToken);
 
@@ -251,9 +238,8 @@ public class TaxpayersService : ITaxpayersService
             }
 
             if (request.Phone is not null && taxpayer.User is not null)
-            {
                 taxpayer.User.UpdateProfile(taxpayer.User.FirstName, taxpayer.User.LastName, request.Phone, taxpayer.User.JobTitle);
-            }
+
             if (request.Address is not null) taxpayer.Address = request.Address;
             if (request.City is not null) taxpayer.City = request.City;
             if (request.State is not null) taxpayer.State = request.State;
@@ -261,7 +247,8 @@ public class TaxpayersService : ITaxpayersService
             if (request.RcNumber is not null) taxpayer.RcNumber = request.RcNumber;
 
             taxpayer.LastModifiedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync(cancellationToken);
+            await _taxpayerRepo.UpdateAsync(taxpayer);
+            await _taxpayerRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Taxpayer updated successfully.";
@@ -279,7 +266,7 @@ public class TaxpayersService : ITaxpayersService
         var response = new Response<object?>();
         try
         {
-            var taxpayer = await _context.TaxpayerProfiles.FindAsync(new object[] { request.TaxpayerId }, cancellationToken);
+            var taxpayer = await _taxpayerRepo.GetByIdAsync(request.TaxpayerId);
             if (taxpayer is null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
@@ -289,7 +276,8 @@ public class TaxpayersService : ITaxpayersService
 
             taxpayer.IsVerified = true;
             taxpayer.LastModifiedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync(cancellationToken);
+            await _taxpayerRepo.UpdateAsync(taxpayer);
+            await _taxpayerRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Taxpayer verified successfully.";
@@ -307,7 +295,7 @@ public class TaxpayersService : ITaxpayersService
         var response = new Response<object?>();
         try
         {
-            var taxpayer = await _context.TaxpayerProfiles
+            var taxpayer = await _taxpayerRepo.Query()
                 .Include(t => t.User)
                 .FirstOrDefaultAsync(t => t.Id == request.TaxpayerId, cancellationToken);
 
@@ -319,11 +307,11 @@ public class TaxpayersService : ITaxpayersService
             }
 
             if (taxpayer.User is not null)
-            {
                 taxpayer.User.Deactivate();
-            }
+
             taxpayer.LastModifiedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync(cancellationToken);
+            await _taxpayerRepo.UpdateAsync(taxpayer);
+            await _taxpayerRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Taxpayer deactivated successfully.";
@@ -336,29 +324,14 @@ public class TaxpayersService : ITaxpayersService
         return response;
     }
 
-    // ─── Private helpers ──────────────────────────────────────────────────────
+    // ─── Private helpers ───────────────────────────────────────────────────────
 
     private static TaxpayerDetailDto MapToDetailDto(TaxpayerProfile t) => new(
-        t.Id,
-        t.UserId,
-        t.User?.FirstName ?? string.Empty,
-        t.User?.LastName ?? string.Empty,
+        t.Id, t.UserId, t.User?.FirstName ?? string.Empty, t.User?.LastName ?? string.Empty,
         t.User != null ? $"{t.User.FirstName} {t.User.LastName}" : string.Empty,
-        t.User?.Email ?? string.Empty,
-        t.User?.Phone,
-        t.TaxpayerType.ToString(),
-        t.TinNumber,
-        t.Nin,
-        t.Bvn,
-        t.Gender,
-        t.DateOfBirth,
-        t.CompanyName,
-        t.RcNumber,
-        t.Address,
-        t.City,
-        t.State,
-        t.IsVerified,
-        t.CreatedAt,
-        t.LastModifiedAt
+        t.User?.Email ?? string.Empty, t.User?.Phone, t.TaxpayerType.ToString(),
+        t.TinNumber, t.Nin, t.Bvn, t.Gender, t.DateOfBirth,
+        t.CompanyName, t.RcNumber, t.Address, t.City, t.State,
+        t.IsVerified, t.CreatedAt, t.LastModifiedAt
     );
 }

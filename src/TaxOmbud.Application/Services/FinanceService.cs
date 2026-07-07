@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using TaxOmbud.Application.Finance.DTOs;
-using TaxOmbud.Application.Interfaces.Persistence;
+using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Common.Responses;
 using TaxOmbud.Domain.Entities.Finance;
@@ -9,13 +9,19 @@ namespace TaxOmbud.Application.Services;
 
 public class FinanceService : IFinanceService
 {
-    private readonly IApplicationDbContext _context;
+    private readonly IGenericRepository<Contract> _contractRepo;
+    private readonly IGenericRepository<Quote> _quoteRepo;
+    private readonly IGenericRepository<Invoice> _invoiceRepo;
 
     public FinanceService(
-        IApplicationDbContext context
+        IGenericRepository<Contract> contractRepo,
+        IGenericRepository<Quote> quoteRepo,
+        IGenericRepository<Invoice> invoiceRepo
     )
     {
-        _context = context;
+        _contractRepo = contractRepo;
+        _quoteRepo = quoteRepo;
+        _invoiceRepo = invoiceRepo;
     }
 
     public async Task<Response<Guid>> CreateContractAsync(CreateContractCommands request, CancellationToken cancellationToken = default)
@@ -31,8 +37,8 @@ public class FinanceService : IFinanceService
                 Status = "Active",
                 CreatedAt = DateTime.UtcNow
             };
-            _context.Contracts.Add(entity);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _contractRepo.AddAsync(entity);
+            await _contractRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Contract created successfully.";
@@ -60,8 +66,8 @@ public class FinanceService : IFinanceService
                 Status = "Draft",
                 CreatedAt = DateTime.UtcNow
             };
-            _context.Quotes.Add(entity);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _quoteRepo.AddAsync(entity);
+            await _quoteRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Quote created successfully.";
@@ -122,8 +128,8 @@ public class FinanceService : IFinanceService
                 Items = invoiceItems
             };
 
-            _context.Invoices.Add(entity);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _invoiceRepo.AddAsync(entity);
+            await _invoiceRepo.SaveAsync();
             
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Invoice generated successfully.";
@@ -143,7 +149,7 @@ public class FinanceService : IFinanceService
         var response = new Response<bool>();
         try
         {
-            var entity = await _context.Invoices.FirstOrDefaultAsync(x => x.Id == request.InvoiceId, cancellationToken);
+            var entity = await _invoiceRepo.FindAsync(x => x.Id == request.InvoiceId);
             if (entity == null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
@@ -153,7 +159,8 @@ public class FinanceService : IFinanceService
             
             entity.Status = "Paid";
             entity.LastModifiedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync(cancellationToken);
+            await _invoiceRepo.UpdateAsync(entity);
+            await _invoiceRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Invoice paid successfully.";
@@ -173,10 +180,10 @@ public class FinanceService : IFinanceService
         var response = new Response<List<Contract>>();
         try
         {
-            var list = await _context.Contracts.ToListAsync(cancellationToken);
+            var list = await _contractRepo.GetAllAsync();
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Contracts retrieved successfully.";
-            response.Data = list;
+            response.Data = list.ToList();
             return response;
         }
         catch (Exception)
@@ -192,10 +199,10 @@ public class FinanceService : IFinanceService
         var response = new Response<List<Invoice>>();
         try
         {
-            var list = await _context.Invoices.ToListAsync(cancellationToken);
+            var list = await _invoiceRepo.GetAllAsync();
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Invoices retrieved successfully.";
-            response.Data = list;
+            response.Data = list.ToList();
             return response;
         }
         catch (Exception)
@@ -211,10 +218,10 @@ public class FinanceService : IFinanceService
         var response = new Response<List<Quote>>();
         try
         {
-            var list = await _context.Quotes.ToListAsync(cancellationToken);
+            var list = await _quoteRepo.GetAllAsync();
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Quotes retrieved successfully.";
-            response.Data = list;
+            response.Data = list.ToList();
             return response;
         }
         catch (Exception)

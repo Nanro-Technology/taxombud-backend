@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using TaxOmbud.Application.Interfaces.Persistence;
+using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Application.Wallet.DTOs;
 using TaxOmbud.Common.Responses;
@@ -9,11 +9,15 @@ namespace TaxOmbud.Application.Services;
 
 public class WalletService : IWalletService
 {
-    private readonly IApplicationDbContext _context;
+    private readonly IGenericRepository<EmployeeWallet> _walletRepo;
+    private readonly IGenericRepository<WalletTransaction> _txRepo;
 
-    public WalletService(IApplicationDbContext context)
+    public WalletService(
+        IGenericRepository<EmployeeWallet> walletRepo,
+        IGenericRepository<WalletTransaction> txRepo)
     {
-        _context = context;
+        _walletRepo = walletRepo;
+        _txRepo = txRepo;
     }
 
     public async Task<Response<bool>> ProcessWithdrawalAsync(ProcessWithdrawalCommands request, CancellationToken cancellationToken = default)
@@ -21,9 +25,7 @@ public class WalletService : IWalletService
         var response = new Response<bool>();
         try
         {
-            var tx = await _context.WalletTransactions
-                .FirstOrDefaultAsync(x => x.Id == request.TransactionId, cancellationToken);
-
+            var tx = await _txRepo.FindAsync(x => x.Id == request.TransactionId);
             if (tx == null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
@@ -34,14 +36,15 @@ public class WalletService : IWalletService
 
             if (request.Approved)
             {
-                var wallet = await _context.EmployeeWallets.FindAsync(new object[] { tx.WalletId }, cancellationToken);
+                var wallet = await _walletRepo.GetByIdAsync(tx.WalletId);
                 if (wallet != null)
                 {
                     wallet.BalanceNgn += tx.Amount; // amount is already negative
+                    await _walletRepo.UpdateAsync(wallet);
                 }
             }
 
-            await _context.SaveChangesAsync(cancellationToken);
+            await _txRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Withdrawal processed successfully.";
@@ -61,9 +64,7 @@ public class WalletService : IWalletService
         var response = new Response<Guid>();
         try
         {
-            var wallet = await _context.EmployeeWallets
-                .FirstOrDefaultAsync(x => x.Id == request.WalletId, cancellationToken);
-
+            var wallet = await _walletRepo.FindAsync(x => x.Id == request.WalletId);
             if (wallet == null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
@@ -88,8 +89,8 @@ public class WalletService : IWalletService
                 CreatedAt = DateTime.UtcNow
             };
 
-            _context.WalletTransactions.Add(tx);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _txRepo.AddAsync(tx);
+            await _txRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Withdrawal request submitted successfully.";
@@ -108,9 +109,7 @@ public class WalletService : IWalletService
         var response = new Response<EmployeeWallet>();
         try
         {
-            var wallet = await _context.EmployeeWallets
-                .FirstOrDefaultAsync(x => x.UserId == request.UserId, cancellationToken);
-
+            var wallet = await _walletRepo.FindAsync(x => x.UserId == request.UserId);
             if (wallet == null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
@@ -135,13 +134,11 @@ public class WalletService : IWalletService
         var response = new Response<List<WalletTransaction>>();
         try
         {
-            var txs = await _context.WalletTransactions
-                .Where(x => x.WalletId == request.WalletId)
-                .ToListAsync(cancellationToken);
+            var txs = await _txRepo.FindAllAsync(x => x.WalletId == request.WalletId);
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Transactions retrieved successfully.";
-            response.Data = txs;
+            response.Data = txs.ToList();
         }
         catch (Exception)
         {

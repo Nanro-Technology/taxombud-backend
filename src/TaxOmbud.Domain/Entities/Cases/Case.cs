@@ -1,13 +1,11 @@
-using System;
-using System.Collections.Generic;
+using TaxOmbud.Common.CustomException;
+using TaxOmbud.Common.Utilities;
 using TaxOmbud.Domain.Common;
+using TaxOmbud.Domain.Entities.Complaints;
 using TaxOmbud.Domain.Entities.Identity;
 using TaxOmbud.Domain.Entities.Officers;
-using TaxOmbud.Domain.Entities.Complaints;
 using TaxOmbud.Domain.Enums;
-using TaxOmbud.Common.CustomException;
 using TaxOmbud.Domain.Events.Cases;
-using TaxOmbud.Common.Utilities;
 
 namespace TaxOmbud.Domain.Entities.Cases;
 

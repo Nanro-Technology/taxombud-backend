@@ -1,10 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using TaxOmbud.Application.Cases.DTOs;
-using TaxOmbud.Application.Interfaces.Persistence;
+using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Common.Responses;
 using TaxOmbud.Domain.Entities.Cases;
 using TaxOmbud.Domain.Entities.Complaints;
+using TaxOmbud.Domain.Entities.Communications;
 using TaxOmbud.Domain.Entities.Documents;
 using TaxOmbud.Domain.Enums;
 
@@ -12,11 +13,30 @@ namespace TaxOmbud.Application.Services;
 
 public class CasesService : ICasesService
 {
-    private readonly IApplicationDbContext _context;
+    private readonly IGenericRepository<Case> _caseRepo;
+    private readonly IGenericRepository<Complaint> _complaintRepo;
+    private readonly IGenericRepository<CaseFinding> _findingRepo;
+    private readonly IGenericRepository<CaseMilestone> _milestoneRepo;
+    private readonly IGenericRepository<CaseCommunicationLog> _communicationRepo;
+    private readonly IGenericRepository<Document> _docRepo;
+    private readonly IGenericRepository<CaseNote> _noteRepo;
 
-    public CasesService(IApplicationDbContext context)
+    public CasesService(
+        IGenericRepository<Case> caseRepo,
+        IGenericRepository<Complaint> complaintRepo,
+        IGenericRepository<CaseFinding> findingRepo,
+        IGenericRepository<CaseMilestone> milestoneRepo,
+        IGenericRepository<CaseCommunicationLog> communicationRepo,
+        IGenericRepository<Document> docRepo,
+        IGenericRepository<CaseNote> noteRepo)
     {
-        _context = context;
+        _caseRepo = caseRepo;
+        _complaintRepo = complaintRepo;
+        _findingRepo = findingRepo;
+        _milestoneRepo = milestoneRepo;
+        _communicationRepo = communicationRepo;
+        _docRepo = docRepo;
+        _noteRepo = noteRepo;
     }
 
     // ─── Queries ───────────────────────────────────────────────────────────────
@@ -26,7 +46,7 @@ public class CasesService : ICasesService
         var response = new Response<PagedResult<CaseListDto>>();
         try
         {
-            var query = _context.Cases
+            var query = _caseRepo.Query()
                 .Include(c => c.Complaint)
                     .ThenInclude(co => co.Taxpayer)
                 .AsQueryable();
@@ -79,7 +99,7 @@ public class CasesService : ICasesService
         var response = new Response<PagedResult<CaseListDto>>();
         try
         {
-            var query = _context.Cases
+            var query = _caseRepo.Query()
                 .Include(c => c.Complaint)
                     .ThenInclude(co => co.Taxpayer)
                 .AsQueryable();
@@ -132,7 +152,7 @@ public class CasesService : ICasesService
         try
         {
             var now = DateTimeOffset.UtcNow;
-            var query = _context.Cases
+            var query = _caseRepo.Query()
                 .Include(c => c.Complaint)
                     .ThenInclude(co => co.Taxpayer)
                 .Where(c => c.DueDate.HasValue && c.DueDate < now);
@@ -174,7 +194,7 @@ public class CasesService : ICasesService
         var response = new Response<QueueResultDto>();
         try
         {
-            var query = _context.Cases
+            var query = _caseRepo.Query()
                 .Include(c => c.Complaint)
                     .ThenInclude(co => co.Taxpayer)
                 .Where(c => c.CurrentStage == request.QueueName);
@@ -215,7 +235,7 @@ public class CasesService : ICasesService
         var response = new Response<CaseDetailDto>();
         try
         {
-            var c = await _context.Cases
+            var c = await _caseRepo.Query()
                 .Include(x => x.Complaint).ThenInclude(co => co.Taxpayer)
                 .Include(x => x.AssignedOfficer).ThenInclude(o => o!.User)
                 .Include(x => x.Department)
@@ -270,7 +290,7 @@ public class CasesService : ICasesService
         var response = new Response<IReadOnlyList<CaseFindingDto>>();
         try
         {
-            var findings = await _context.CaseFindings
+            var findings = await _findingRepo.Query()
                 .Where(f => f.CaseId == request.CaseId)
                 .OrderByDescending(f => f.CreatedAt)
                 .Select(f => new CaseFindingDto(f.Id, f.CaseId, f.Description, f.CreatedAt, f.CreatedByUserId))
@@ -293,7 +313,7 @@ public class CasesService : ICasesService
         var response = new Response<IReadOnlyList<CaseMilestoneDto>>();
         try
         {
-            var milestones = await _context.CaseMilestones
+            var milestones = await _milestoneRepo.Query()
                 .Where(m => m.CaseId == request.CaseId)
                 .OrderBy(m => m.CreatedAt)
                 .Select(m => new CaseMilestoneDto(m.Id, m.CaseId, m.Title, m.Description, m.TargetDate, m.CompletedAt, m.IsCompleted))
@@ -316,7 +336,7 @@ public class CasesService : ICasesService
         var response = new Response<IReadOnlyList<CaseCommunicationDto>>();
         try
         {
-            var logs = await _context.CaseCommunicationLogs
+            var logs = await _communicationRepo.Query()
                 .Where(l => l.CaseId == request.CaseId)
                 .OrderByDescending(l => l.SentAt)
                 .Select(l => new CaseCommunicationDto(l.Id, l.CaseId, l.Sender, l.Recipient, l.Direction.ToString(), l.Subject, l.Body, l.SentAt, l.Channel))
@@ -339,7 +359,7 @@ public class CasesService : ICasesService
         var response = new Response<IReadOnlyList<CaseDocumentDto>>();
         try
         {
-            var documents = await _context.Documents
+            var documents = await _docRepo.Query()
                 .Where(d => d.EntityId == request.CaseId && d.EntityType == DocumentEntityType.Case)
                 .OrderByDescending(d => d.CreatedAt)
                 .Select(d => new CaseDocumentDto(d.Id, d.FileName, d.ContentType, d.FileSize, d.CreatedAt))
@@ -362,7 +382,7 @@ public class CasesService : ICasesService
         var response = new Response<TrackComplaintResponse>();
         try
         {
-            var complaint = await _context.Complaints
+            var complaint = await _complaintRepo.Query()
                 .FirstOrDefaultAsync(c => c.ReferenceNumber == request.TrackingNumber, cancellationToken);
 
             if (complaint is null)
@@ -411,8 +431,8 @@ public class CasesService : ICasesService
             complaint.Submit();
             complaint.UpdateStage("input");
 
-            _context.Complaints.Add(complaint);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _complaintRepo.AddAsync(complaint);
+            await _complaintRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Case submitted successfully.";
@@ -431,7 +451,7 @@ public class CasesService : ICasesService
         var response = new Response<AddCaseNoteResponse>();
         try
         {
-            var caseEntity = await _context.Cases.FindAsync(new object[] { request.CaseId }, cancellationToken);
+            var caseEntity = await _caseRepo.GetByIdAsync(request.CaseId);
             if (caseEntity is null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
@@ -448,8 +468,8 @@ public class CasesService : ICasesService
                 CreatedAt = DateTime.UtcNow
             };
 
-            _context.CaseNotes.Add(note);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _noteRepo.AddAsync(note);
+            await _noteRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Note added successfully.";
@@ -476,8 +496,8 @@ public class CasesService : ICasesService
                 CreatedAt = DateTime.UtcNow
             };
 
-            _context.CaseFindings.Add(finding);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _findingRepo.AddAsync(finding);
+            await _findingRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Finding added successfully.";
@@ -496,7 +516,7 @@ public class CasesService : ICasesService
         var response = new Response<object?>();
         try
         {
-            var finding = await _context.CaseFindings
+            var finding = await _findingRepo.Query()
                 .FirstOrDefaultAsync(f => f.Id == request.FindingId && f.CaseId == request.CaseId, cancellationToken);
 
             if (finding is null)
@@ -507,7 +527,8 @@ public class CasesService : ICasesService
             }
 
             finding.Description = request.Description;
-            await _context.SaveChangesAsync(cancellationToken);
+            await _findingRepo.UpdateAsync(finding);
+            await _findingRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Finding updated successfully.";
@@ -525,7 +546,7 @@ public class CasesService : ICasesService
         var response = new Response<object?>();
         try
         {
-            var caseEntity = await _context.Cases.FindAsync(new object[] { request.CaseId }, cancellationToken);
+            var caseEntity = await _caseRepo.GetByIdAsync(request.CaseId);
             if (caseEntity is null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
@@ -534,7 +555,8 @@ public class CasesService : ICasesService
             }
 
             caseEntity.Assign(request.OfficerId, Guid.Empty);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _caseRepo.UpdateAsync(caseEntity);
+            await _caseRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Case assigned successfully.";
@@ -552,7 +574,7 @@ public class CasesService : ICasesService
         var response = new Response<object?>();
         try
         {
-            var caseEntity = await _context.Cases.FindAsync(new object[] { request.CaseId }, cancellationToken);
+            var caseEntity = await _caseRepo.GetByIdAsync(request.CaseId);
             if (caseEntity is null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
@@ -561,7 +583,8 @@ public class CasesService : ICasesService
             }
 
             caseEntity.UpdateStatus(caseEntity.Status, request.TargetStage, Guid.Empty);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _caseRepo.UpdateAsync(caseEntity);
+            await _caseRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = $"Case transitioned to '{request.TargetStage}' successfully.";
@@ -579,7 +602,7 @@ public class CasesService : ICasesService
         var response = new Response<PostRecommendationResponse>();
         try
         {
-            var caseEntity = await _context.Cases.FindAsync(new object[] { request.CaseId }, cancellationToken);
+            var caseEntity = await _caseRepo.GetByIdAsync(request.CaseId);
             if (caseEntity is null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
@@ -596,7 +619,8 @@ public class CasesService : ICasesService
             };
 
             caseEntity.Recommendations.Add(rec);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _caseRepo.UpdateAsync(caseEntity);
+            await _caseRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Recommendation posted successfully.";
@@ -615,7 +639,7 @@ public class CasesService : ICasesService
         var response = new Response<object?>();
         try
         {
-            var caseEntity = await _context.Cases.FindAsync(new object[] { request.CaseId }, cancellationToken);
+            var caseEntity = await _caseRepo.GetByIdAsync(request.CaseId);
             if (caseEntity is null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
@@ -635,7 +659,8 @@ public class CasesService : ICasesService
                 caseEntity.Close("Approved for closure", request.Rationale, Guid.Empty);
             }
 
-            await _context.SaveChangesAsync(cancellationToken);
+            await _caseRepo.UpdateAsync(caseEntity);
+            await _caseRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = request.Approve ? "Case closure approved." : "Case closure rejected.";
@@ -653,7 +678,7 @@ public class CasesService : ICasesService
         var response = new Response<object?>();
         try
         {
-            var milestone = await _context.CaseMilestones
+            var milestone = await _milestoneRepo.Query()
                 .FirstOrDefaultAsync(m => m.Id == request.MilestoneId && m.CaseId == request.CaseId, cancellationToken);
 
             if (milestone is null)
@@ -665,7 +690,8 @@ public class CasesService : ICasesService
 
             milestone.IsCompleted = true;
             milestone.CompletedAt = DateTimeOffset.UtcNow;
-            await _context.SaveChangesAsync(cancellationToken);
+            await _milestoneRepo.UpdateAsync(milestone);
+            await _milestoneRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Milestone completed.";
@@ -695,8 +721,8 @@ public class CasesService : ICasesService
                 CreatedAt = DateTime.UtcNow
             };
 
-            _context.Documents.Add(doc);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _docRepo.AddAsync(doc);
+            await _docRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Document uploaded successfully.";

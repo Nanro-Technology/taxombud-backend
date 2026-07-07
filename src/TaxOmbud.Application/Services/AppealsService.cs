@@ -1,10 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using TaxOmbud.Application.Appeals.DTOs;
 using TaxOmbud.Application.Interfaces.InfrastructureService;
-using TaxOmbud.Application.Interfaces.Persistence;
+using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Common.Responses;
 using TaxOmbud.Domain.Entities.Appeals;
+using TaxOmbud.Domain.Entities.Cases;
 using TaxOmbud.Domain.Entities.Documents;
 using TaxOmbud.Domain.Enums;
 
@@ -12,17 +13,23 @@ namespace TaxOmbud.Application.Services;
 
 public class AppealsService : IAppealsService
 {
-    private readonly IApplicationDbContext _context;
+    private readonly IGenericRepository<Appeal> _appealRepo;
+    private readonly IGenericRepository<Case> _caseRepo;
+    private readonly IGenericRepository<Document> _docRepo;
     private readonly ICurrentUser _currentUser;
     private readonly IFileStorageService _storage;
 
     public AppealsService(
-        IApplicationDbContext context,
+        IGenericRepository<Appeal> appealRepo,
+        IGenericRepository<Case> caseRepo,
+        IGenericRepository<Document> docRepo,
         ICurrentUser currentUser,
         IFileStorageService storage
     )
     {
-        _context = context;
+        _appealRepo = appealRepo;
+        _caseRepo = caseRepo;
+        _docRepo = docRepo;
         _currentUser = currentUser;
         _storage = storage;
     }
@@ -32,7 +39,7 @@ public class AppealsService : IAppealsService
         var response = new Response<FileAppealResponse>();
         try
         {
-            var kase = await _context.Cases.FirstOrDefaultAsync(c => c.Id == request.CaseId, cancellationToken);
+            var kase = await _caseRepo.FindAsync(c => c.Id == request.CaseId);
             if (kase == null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
@@ -51,8 +58,8 @@ public class AppealsService : IAppealsService
             var appeal = new Appeal(request.CaseId, request.Reason);
             appeal.Submit(actorUserId);
 
-            _context.Appeals.Add(appeal);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _appealRepo.AddAsync(appeal);
+            await _appealRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Appeal filed successfully.";
@@ -77,7 +84,7 @@ public class AppealsService : IAppealsService
         var response = new Response<object?>();
         try
         {
-            var appeal = await _context.Appeals.FirstOrDefaultAsync(a => a.Id == request.AppealId, cancellationToken);
+            var appeal = await _appealRepo.FindAsync(a => a.Id == request.AppealId);
             if (appeal == null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
@@ -100,7 +107,8 @@ public class AppealsService : IAppealsService
                 appeal.Review(actorUserId, request.Notes);
             }
 
-            await _context.SaveChangesAsync(cancellationToken);
+            await _appealRepo.UpdateAsync(appeal);
+            await _appealRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Appeal reviewed successfully.";
@@ -119,8 +127,7 @@ public class AppealsService : IAppealsService
         var response = new Response<Guid>();
         try
         {
-            var exists = await _context.Appeals
-                .AnyAsync(a => a.Id == request.AppealId, cancellationToken);
+            var exists = await _appealRepo.ExistsAsync(a => a.Id == request.AppealId);
 
             if (!exists)
             {
@@ -148,8 +155,8 @@ public class AppealsService : IAppealsService
                 CreatedAt = DateTime.UtcNow
             };
 
-            _context.Documents.Add(doc);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _docRepo.AddAsync(doc);
+            await _docRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Document uploaded successfully.";
@@ -169,7 +176,7 @@ public class AppealsService : IAppealsService
         var response = new Response<AppealDetailDto>();
         try
         {
-            var appeal = await _context.Appeals
+            var appeal = await _appealRepo.Query()
                 .Include(a => a.Case)
                 .Include(a => a.StatusHistory)
                 .AsNoTracking()
@@ -221,8 +228,7 @@ public class AppealsService : IAppealsService
         var response = new Response<IReadOnlyList<AppealDocumentDto>>();
         try
         {
-            var exists = await _context.Appeals
-                .AnyAsync(a => a.Id == request.AppealId, cancellationToken);
+            var exists = await _appealRepo.ExistsAsync(a => a.Id == request.AppealId);
 
             if (!exists)
             {
@@ -231,7 +237,7 @@ public class AppealsService : IAppealsService
                 return response;
             }
 
-            var documents = await _context.Documents
+            var documents = await _docRepo.Query()
                 .AsNoTracking()
                 .Where(d => d.EntityType == DocumentEntityType.Appeal && d.EntityId == request.AppealId)
                 .OrderByDescending(d => d.CreatedAt)
@@ -256,7 +262,7 @@ public class AppealsService : IAppealsService
         var response = new Response<PagedResult<AppealListDto>>();
         try
         {
-            var query = _context.Appeals
+            var query = _appealRepo.Query()
                 .Include(a => a.Case)
                 .AsNoTracking()
                 .AsQueryable();

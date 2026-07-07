@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using TaxOmbud.Application.Interfaces.Persistence;
+using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Application.Operations.DTOs;
 using TaxOmbud.Common.CustomException;
@@ -11,17 +11,23 @@ namespace TaxOmbud.Application.Services;
 
 public class OperationsService : IOperationsService
 {
-    private readonly IApplicationDbContext _context;
+    private readonly IGenericRepository<InventoryItem> _itemRepo;
+    private readonly IGenericRepository<VendorContact> _vendorRepo;
+    private readonly IGenericRepository<Project> _projectRepo;
 
     public OperationsService(
-        IApplicationDbContext context
+        IGenericRepository<InventoryItem> itemRepo,
+        IGenericRepository<VendorContact> vendorRepo,
+        IGenericRepository<Project> projectRepo
     )
     {
-        _context = context;
+        _itemRepo = itemRepo;
+        _vendorRepo = vendorRepo;
+        _projectRepo = projectRepo;
     }
 
     public async Task<Response<Guid>> AddInventoryItemAsync(AddInventoryItemCommands request, CancellationToken cancellationToken = default)
-{
+    {
         var entity = new InventoryItem
         {
             Id = Guid.NewGuid(),
@@ -40,13 +46,13 @@ public class OperationsService : IOperationsService
             Note = request.Note,
             CreatedAt = DateTime.UtcNow
         };
-        _context.InventoryItems.Add(entity);
-        await _context.SaveChangesAsync(cancellationToken);
+        await _itemRepo.AddAsync(entity);
+        await _itemRepo.SaveAsync();
         return new Response<Guid> { StatusCode = StatusCodes.Status200OK, Message = "Success", Data = entity.Id };
     }
 
     public async Task<Response<Guid>> AddVendorAsync(AddVendorCommands request, CancellationToken cancellationToken = default)
-{
+    {
         var entity = new VendorContact
         {
             Name = request.Name,
@@ -58,13 +64,13 @@ public class OperationsService : IOperationsService
             ScopeTarget = request.ScopeTarget,
             Notes = request.Notes
         };
-        _context.VendorContacts.Add(entity);
-        await _context.SaveChangesAsync(cancellationToken);
+        await _vendorRepo.AddAsync(entity);
+        await _vendorRepo.SaveAsync();
         return new Response<Guid> { StatusCode = StatusCodes.Status200OK, Message = "Success", Data = entity.Id };
     }
 
     public async Task<Response<Guid>> CreateProjectAsync(CreateProjectCommands request, CancellationToken cancellationToken = default)
-{
+    {
         var response = new Response<Guid>();
         var entity = new Project
         {
@@ -74,52 +80,52 @@ public class OperationsService : IOperationsService
             Status = "Active",
             CreatedAt = DateTime.UtcNow
         };
-        _context.Projects.Add(entity);
-        await _context.SaveChangesAsync(cancellationToken);
+        await _projectRepo.AddAsync(entity);
+        await _projectRepo.SaveAsync();
         return new Response<Guid> { StatusCode = StatusCodes.Status200OK, Message = "Success", Data = entity.Id };
     }
 
     public async Task<Response<bool>> DeleteVendorAsync(DeleteVendorCommand request, CancellationToken cancellationToken = default)
-{
+    {
         var response = new Response<bool>();
-        var entity = await _context.VendorContacts.FindAsync(new object[] { request.Id }, cancellationToken);
+        var entity = await _vendorRepo.GetByIdAsync(request.Id);
 
         if (entity == null)
         {
             throw new NotFoundException(nameof(VendorContact), request.Id);
         }
 
-        _context.VendorContacts.Remove(entity);
-        await _context.SaveChangesAsync(cancellationToken);
+        await _vendorRepo.RemoveAsync(entity);
+        await _vendorRepo.SaveAsync();
 
         return new Response<bool> { StatusCode = StatusCodes.Status200OK, Message = "Success", Data = true };
     }
 
     public async Task<Response<bool>> UpdateProjectStatusAsync(UpdateProjectStatusCommands request, CancellationToken cancellationToken = default)
-{
+    {
         var response = new Response<bool>();
-        var entity = await _context.Projects.FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken);
-        if(entity == null) return new Response<bool> { StatusCode = StatusCodes.Status404NotFound, Message = $"Project {request.Id} not found." };
+        var entity = await _projectRepo.FindAsync(x => x.Id == request.Id);
+        if (entity == null) return new Response<bool> { StatusCode = StatusCodes.Status404NotFound, Message = $"Project {request.Id} not found." };
         try
         {
-        
-        entity.Status = request.Status;
-        entity.LastModifiedAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync(cancellationToken);
-        return new Response<bool> { StatusCode = StatusCodes.Status200OK, Message = "Success", Data = true };
-    
+            entity.Status = request.Status;
+            entity.LastModifiedAt = DateTime.UtcNow;
+            await _projectRepo.UpdateAsync(entity);
+            await _projectRepo.SaveAsync();
+            return new Response<bool> { StatusCode = StatusCodes.Status200OK, Message = "Success", Data = true };
         }
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
             response.Message = Constants.Messages.ServerError;
             return response;
-        }}
+        }
+    }
 
     public async Task<Response<Guid>> UpdateVendorAsync(UpdateVendorCommand request, CancellationToken cancellationToken = default)
-{
+    {
         var response = new Response<Guid>();
-        var entity = await _context.VendorContacts.FindAsync(new object[] { request.Id }, cancellationToken);
+        var entity = await _vendorRepo.GetByIdAsync(request.Id);
 
         if (entity == null)
         {
@@ -135,51 +141,54 @@ public class OperationsService : IOperationsService
         entity.ScopeTarget = request.ScopeTarget;
         entity.Notes = request.Notes;
 
-        await _context.SaveChangesAsync(cancellationToken);
+        await _vendorRepo.UpdateAsync(entity);
+        await _vendorRepo.SaveAsync();
 
         return new Response<Guid> { StatusCode = StatusCodes.Status200OK, Message = "Success", Data = entity.Id };
     }
 
     public async Task<Response<List<InventoryItem>>> GetInventoryItemsAsync(GetInventoryItemsQueries request, CancellationToken cancellationToken = default)
-{
+    {
         var response = new Response<List<InventoryItem>>();
         try
         {
-        var list = await _context.InventoryItems.ToListAsync(cancellationToken);
-        response.StatusCode = StatusCodes.Status200OK;
-        response.Message = "Success";
-        response.Data = list;
-        return response;
+            var list = await _itemRepo.GetAllAsync();
+            response.StatusCode = StatusCodes.Status200OK;
+            response.Message = "Success";
+            response.Data = list.ToList();
+            return response;
         }
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
             response.Message = Constants.Messages.ServerError;
             return response;
-        }}
+        }
+    }
 
     public async Task<Response<List<Project>>> GetProjectsAsync(GetProjectsQueries request, CancellationToken cancellationToken = default)
-{
+    {
         var response = new Response<List<Project>>();
         try
         {
-        var list = await _context.Projects.ToListAsync(cancellationToken);
-        response.StatusCode = StatusCodes.Status200OK;
-        response.Message = "Success";
-        response.Data = list;
-        return response;
+            var list = await _projectRepo.GetAllAsync();
+            response.StatusCode = StatusCodes.Status200OK;
+            response.Message = "Success";
+            response.Data = list.ToList();
+            return response;
         }
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
             response.Message = Constants.Messages.ServerError;
             return response;
-        }}
+        }
+    }
 
     public async Task<Response<VendorContact>> GetVendorByIdAsync(GetVendorByIdQuery request, CancellationToken cancellationToken = default)
-{
+    {
         var response = new Response<VendorContact>();
-        var entity = await _context.VendorContacts.FindAsync(new object[] { request.Id }, cancellationToken);
+        var entity = await _vendorRepo.GetByIdAsync(request.Id);
 
         if (entity == null)
         {
@@ -190,21 +199,21 @@ public class OperationsService : IOperationsService
     }
 
     public async Task<Response<List<VendorContact>>> GetVendorsAsync(GetVendorsQueries request, CancellationToken cancellationToken = default)
-{
+    {
         var response = new Response<List<VendorContact>>();
         try
         {
-        var list = await _context.VendorContacts.ToListAsync(cancellationToken);
-        response.StatusCode = StatusCodes.Status200OK;
-        response.Message = "Success";
-        response.Data = list;
-        return response;
+            var list = await _vendorRepo.GetAllAsync();
+            response.StatusCode = StatusCodes.Status200OK;
+            response.Message = "Success";
+            response.Data = list.ToList();
+            return response;
         }
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
             response.Message = Constants.Messages.ServerError;
             return response;
-        }}
-
+        }
+    }
 }

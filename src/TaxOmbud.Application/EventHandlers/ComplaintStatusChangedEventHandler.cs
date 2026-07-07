@@ -1,7 +1,8 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
-using TaxOmbud.Application.Interfaces.Persistence;
+using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Domain.Entities.Complaints;
 using TaxOmbud.Domain.Events.Complaints;
 
@@ -9,11 +10,11 @@ namespace TaxOmbud.Application.EventHandlers;
 
 public class ComplaintStatusChangedEventHandler : INotificationHandler<ComplaintStatusChangedEvent>
 {
-    private readonly IApplicationDbContext _context;
+    private readonly IGenericRepository<ComplaintStatusHistory> _historyRepo;
 
-    public ComplaintStatusChangedEventHandler(IApplicationDbContext context)
+    public ComplaintStatusChangedEventHandler(IGenericRepository<ComplaintStatusHistory> historyRepo)
     {
-        _context = context;
+        _historyRepo = historyRepo;
     }
 
     public async Task Handle(ComplaintStatusChangedEvent notification, CancellationToken cancellationToken)
@@ -29,7 +30,7 @@ public class ComplaintStatusChangedEventHandler : INotificationHandler<Complaint
             Reason = $"Transitioned from {notification.OldStatus} to {notification.NewStatus}."
         };
 
-        _context.ComplaintStatusHistory.Add(history);
+        await _historyRepo.AddAsync(history);
         // SaveChangesAsync is called right after event dispatch in ApplicationDbContext, 
         // so we don't need to call SaveChangesAsync here.
         await Task.CompletedTask;

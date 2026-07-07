@@ -1,22 +1,82 @@
 using Microsoft.EntityFrameworkCore;
-using TaxOmbud.Application.Interfaces.Persistence;
+using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Application.Reports.DTOs;
 using TaxOmbud.Common.Responses;
 using TaxOmbud.Domain.Entities.System;
+using TaxOmbud.Domain.Entities.Cases;
+using TaxOmbud.Domain.Entities.Identity;
+using TaxOmbud.Domain.Entities.Crm;
+using TaxOmbud.Domain.Entities.Complaints;
+using TaxOmbud.Domain.Entities.Hr;
+using TaxOmbud.Domain.Entities.Finance;
+using TaxOmbud.Domain.Entities.Officers;
+using TaxOmbud.Domain.Entities.Taxpayers;
+using TaxOmbud.Domain.Entities.Appeals;
 using TaxOmbud.Domain.Enums;
 
 namespace TaxOmbud.Application.Services;
 
 public class ReportsService : IReportsService
 {
-    private readonly IApplicationDbContext _context;
+    private readonly IGenericRepository<ScheduledReport> _scheduledReportRepo;
+    private readonly IGenericRepository<Case> _caseRepo;
+    private readonly IGenericRepository<User> _userRepo;
+    private readonly IGenericRepository<Interaction> _interactionRepo;
+    private readonly IGenericRepository<Complaint> _complaintRepo;
+    private readonly IGenericRepository<PayrollRun> _payrollRunRepo;
+    private readonly IGenericRepository<Contract> _contractRepo;
+    private readonly IGenericRepository<Quote> _quoteRepo;
+    private readonly IGenericRepository<StaffProfile> _staffRepo;
+    private readonly IGenericRepository<LeaveRequest> _leaveRepo;
+    private readonly IGenericRepository<DisciplinaryCase> _disciplinaryRepo;
+    private readonly IGenericRepository<AttendanceLog> _attendanceRepo;
+    private readonly IGenericRepository<OfficerCaseload> _caseloadRepo;
+    private readonly IGenericRepository<OfficerProfile> _officerRepo;
+    private readonly IGenericRepository<TaxpayerProfile> _taxpayerRepo;
+    private readonly IGenericRepository<CaseTask> _taskRepo;
+    private readonly IGenericRepository<TimeLog> _timeRepo;
+    private readonly IGenericRepository<Appeal> _appealRepo;
 
     public ReportsService(
-        IApplicationDbContext context
+        IGenericRepository<ScheduledReport> scheduledReportRepo,
+        IGenericRepository<Case> caseRepo,
+        IGenericRepository<User> userRepo,
+        IGenericRepository<Interaction> interactionRepo,
+        IGenericRepository<Complaint> complaintRepo,
+        IGenericRepository<PayrollRun> payrollRunRepo,
+        IGenericRepository<Contract> contractRepo,
+        IGenericRepository<Quote> quoteRepo,
+        IGenericRepository<StaffProfile> staffRepo,
+        IGenericRepository<LeaveRequest> leaveRepo,
+        IGenericRepository<DisciplinaryCase> disciplinaryRepo,
+        IGenericRepository<AttendanceLog> attendanceRepo,
+        IGenericRepository<OfficerCaseload> caseloadRepo,
+        IGenericRepository<OfficerProfile> officerRepo,
+        IGenericRepository<TaxpayerProfile> taxpayerRepo,
+        IGenericRepository<CaseTask> taskRepo,
+        IGenericRepository<TimeLog> timeRepo,
+        IGenericRepository<Appeal> appealRepo
     )
     {
-        _context = context;
+        _scheduledReportRepo = scheduledReportRepo;
+        _caseRepo = caseRepo;
+        _userRepo = userRepo;
+        _interactionRepo = interactionRepo;
+        _complaintRepo = complaintRepo;
+        _payrollRunRepo = payrollRunRepo;
+        _contractRepo = contractRepo;
+        _quoteRepo = quoteRepo;
+        _staffRepo = staffRepo;
+        _leaveRepo = leaveRepo;
+        _disciplinaryRepo = disciplinaryRepo;
+        _attendanceRepo = attendanceRepo;
+        _caseloadRepo = caseloadRepo;
+        _officerRepo = officerRepo;
+        _taxpayerRepo = taxpayerRepo;
+        _taskRepo = taskRepo;
+        _timeRepo = timeRepo;
+        _appealRepo = appealRepo;
     }
 
     public async Task<Response<CreatedScheduledReportResponse>> CreateScheduledReportAsync(CreateScheduledReportCommand request, CancellationToken cancellationToken = default)
@@ -34,8 +94,8 @@ public class ReportsService : IReportsService
                 IsActive = true
             };
 
-            _context.ScheduledReports.Add(report);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _scheduledReportRepo.AddAsync(report);
+            await _scheduledReportRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Scheduled report created successfully.";
@@ -60,7 +120,7 @@ public class ReportsService : IReportsService
         var response = new Response<object?>();
         try
         {
-            var report = await _context.ScheduledReports.FirstOrDefaultAsync(r => r.Id == request.Id, cancellationToken);
+            var report = await _scheduledReportRepo.FindAsync(r => r.Id == request.Id);
             if (report == null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
@@ -68,8 +128,8 @@ public class ReportsService : IReportsService
                 return response;
             }
 
-            _context.ScheduledReports.Remove(report);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _scheduledReportRepo.RemoveAsync(report);
+            await _scheduledReportRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Scheduled report deleted successfully.";
@@ -90,7 +150,6 @@ public class ReportsService : IReportsService
         {
             await Task.CompletedTask;
 
-            // In a real application, we would generate a CSV/PDF, save to blob storage, and return a signed URL.
             var ext = request.Format.ToLower() == "pdf" ? "pdf" : "csv";
             var mime = ext == "pdf" ? "application/pdf" : "text/csv";
             var fakeUrl = $"https://storage.taxombud.com/exports/{request.ReportType}_{request.Year}.{ext}";
@@ -113,7 +172,7 @@ public class ReportsService : IReportsService
         var response = new Response<object?>();
         try
         {
-            var report = await _context.ScheduledReports.FirstOrDefaultAsync(r => r.Id == request.Id, cancellationToken);
+            var report = await _scheduledReportRepo.FindAsync(r => r.Id == request.Id);
             if (report == null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
@@ -122,7 +181,8 @@ public class ReportsService : IReportsService
             }
 
             report.IsActive = !report.IsActive;
-            await _context.SaveChangesAsync(cancellationToken);
+            await _scheduledReportRepo.UpdateAsync(report);
+            await _scheduledReportRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Scheduled report toggled successfully.";
@@ -138,7 +198,7 @@ public class ReportsService : IReportsService
 
     public async Task<AgentReportDto> GetAgentReportsAsync(GetAgentReportsQuery request, CancellationToken cancellationToken = default)
     {
-        var casesQuery = _context.Cases.AsQueryable();
+        var casesQuery = _caseRepo.Query();
 
         if (request.From.HasValue)
             casesQuery = casesQuery.Where(c => c.CreatedAt >= request.From.Value);
@@ -146,7 +206,7 @@ public class ReportsService : IReportsService
         if (request.To.HasValue)
             casesQuery = casesQuery.Where(c => c.CreatedAt <= request.To.Value);
 
-        var agents = await _context.Users
+        var agents = await _userRepo.Query()
             .Where(u => !u.IsDeleted)
             .ToListAsync(cancellationToken);
 
@@ -170,7 +230,7 @@ public class ReportsService : IReportsService
                 avgResolutionTime = resolvedCases.Average(c => (c.ClosedAt!.Value - c.CreatedAt).TotalHours);
             }
 
-            var interactionsCount = await _context.Interactions
+            var interactionsCount = await _interactionRepo.Query()
                 .Where(i => i.LoggedById == agent.Id
                     && (!request.From.HasValue || i.CreatedAt >= request.From)
                     && (!request.To.HasValue || i.CreatedAt <= request.To))
@@ -198,11 +258,11 @@ public class ReportsService : IReportsService
         var response = new Response<AnnualReportDto>();
         try
         {
-            var totalComplaints = await _context.Complaints
+            var totalComplaints = await _complaintRepo.Query()
                 .Where(c => c.CreatedAt.Year == request.Year)
                 .CountAsync(cancellationToken);
 
-            var cases = await _context.Cases
+            var cases = await _caseRepo.Query()
                 .Where(c => c.CreatedAt.Year == request.Year)
                 .ToListAsync(cancellationToken);
 
@@ -231,7 +291,7 @@ public class ReportsService : IReportsService
 
     public async Task<CaseReportDto> GetCaseReportsAsync(GetCaseReportsQuery request, CancellationToken cancellationToken = default)
     {
-        var query = _context.Cases.AsQueryable();
+        var query = _caseRepo.Query();
 
         if (request.From.HasValue)
             query = query.Where(c => c.CreatedAt >= request.From.Value);
@@ -291,7 +351,7 @@ public class ReportsService : IReportsService
         var response = new Response<List<RegionReportDto>>();
         try
         {
-            var stats = await _context.Complaints
+            var stats = await _complaintRepo.Query()
                 .Include(c => c.Taxpayer)
                 .Where(c => c.Taxpayer != null && !string.IsNullOrEmpty(c.Taxpayer.City))
                 .GroupBy(c => c.Taxpayer.City)
@@ -316,7 +376,7 @@ public class ReportsService : IReportsService
         var response = new Response<IEnumerable<ComplaintsByStageDto>>();
         try
         {
-            var data = await _context.Complaints
+            var data = await _complaintRepo.Query()
                 .GroupBy(c => c.CurrentStage)
                 .Select(g => new ComplaintsByStageDto(g.Key, g.Count()))
                 .ToListAsync(cancellationToken);
@@ -339,7 +399,7 @@ public class ReportsService : IReportsService
         var response = new Response<IEnumerable<ComplaintsByStatusDto>>();
         try
         {
-            var data = await _context.Complaints
+            var data = await _complaintRepo.Query()
                 .GroupBy(c => c.Status)
                 .Select(g => new ComplaintsByStatusDto(g.Key.ToString(), g.Count()))
                 .ToListAsync(cancellationToken);
@@ -362,7 +422,7 @@ public class ReportsService : IReportsService
         var response = new Response<IEnumerable<ComplaintsByTaxTypeDto>>();
         try
         {
-            var data = await _context.Complaints
+            var data = await _complaintRepo.Query()
                 .GroupBy(c => c.TaxType)
                 .Select(g => new ComplaintsByTaxTypeDto(g.Key, g.Count()))
                 .OrderByDescending(x => x.Count)
@@ -386,29 +446,29 @@ public class ReportsService : IReportsService
         var response = new Response<DashboardStatsDto>();
         try
         {
-            var totalComplaints = await _context.Complaints.CountAsync(cancellationToken);
-            var openComplaints = await _context.Complaints.CountAsync(c =>
-                c.Status != Domain.Enums.ComplaintStatus.Closed &&
-                c.Status != Domain.Enums.ComplaintStatus.Withdrawn, cancellationToken);
-            var closedComplaints = await _context.Complaints.CountAsync(c =>
-                c.Status == Domain.Enums.ComplaintStatus.Closed, cancellationToken);
+            var totalComplaints = await _complaintRepo.CountAsync();
+            var openComplaints = await _complaintRepo.CountAsync(c =>
+                c.Status != ComplaintStatus.Closed &&
+                c.Status != ComplaintStatus.Withdrawn);
+            var closedComplaints = await _complaintRepo.CountAsync(c =>
+                c.Status == ComplaintStatus.Closed);
 
-            var totalCases = await _context.Cases.CountAsync(cancellationToken);
-            var openCases = await _context.Cases.CountAsync(c =>
-                c.Status != Domain.Enums.CaseStatus.Closed, cancellationToken);
-            var closedCases = await _context.Cases.CountAsync(c =>
-                c.Status == Domain.Enums.CaseStatus.Closed, cancellationToken);
+            var totalCases = await _caseRepo.CountAsync();
+            var openCases = await _caseRepo.CountAsync(c =>
+                c.Status != CaseStatus.Closed);
+            var closedCases = await _caseRepo.CountAsync(c =>
+                c.Status == CaseStatus.Closed);
 
-            var totalAppeals = await _context.Appeals.CountAsync(cancellationToken);
-            var pendingAppeals = await _context.Appeals.CountAsync(a =>
-                a.Status == Domain.Enums.AppealStatus.Submitted ||
-                a.Status == Domain.Enums.AppealStatus.UnderReview, cancellationToken);
+            var totalAppeals = await _appealRepo.CountAsync();
+            var pendingAppeals = await _appealRepo.CountAsync(a =>
+                a.Status == AppealStatus.Submitted ||
+                a.Status == AppealStatus.UnderReview);
 
-            var totalOfficers = await _context.OfficerProfiles.CountAsync(cancellationToken);
-            var totalTaxpayers = await _context.TaxpayerProfiles.CountAsync(cancellationToken);
+            var totalOfficers = await _officerRepo.CountAsync();
+            var totalTaxpayers = await _taxpayerRepo.CountAsync();
 
-            var closedWithDates = await _context.Complaints
-                .Where(c => c.Status == Domain.Enums.ComplaintStatus.Closed && c.ClosedAt != null)
+            var closedWithDates = await _complaintRepo.Query()
+                .Where(c => c.Status == ComplaintStatus.Closed && c.ClosedAt != null)
                 .Select(c => new { c.CreatedAt, c.ClosedAt })
                 .ToListAsync(cancellationToken);
 
@@ -437,7 +497,7 @@ public class ReportsService : IReportsService
 
     public async Task<ErpReportDto> GetErpReportsAsync(GetErpReportsQuery request, CancellationToken cancellationToken = default)
     {
-        var payrollsQuery = _context.PayrollRuns.AsQueryable();
+        var payrollsQuery = _payrollRunRepo.Query();
 
         if (request.From.HasValue)
             payrollsQuery = payrollsQuery.Where(p => p.CreatedAt >= request.From.Value);
@@ -449,12 +509,12 @@ public class ReportsService : IReportsService
 
         var now = DateTimeOffset.UtcNow;
         var startOfMonth = new DateTimeOffset(now.Year, now.Month, 1, 0, 0, 0, now.Offset);
-        var totalExpenseThisMonth = await _context.PayrollRuns
+        var totalExpenseThisMonth = await _payrollRunRepo.Query()
             .Where(p => p.CreatedAt >= startOfMonth)
             .SumAsync(p => p.TotalNet, cancellationToken);
 
-        var activeContracts = await _context.Contracts.CountAsync(c => c.Status == "Active", cancellationToken);
-        var totalQuotes = await _context.Quotes.CountAsync(cancellationToken);
+        var activeContracts = await _contractRepo.CountAsync(c => c.Status == "Active");
+        var totalQuotes = await _quoteRepo.CountAsync();
 
         return new ErpReportDto
         {
@@ -467,17 +527,17 @@ public class ReportsService : IReportsService
 
     public async Task<HrReportDto> GetHrReportsAsync(GetHrReportsQuery request, CancellationToken cancellationToken = default)
     {
-        var totalEmployees = await _context.StaffProfiles.CountAsync(s => s.EmploymentStatus == "Active", cancellationToken);
+        var totalEmployees = await _staffRepo.CountAsync(s => s.EmploymentStatus == "Active");
 
         var now = DateTimeOffset.UtcNow;
-        var activeLeaves = await _context.LeaveRequests.CountAsync(l =>
+        var activeLeaves = await _leaveRepo.CountAsync(l =>
             l.Status == "Approved" &&
             l.StartDate <= now &&
-            l.EndDate >= now, cancellationToken);
+            l.EndDate >= now);
 
-        var pendingDisciplinary = await _context.DisciplinaryCases.CountAsync(d => d.Status == "Open" || d.Status == "In Progress", cancellationToken);
+        var pendingDisciplinary = await _disciplinaryRepo.CountAsync(d => d.Status == "Open" || d.Status == "In Progress");
 
-        var attendanceQuery = _context.AttendanceLogs.AsQueryable();
+        var attendanceQuery = _attendanceRepo.Query();
         if (request.From.HasValue)
             attendanceQuery = attendanceQuery.Where(a => a.Date >= request.From.Value);
         if (request.To.HasValue)
@@ -487,7 +547,7 @@ public class ReportsService : IReportsService
             .Select(g => new { Status = g.Key, Count = g.Count() })
             .ToListAsync(cancellationToken);
 
-        var departments = await _context.StaffProfiles
+        var departments = await _staffRepo.Query()
             .Include(s => s.User)
             .Where(s => s.EmploymentStatus == "Active")
             .GroupBy(s => s.User.DepartmentId)
@@ -506,7 +566,7 @@ public class ReportsService : IReportsService
 
     public async Task<InteractionReportDto> GetInteractionReportsAsync(GetInteractionReportsQuery request, CancellationToken cancellationToken = default)
     {
-        var query = _context.Interactions.AsQueryable();
+        var query = _interactionRepo.Query();
 
         if (request.From.HasValue)
             query = query.Where(i => i.CreatedAt >= request.From.Value);
@@ -538,7 +598,7 @@ public class ReportsService : IReportsService
         try
         {
             var targetYear = request.Year ?? DateTime.UtcNow.Year;
-            var data = await _context.Complaints
+            var data = await _complaintRepo.Query()
                 .Where(c => c.CreatedAt.Year == targetYear)
                 .GroupBy(c => c.CreatedAt.Month)
                 .Select(g => new MonthlyTrendDto(g.Key, g.Count()))
@@ -563,7 +623,7 @@ public class ReportsService : IReportsService
         var response = new Response<IEnumerable<OfficerWorkloadDto>>();
         try
         {
-            var data = await _context.OfficerCaseloads
+            var data = await _caseloadRepo.Query()
                 .Include(c => c.OfficerProfile)
                     .ThenInclude(o => o.User)
                 .Where(c => c.IsActive)
@@ -591,7 +651,7 @@ public class ReportsService : IReportsService
         {
             var year = request.Year ?? DateTime.UtcNow.Year;
 
-            var cases = await _context.Cases
+            var cases = await _caseRepo.Query()
                 .Where(c => c.Status == CaseStatus.Closed && c.ClosedAt.HasValue && c.ClosedAt.Value.Year == year)
                 .ToListAsync(cancellationToken);
 
@@ -627,7 +687,7 @@ public class ReportsService : IReportsService
         var response = new Response<IEnumerable<ScheduledReportDto>>();
         try
         {
-            var reports = await _context.ScheduledReports
+            var reports = await _scheduledReportRepo.Query()
                 .AsNoTracking()
                 .OrderByDescending(r => r.CreatedAt)
                 .Select(r => new ScheduledReportDto(
@@ -657,7 +717,7 @@ public class ReportsService : IReportsService
 
     public async Task<SlaReportDto> GetSlaReportsAsync(GetSlaReportsQuery request, CancellationToken cancellationToken = default)
     {
-        var query = _context.Cases.AsQueryable();
+        var query = _caseRepo.Query();
 
         if (request.From.HasValue)
             query = query.Where(c => c.CreatedAt >= request.From.Value);
@@ -698,7 +758,7 @@ public class ReportsService : IReportsService
 
     public async Task<TaskReportDto> GetTaskReportsAsync(GetTaskReportsQuery request, CancellationToken cancellationToken = default)
     {
-        var query = _context.CaseTasks.AsQueryable();
+        var query = _taskRepo.Query();
 
         if (request.From.HasValue)
             query = query.Where(t => t.CreatedAt >= request.From.Value);
@@ -735,7 +795,7 @@ public class ReportsService : IReportsService
 
     public async Task<TimeTrackingReportDto> GetTimeTrackingReportsAsync(GetTimeTrackingReportsQuery request, CancellationToken cancellationToken = default)
     {
-        var logsQuery = _context.TimeLogs.AsQueryable();
+        var logsQuery = _timeRepo.Query();
 
         if (request.From.HasValue)
             logsQuery = logsQuery.Where(t => t.StartTime >= request.From.Value);
@@ -747,11 +807,11 @@ public class ReportsService : IReportsService
         var startOfWeek = now.AddDays(-(int)now.DayOfWeek);
         var startOfMonth = new DateTimeOffset(now.Year, now.Month, 1, 0, 0, 0, now.Offset);
 
-        var totalThisWeek = await _context.TimeLogs
+        var totalThisWeek = await _timeRepo.Query()
             .Where(t => t.StartTime >= startOfWeek)
             .SumAsync(t => t.DurationHours, cancellationToken);
 
-        var totalThisMonth = await _context.TimeLogs
+        var totalThisMonth = await _timeRepo.Query()
             .Where(t => t.StartTime >= startOfMonth)
             .SumAsync(t => t.DurationHours, cancellationToken);
 

@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using TaxOmbud.Application.Chats.DTOs;
 using TaxOmbud.Application.Interfaces.InfrastructureService;
-using TaxOmbud.Application.Interfaces.Persistence;
+using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Domain.Entities.Communications;
 
@@ -10,20 +10,23 @@ namespace TaxOmbud.Application.Services;
 
 public class ChatsService : IChatsService
 {
-    private readonly IApplicationDbContext _context;
+    private readonly IGenericRepository<AgentChat> _chatRepo;
+    private readonly IGenericRepository<AgentChatMessage> _messageRepo;
     private readonly ICurrentUser _currentUser;
 
     public ChatsService(
-        IApplicationDbContext context,
+        IGenericRepository<AgentChat> chatRepo,
+        IGenericRepository<AgentChatMessage> messageRepo,
         ICurrentUser currentUser
     )
     {
-        _context = context;
+        _chatRepo = chatRepo;
+        _messageRepo = messageRepo;
         _currentUser = currentUser;
     }
 
     public async Task<Guid> CreateChatAsync(CreateChatCommand request, CancellationToken cancellationToken = default)
-{
+    {
         var participants = new List<string>();
         if (_currentUser.UserId.HasValue && _currentUser.UserId.Value != Guid.Empty)
         {
@@ -42,16 +45,15 @@ public class ChatsService : IChatsService
             ParticipantIds = JsonSerializer.Serialize(participants)
         };
 
-        _context.AgentChats.Add(chat);
-        await _context.SaveChangesAsync(cancellationToken);
+        await _chatRepo.AddAsync(chat);
+        await _chatRepo.SaveAsync();
 
         return chat.Id;
     }
 
     public async Task<bool> MarkMessageAsReadAsync(MarkMessageAsReadCommand request, CancellationToken cancellationToken = default)
-{
-        var message = await _context.AgentChatMessages
-            .FirstOrDefaultAsync(m => m.Id == request.MessageId, cancellationToken);
+    {
+        var message = await _messageRepo.FindAsync(m => m.Id == request.MessageId);
 
         if (message == null) return false;
 
@@ -68,7 +70,8 @@ public class ChatsService : IChatsService
             });
 
             message.ReadReceipts = JsonSerializer.Serialize(receipts);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _messageRepo.UpdateAsync(message);
+            await _messageRepo.SaveAsync();
             return true;
         }
 
@@ -76,22 +79,21 @@ public class ChatsService : IChatsService
     }
 
     public async Task<bool> PinMessageAsync(PinMessageCommand request, CancellationToken cancellationToken = default)
-{
-        var message = await _context.AgentChatMessages
-            .FirstOrDefaultAsync(m => m.Id == request.MessageId, cancellationToken);
+    {
+        var message = await _messageRepo.FindAsync(m => m.Id == request.MessageId);
 
         if (message == null) return false;
 
         message.IsPinned = request.IsPinned;
-        await _context.SaveChangesAsync(cancellationToken);
+        await _messageRepo.UpdateAsync(message);
+        await _messageRepo.SaveAsync();
 
         return true;
     }
 
     public async Task<ChatMessageDto?> SendMessageAsync(SendMessageCommand request, CancellationToken cancellationToken = default)
-{
-        var chat = await _context.AgentChats
-            .FirstOrDefaultAsync(c => c.Id == request.ChatId, cancellationToken);
+    {
+        var chat = await _chatRepo.FindAsync(c => c.Id == request.ChatId);
 
         if (chat == null || !_currentUser.UserId.HasValue) return null;
 
@@ -105,8 +107,8 @@ public class ChatsService : IChatsService
             ReadReceipts = "[]" // JSON string
         };
 
-        _context.AgentChatMessages.Add(message);
-        await _context.SaveChangesAsync(cancellationToken);
+        await _messageRepo.AddAsync(message);
+        await _messageRepo.SaveAsync();
 
         return new ChatMessageDto
         {
@@ -123,17 +125,17 @@ public class ChatsService : IChatsService
     }
 
     public async Task<List<ChatMessageDto>> GetChatMessagesAsync(GetChatMessagesQuery request, CancellationToken cancellationToken = default)
-{
+    {
         if (!_currentUser.UserId.HasValue) return new List<ChatMessageDto>();
         var userIdStr = _currentUser.UserId.Value.ToString();
         
         // Verify user is part of the chat
-        var chat = await _context.AgentChats
+        var chat = await _chatRepo.Query()
             .FirstOrDefaultAsync(c => c.Id == request.ChatId && c.ParticipantIds.Contains(userIdStr), cancellationToken);
             
         if (chat == null) return new List<ChatMessageDto>();
 
-        var messages = await _context.AgentChatMessages
+        var messages = await _messageRepo.Query()
             .Where(m => m.AgentChatId == request.ChatId)
             .OrderBy(m => m.CreatedAt)
             .ToListAsync(cancellationToken);
@@ -153,12 +155,12 @@ public class ChatsService : IChatsService
     }
 
     public async Task<List<ChatDto>> GetChatsAsync(GetChatsQuery request, CancellationToken cancellationToken = default)
-{
+    {
         if (!_currentUser.UserId.HasValue) return new List<ChatDto>();
         var userIdStr = _currentUser.UserId.Value.ToString();
         if (string.IsNullOrEmpty(userIdStr)) return new List<ChatDto>();
 
-        var chats = await _context.AgentChats
+        var chats = await _chatRepo.Query()
             .Include(c => c.Messages.OrderByDescending(m => m.CreatedAt).Take(1))
             .Where(c => c.ParticipantIds.Contains(userIdStr))
             .ToListAsync(cancellationToken);
@@ -189,7 +191,7 @@ public class ChatsService : IChatsService
                     ReadReceipts = receipts
                 };
                 
-                unreadCount = await _context.AgentChatMessages
+                unreadCount = await _messageRepo.Query()
                     .Where(m => m.AgentChatId == chat.Id && m.SenderId != _currentUser.UserId.Value)
                     .Where(m => !m.ReadReceipts.Contains(userIdStr))
                     .CountAsync(cancellationToken);
@@ -208,5 +210,4 @@ public class ChatsService : IChatsService
 
         return result.OrderByDescending(c => c.LastMessage?.CreatedAt ?? DateTime.MinValue).ToList();
     }
-
 }
