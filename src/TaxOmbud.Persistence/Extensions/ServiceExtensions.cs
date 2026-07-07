@@ -1,9 +1,11 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using TaxOmbud.Application.Interfaces.Persistence;
 using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Common.Config;
+using TaxOmbud.Domain.Entities.Identity;
 using TaxOmbud.Persistence.Data;
 using TaxOmbud.Persistence.Repositories;
 
@@ -66,6 +68,29 @@ public static class ServiceExtensions
 
         services.AddScoped<IApplicationDbContext>(provider =>
             provider.GetRequiredService<ApplicationDbContext>());
+
+        // ─── ASP.NET Core Identity (UserManager + SignInManager) ───────────────────
+        // We use IdentityRole<Guid> as a placeholder (we have our own custom Role/Permission RBAC).
+        // UserManager<User> and SignInManager<User> are now available for injection.
+        services.AddIdentity<User, IdentityRole<Guid>>(options =>
+            {
+                // Password policy — adjust as required
+                options.Password.RequireDigit = true;
+                options.Password.RequiredLength = 8;
+                options.Password.RequireNonAlphanumeric = true;
+                options.Password.RequireUppercase = true;
+                options.Password.RequireLowercase = true;
+
+                // Lockout settings
+                options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+                options.Lockout.MaxFailedAccessAttempts = 5;
+                options.Lockout.AllowedForNewUsers = true;
+
+                // User settings
+                options.User.RequireUniqueEmail = true;
+            })
+            .AddEntityFrameworkStores<ApplicationDbContext>()
+            .AddDefaultTokenProviders();
 
         // ─── Repositories ─────────────────────────────────────────────────────
         services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));

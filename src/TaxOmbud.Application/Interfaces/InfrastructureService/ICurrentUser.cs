@@ -11,4 +11,5 @@ public interface ICurrentUser
     bool IsInRole(string role);
     string[] Roles { get; }
     ClaimsPrincipal? Principal { get; }
+    string? UserType { get; }
 }

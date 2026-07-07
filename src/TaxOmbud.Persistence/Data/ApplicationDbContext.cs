@@ -1,5 +1,7 @@
 using System.Reflection;
 using MediatR;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TaxOmbud.Application.Interfaces.Persistence;
@@ -21,7 +23,7 @@ using TaxOmbud.Application.Interfaces.InfrastructureService;
 
 namespace TaxOmbud.Persistence.Data;
 
-public class ApplicationDbContext : DbContext, IApplicationDbContext
+public class ApplicationDbContext : IdentityDbContext<User, IdentityRole<Guid>, Guid>, IApplicationDbContext
 {
     private readonly ICurrentUser _currentUser;
     private readonly IMediator _mediator;
@@ -36,9 +38,12 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
         _mediator = mediator;
     }
 
-    // ─── Identity & RBAC ─────────────────────────────────────────────────────
-    public DbSet<User> Users => Set<User>();
-    public DbSet<Role> Roles => Set<Role>();
+
+    // ─── Custom RBAC (separate from ASP.NET Identity roles — do NOT remove) ──
+    // Note: DbSet<User> is provided by IdentityDbContext<User> — do not redeclare.
+    // Note: IdentityDbContext already exposes 'Roles' for IdentityRole<Guid>; our custom Role entity
+    //       uses a different table and is exposed separately as 'CustomRoles'.
+    public DbSet<Role> CustomRoles => Set<Role>();
     public DbSet<Permission> Permissions => Set<Permission>();
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
@@ -153,9 +158,20 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     // ─── EF Model ─────────────────────────────────────────────────────────────
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // Apply all IEntityTypeConfiguration<T> classes from this assembly
-        modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
+        // Must call base first so Identity tables are scaffolded, then we layer custom config on top.
         base.OnModelCreating(modelBuilder);
+
+        // Apply all IEntityTypeConfiguration<T> classes from this assembly.
+        modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
+
+        // Rename Identity tables to match the project's naming convention.
+        modelBuilder.Entity<User>(b => b.ToTable("Users"));
+        modelBuilder.Entity<IdentityRole<Guid>>(b => b.ToTable("AspNetRoles"));
+        modelBuilder.Entity<IdentityUserRole<Guid>>(b => b.ToTable("AspNetUserRoles"));
+        modelBuilder.Entity<IdentityUserClaim<Guid>>(b => b.ToTable("AspNetUserClaims"));
+        modelBuilder.Entity<IdentityUserLogin<Guid>>(b => b.ToTable("AspNetUserLogins"));
+        modelBuilder.Entity<IdentityRoleClaim<Guid>>(b => b.ToTable("AspNetRoleClaims"));
+        modelBuilder.Entity<IdentityUserToken<Guid>>(b => b.ToTable("AspNetUserTokens"));
     }
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)

@@ -131,17 +131,28 @@ public static class Constants
         public const string AuthVerificationTokenExpired = "Verification token has expired. Please request a new one.";
         public const string AuthMfaNotSetUp = "MFA has not been set up. Please call /mfa/setup first.";
         public const string AuthInvalidTotp = "Invalid TOTP code.";
+        public const string AuthConsentRequired = "You must accept the terms and conditions to create an account.";
+        public const string AuthTaxpayerRegistered = "Account created successfully. Please check your email to verify your account.";
+        public const string RoleRequiresPermissions = "A role must have at least one permission assigned. Please select the modules and permissions this role can access.";
     }
 
+    /// <summary>
+    /// String constants for role names in the Constants.Roles class.
+    /// NOTE: These mirror RoleConstants in the Domain layer — for use in the Application/Infrastructure layers
+    /// without taking a dependency on the Domain. Roles apply ONLY to StaffUser accounts.
+    /// </summary>
     public static class Roles
     {
-        public const string SuperAdmin = "SuperAdmin";
-        public const string Admin = "Admin";
-        public const string Officer = "Officer";
-        public const string Taxpayer = "Taxpayer";
-        public const string Investigator = "Investigator";
-        public const string Auditor = "Auditor";
-        public const string CaseManager = "CaseManager";
+        public const string SuperAdmin    = "Super Admin";
+        public const string Admin         = "Admin";
+        public const string Director      = "Director";
+        public const string Manager       = "Manager";
+        public const string SeniorOfficer = "Senior Officer";
+        public const string Officer       = "Officer";
+        public const string Auditor       = "Auditor";
+        public const string HrManager     = "HR Manager";
+        public const string Finance       = "Finance";
+        // NOTE: "Taxpayer" is NOT a role — it is a UserType (UserType.RegisteredTaxpayer).
     }
 
     public static class ClaimTypes
@@ -151,6 +162,8 @@ public static class Constants
         public const string Role = "role";
         public const string FullName = "name";
         public const string TaxpayerId = "taxpayer_id";
+        public const string UserType = "user_type";
+        public const string UserTypeAlternate = "usertype";
     }
 
     public static class CacheKeys
@@ -162,10 +175,15 @@ public static class Constants
         public static string OtpByEmail(string email) => $"otp_{email}";
     }
 
+    /// <summary>
+    /// Authorization policy names registered in DependencyInjection.cs.
+    /// Taxpayer and Guest access is enforced via the 'user_type' JWT claim, NOT via named policies.
+    /// </summary>
     public static class Policies
     {
-        public const string RequireAdminRole = "RequireAdminRole";
+        public const string RequireAdminRole   = "RequireAdminRole";
         public const string RequireOfficerRole = "RequireOfficerRole";
-        public const string RequireTaxpayerRole = "RequireTaxpayerRole";
+        // Add module-level permission policies here as needed, e.g.:
+        // public const string CanManageCases = "CanManageCases";
     }
 }

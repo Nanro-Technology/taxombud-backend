@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using OtpNet;
 using TaxOmbud.Application.Auth.DTOs;
@@ -7,163 +8,121 @@ using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Common.Responses;
 using TaxOmbud.Common.Utilities;
 using TaxOmbud.Domain.Entities.Identity;
+using TaxOmbud.Domain.Entities.Taxpayers;
 using TaxOmbud.Domain.Enums;
 
 namespace TaxOmbud.Application.Services;
 
 public class AuthService : IAuthService
 {
-    private readonly IGenericRepository<User> _userRepo;
+    private readonly UserManager<User> _userManager;
+    private readonly SignInManager<User> _signInManager;
     private readonly IGenericRepository<RefreshToken> _refreshTokenRepo;
     private readonly IGenericRepository<Role> _roleRepo;
     private readonly IGenericRepository<MfaToken> _mfaTokenRepo;
-    private readonly IPasswordHasher _passwordHasher;
+    private readonly IGenericRepository<TaxpayerProfile> _taxpayerProfileRepo;
     private readonly IEmailService _emailService;
     private readonly ITokenService _tokenService;
 
-
     public AuthService(
-        IGenericRepository<User> userRepo,
+        UserManager<User> userManager,
+        SignInManager<User> signInManager,
         IGenericRepository<RefreshToken> refreshTokenRepo,
         IGenericRepository<Role> roleRepo,
         IGenericRepository<MfaToken> mfaTokenRepo,
-        IPasswordHasher passwordHasher,
+        IGenericRepository<TaxpayerProfile> taxpayerProfileRepo,
         IEmailService emailService,
         ITokenService tokenService
     )
     {
-        _userRepo = userRepo;
+        _userManager = userManager;
+        _signInManager = signInManager;
         _refreshTokenRepo = refreshTokenRepo;
         _roleRepo = roleRepo;
         _mfaTokenRepo = mfaTokenRepo;
-        _passwordHasher = passwordHasher;
+        _taxpayerProfileRepo = taxpayerProfileRepo;
         _emailService = emailService;
         _tokenService = tokenService;
     }
 
-    public async Task<Response<object?>> ChangePasswordAsync(ChangePasswordCommand request, CancellationToken cancellationToken = default)
+    // ─── Taxpayer Self-Registration (public portal) ───────────────────────────
+
+    public async Task<Response<RegisterResponse>> RegisterTaxpayerAsync(RegisterTaxpayerCommand request, CancellationToken cancellationToken = default)
     {
-        var response = new Response<object?>();
+        var response = new Response<RegisterResponse>();
         try
         {
-            var user = await _userRepo.Query()
-                .FirstOrDefaultAsync(u => u.Id == request.UserId, cancellationToken);
-
-            if (user is null)
-            {
-                response.StatusCode = StatusCodes.Status404NotFound;
-                response.Message = Constants.Messages.AuthUserNotFound;
-                return response;
-            }
-
-            if (!_passwordHasher.Verify(request.CurrentPassword, user.PasswordHash ?? string.Empty))
+            if (!request.ConsentGiven)
             {
                 response.StatusCode = StatusCodes.Status400BadRequest;
-                response.Message = Constants.Messages.AuthPasswordIncorrect;
+                response.Message = Constants.Messages.AuthConsentRequired;
                 return response;
             }
 
-            var newHash = _passwordHasher.Hash(request.NewPassword);
-            user.SetPasswordHash(newHash);
+            var emailNormalized = request.Email.Trim().ToLowerInvariant();
 
-            // Revoke all refresh tokens so all other sessions are terminated
-            var tokens = await _refreshTokenRepo.FindAllAsync(t => t.UserId == user.Id);
-            await _refreshTokenRepo.RemoveRangeAsync(tokens);
-
-            await _userRepo.UpdateAsync(user);
-            await _userRepo.SaveAsync();
-
-            response.StatusCode = StatusCodes.Status200OK;
-            response.Message = Constants.Messages.Success;
-        }
-        catch (Exception ex)
-        {
-            response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
-        }
-        return response;
-    }
-
-    public async Task<Response<object?>> DisableMfaAsync(DisableMfaCommand request, CancellationToken cancellationToken = default)
-    {
-        var response = new Response<object?>();
-        try
-        {
-            var user = await _userRepo.Query()
-                .Include(u => u.MfaToken)
-                .FirstOrDefaultAsync(u => u.Id == request.UserId, cancellationToken);
-
-            if (user is null)
-            {
-                response.StatusCode = StatusCodes.Status404NotFound;
-                response.Message = Constants.Messages.AuthUserNotFound;
-                return response;
-            }
-
-            // Require password confirmation before disabling MFA
-            if (!_passwordHasher.Verify(request.Password, user.PasswordHash ?? string.Empty))
+            // Check if email already exists
+            var existingUser = await _userManager.FindByEmailAsync(emailNormalized);
+            if (existingUser is not null)
             {
                 response.StatusCode = StatusCodes.Status400BadRequest;
-                response.Message = Constants.Messages.AuthPasswordConfirmationFailed;
+                response.Message = $"An account with email '{request.Email}' already exists.";
                 return response;
             }
 
-            if (user.MfaToken is null || !user.MfaToken.IsEnabled)
+            // Resolve the Taxpayer role
+            // NOTE: Taxpayers do NOT get a role — their UserType.RegisteredTaxpayer IS their identity.
+            // Roles are exclusively for StaffUser accounts.
+
+            // Build the user
+            var emailVo = new Email(emailNormalized);
+            var user = User.Create(
+                request.FirstName,
+                request.LastName,
+                emailVo,
+                request.PhoneNumber,
+                UserType.RegisteredTaxpayer
+            );
+
+            // Create user via UserManager — hashing, validation and lockout seeding are handled internally
+            var createResult = await _userManager.CreateAsync(user, request.Password);
+            if (!createResult.Succeeded)
             {
-                response.StatusCode = StatusCodes.Status200OK;
-                response.Message = Constants.Messages.Success;
+                var errors = string.Join("; ", createResult.Errors.Select(e => e.Description));
+                response.StatusCode = StatusCodes.Status400BadRequest;
+                response.Message = errors;
                 return response;
             }
 
-            user.MfaToken.IsEnabled = false;
-            await _userRepo.UpdateAsync(user);
-            await _userRepo.SaveAsync();
+            // Create the TaxpayerProfile with the additional fields from the signup form
+            var profile = TaxpayerProfile.Create(user.Id, TaxpayerType.Individual.ToString());
+            profile.Gender = request.Gender;
+            profile.Nin = request.Nin;
+            profile.Address = request.Address;
+            profile.City = request.City;
+            profile.State = request.State;
+            profile.Country = request.Country;
 
-            response.StatusCode = StatusCodes.Status200OK;
-            response.Message = Constants.Messages.Success;
-        }
-        catch (Exception ex)
-        {
-            response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
-        }
-        return response;
-    }
+            await _taxpayerProfileRepo.AddAsync(profile);
+            await _taxpayerProfileRepo.SaveAsync();
 
-    public async Task<Response<object?>> ForgotPasswordAsync(ForgotPasswordCommand request, CancellationToken cancellationToken = default)
-    {
-        var response = new Response<object?>();
-        try
-        {
-            var email = request.Email.Trim().ToLowerInvariant();
+            // Generate email verification token via Identity and send welcome email
+            var verificationToken = await _userManager.GenerateEmailConfirmationTokenAsync(user);
+            user.SetEmailVerificationToken(verificationToken);
+            await _userManager.UpdateAsync(user);
 
-            var user = await _userRepo.FindAsync(u => u.Email == email);
-
-            // Always return success to prevent email enumeration
-            if (user is null)
-            {
-                response.StatusCode = StatusCodes.Status200OK;
-                response.Message = Constants.Messages.Success;
-                return response;
-            }
-
-            // Generate a secure random reset token
-            var token = Convert.ToBase64String(global::System.Security.Cryptography.RandomNumberGenerator.GetBytes(32))
-                .Replace("+", "-").Replace("/", "_").TrimEnd('=');
-
-            user.SetPasswordResetToken(token);
-            await _userRepo.UpdateAsync(user);
-            await _userRepo.SaveAsync();
-
-            // Send email with reset link
+            // Verification email disabled for local development
+            /*
             await _emailService.SendAsync(
                 to: user.Email ?? string.Empty,
-                subject: "Reset your TaxOmbud password",
-                htmlBody: $"Use this token to reset your password: {token}\n\nThis link expires in 1 hour.",
+                subject: "Verify your TaxOmbud account",
+                htmlBody: $"<p>Hello {user.FirstName},</p><p>Please verify your email using this token: <strong>{verificationToken}</strong></p><p>This token expires in 24 hours.</p>",
                 cancellationToken: cancellationToken);
+            */
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = Constants.Messages.Success;
+            response.Message = Constants.Messages.AuthTaxpayerRegistered;
+            response.Data = new RegisterResponse(user.Id, user.Email ?? string.Empty, user.FullName, UserType.RegisteredTaxpayer.ToString());
         }
         catch (Exception ex)
         {
@@ -172,6 +131,85 @@ public class AuthService : IAuthService
         }
         return response;
     }
+
+    // ─── Staff Registration (admin-only) ─────────────────────────────────────
+
+    public async Task<Response<RegisterResponse>> RegisterAsync(RegisterCommand request, CancellationToken cancellationToken = default)
+    {
+        var response = new Response<RegisterResponse>();
+        try
+        {
+            var emailNormalized = request.Email.Trim().ToLowerInvariant();
+
+            var existingUser = await _userManager.FindByEmailAsync(emailNormalized);
+            if (existingUser is not null)
+            {
+                response.StatusCode = StatusCodes.Status400BadRequest;
+                response.Message = $"An account with email '{request.Email}' already exists.";
+                return response;
+            }
+
+            // Guard: only StaffUser accounts are created via this endpoint.
+            // Taxpayers self-register via RegisterTaxpayerAsync. Guests need no account.
+            if (request.UserType != UserType.StaffUser)
+            {
+                response.StatusCode = StatusCodes.Status400BadRequest;
+                response.Message = "Only staff accounts can be registered through this endpoint. Taxpayers must use the self-registration portal.";
+                return response;
+            }
+
+            // Resolve the role to assign — admin specifies RoleId, or we default to Officer
+            Role? assignedRole = null;
+            if (request.RoleId.HasValue)
+            {
+                assignedRole = await _roleRepo.GetByIdAsync(request.RoleId.Value);
+                if (assignedRole is null)
+                {
+                    response.StatusCode = StatusCodes.Status400BadRequest;
+                    response.Message = "The specified role does not exist.";
+                    return response;
+                }
+            }
+            else
+            {
+                // Fallback default
+                assignedRole = await _roleRepo.FindAsync(r => r.Name == RoleConstants.Officer);
+            }
+
+            var emailVo = new Email(emailNormalized);
+            var user = User.Create(
+                request.FirstName,
+                request.LastName,
+                emailVo,
+                request.PhoneNumber,
+                UserType.StaffUser
+            );
+
+            if (assignedRole is not null)
+                user.AssignRole(assignedRole.Id);
+
+            var createResult = await _userManager.CreateAsync(user, request.Password);
+            if (!createResult.Succeeded)
+            {
+                var errors = string.Join("; ", createResult.Errors.Select(e => e.Description));
+                response.StatusCode = StatusCodes.Status400BadRequest;
+                response.Message = errors;
+                return response;
+            }
+
+            response.StatusCode = StatusCodes.Status200OK;
+            response.Message = Constants.Messages.Success;
+            response.Data = new RegisterResponse(user.Id, user.Email ?? string.Empty, user.FullName, user.UserType.ToString());
+        }
+        catch (Exception ex)
+        {
+            response.StatusCode = StatusCodes.Status500InternalServerError;
+            response.Message = ex.Message;
+        }
+        return response;
+    }
+
+    // ─── Login ────────────────────────────────────────────────────────────────
 
     public async Task<Response<LoginResponse>> LoginAsync(LoginCommand request, CancellationToken cancellationToken = default)
     {
@@ -180,15 +218,24 @@ public class AuthService : IAuthService
         {
             var emailNormalized = request.Email.Trim().ToLowerInvariant();
 
-            var user = await _userRepo.Query()
+            var user = await _userManager.Users
                 .Include(u => u.Role)
                     .ThenInclude(r => r!.RolePermissions)
                         .ThenInclude(rp => rp.Permission)
                 .FirstOrDefaultAsync(u => u.Email == emailNormalized, cancellationToken);
 
-            if (user is null || !_passwordHasher.Verify(request.Password, user.PasswordHash ?? string.Empty))
+            // Generic invalid-credential message to prevent email enumeration
+            if (user is null)
             {
                 response.StatusCode = StatusCodes.Status400BadRequest;
+                response.Message = Constants.Messages.InvalidCredentials;
+                return response;
+            }
+
+            // UserType guard — prevents a taxpayer from logging into the staff portal and vice-versa
+            if (user.UserType != request.UserType)
+            {
+                response.StatusCode = StatusCodes.Status401Unauthorized;
                 response.Message = Constants.Messages.InvalidCredentials;
                 return response;
             }
@@ -200,11 +247,26 @@ public class AuthService : IAuthService
                 return response;
             }
 
+            // Check password via SignInManager (handles lockout, two-factor, etc.)
+            var signInResult = await _signInManager.CheckPasswordSignInAsync(user, request.Password, lockoutOnFailure: true);
+            if (!signInResult.Succeeded)
+            {
+                if (signInResult.IsLockedOut)
+                {
+                    response.StatusCode = StatusCodes.Status423Locked;
+                    response.Message = "Account is locked due to multiple failed attempts. Please try again in 15 minutes.";
+                    return response;
+                }
+
+                response.StatusCode = StatusCodes.Status400BadRequest;
+                response.Message = Constants.Messages.InvalidCredentials;
+                return response;
+            }
+
             var roles = user.Role is not null
                 ? new List<string> { user.Role.Name }
                 : new List<string>();
 
-            // Emit permissions as "Module:Action" strings (matched by auth policies)
             var permissions = user.Role?.RolePermissions
                 .Where(rp => rp.Permission != null)
                 .Select(rp => $"{rp.Permission.Module}:{rp.Permission.Action}")
@@ -236,6 +298,8 @@ public class AuthService : IAuthService
                 MfaRequired: false,
                 UserId: user.Id,
                 FullName: user.FullName,
+                UserType: user.UserType.ToString(),
+                Email: user.Email,
                 Roles: roles.AsReadOnly()
             );
         }
@@ -246,6 +310,8 @@ public class AuthService : IAuthService
         }
         return response;
     }
+
+    // ─── Logout ───────────────────────────────────────────────────────────────
 
     public async Task<Response<object?>> LogoutAsync(LogoutCommand request, CancellationToken cancellationToken = default)
     {
@@ -261,7 +327,7 @@ public class AuthService : IAuthService
             }
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = Constants.Messages.Success;
+            response.Message = Constants.Messages.LogoutSuccess;
         }
         catch (Exception ex)
         {
@@ -270,6 +336,8 @@ public class AuthService : IAuthService
         }
         return response;
     }
+
+    // ─── Refresh Token ────────────────────────────────────────────────────────
 
     public async Task<Response<RefreshTokenResponse>> RefreshTokenAsync(RefreshTokenCommand request, CancellationToken cancellationToken = default)
     {
@@ -338,7 +406,7 @@ public class AuthService : IAuthService
             await _refreshTokenRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = Constants.Messages.Success;
+            response.Message = Constants.Messages.TokenRefreshed;
             response.Data = new RefreshTokenResponse(accessToken, newRefreshToken, expiry);
         }
         catch (Exception ex)
@@ -349,102 +417,14 @@ public class AuthService : IAuthService
         return response;
     }
 
-    public async Task<Response<RegisterResponse>> RegisterAsync(RegisterCommand request, CancellationToken cancellationToken = default)
-    {
-        var response = new Response<RegisterResponse>();
-        try
-        {
-            var emailNormalized = request.Email.Trim().ToLowerInvariant();
+    // ─── Change Password ──────────────────────────────────────────────────────
 
-            var exists = await _userRepo.ExistsAsync(u => u.Email == emailNormalized);
-
-            if (exists)
-            {
-                response.StatusCode = StatusCodes.Status400BadRequest;
-                response.Message = $"An account with email '{request.Email}' already exists.";
-                return response;
-            }
-
-            // Resolve the default Taxpayer role
-            var taxpayerRole = await _roleRepo.FindAsync(r => r.Name == "Taxpayer");
-
-            // Create user
-            var emailVo = new Email(request.Email);
-            var user = User.Create(request.FirstName, request.LastName, emailVo, request.PhoneNumber, UserType.RegisteredTaxpayer);
-            user.SetPasswordHash(_passwordHasher.Hash(request.Password));
-
-            if (taxpayerRole != null)
-                user.AssignRole(taxpayerRole.Id);
-
-            await _userRepo.AddAsync(user);
-            await _userRepo.SaveAsync();
-
-            response.StatusCode = StatusCodes.Status200OK;
-            response.Message = Constants.Messages.Success;
-            response.Data = new RegisterResponse(user.Id, user.Email ?? string.Empty, user.FullName);
-        }
-        catch (Exception ex)
-        {
-            response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
-        }
-        return response;
-    }
-
-    public async Task<Response<object?>> ResetPasswordAsync(ResetPasswordCommand request, CancellationToken cancellationToken = default)
+    public async Task<Response<object?>> ChangePasswordAsync(ChangePasswordCommand request, CancellationToken cancellationToken = default)
     {
         var response = new Response<object?>();
         try
         {
-            var email = request.Email.Trim().ToLowerInvariant();
-
-            var user = await _userRepo.FindAsync(u => u.Email == email);
-
-            if (user is null)
-            {
-                response.StatusCode = StatusCodes.Status400BadRequest;
-                response.Message = Constants.Messages.AuthInvalidResetToken;
-                return response;
-            }
-
-            if (user.PasswordResetToken != request.Token ||
-                user.PasswordResetTokenExpiresAt < DateTimeOffset.UtcNow)
-            {
-                response.StatusCode = StatusCodes.Status400BadRequest;
-                response.Message = Constants.Messages.AuthInvalidResetToken;
-                return response;
-            }
-
-            var newHash = _passwordHasher.Hash(request.NewPassword);
-            user.SetPasswordHash(newHash);
-            user.ClearPasswordResetToken();
-
-            // Revoke all existing refresh tokens for security
-            var tokens = await _refreshTokenRepo.FindAllAsync(t => t.UserId == user.Id);
-            await _refreshTokenRepo.RemoveRangeAsync(tokens);
-
-            await _userRepo.UpdateAsync(user);
-            await _userRepo.SaveAsync();
-
-            response.StatusCode = StatusCodes.Status200OK;
-            response.Message = Constants.Messages.Success;
-        }
-        catch (Exception ex)
-        {
-            response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
-        }
-        return response;
-    }
-
-    public async Task<Response<SetupMfaResponse>> SetupMfaAsync(SetupMfaCommand request, CancellationToken cancellationToken = default)
-    {
-        var response = new Response<SetupMfaResponse>();
-        try
-        {
-            var user = await _userRepo.Query()
-                .Include(u => u.MfaToken)
-                .FirstOrDefaultAsync(u => u.Id == request.UserId, cancellationToken);
+            var user = await _userManager.FindByIdAsync(request.UserId.ToString());
 
             if (user is null)
             {
@@ -453,52 +433,22 @@ public class AuthService : IAuthService
                 return response;
             }
 
-            // Generate a new TOTP secret (160-bit = 20 bytes per RFC 6238)
-            var secretBytes = KeyGeneration.GenerateRandomKey(20);
-            var secretBase32 = Base32Encoding.ToString(secretBytes);
-
-            // Generate 8 backup codes
-            var backupCodes = Enumerable.Range(0, 8)
-                .Select(_ => Guid.NewGuid().ToString("N")[..8].ToUpperInvariant())
-                .ToList();
-
-            // Hash backup codes for storage
-            var hashedBackups = string.Join(",", backupCodes.Select(c => _passwordHasher.Hash(c)));
-
-            if (user.MfaToken is null)
+            var result = await _userManager.ChangePasswordAsync(user, request.CurrentPassword, request.NewPassword);
+            if (!result.Succeeded)
             {
-                var mfaToken = new MfaToken
-                {
-                    Id = Guid.NewGuid(),
-                    UserId = user.Id,
-                    SecretKey = secretBase32,
-                    IsEnabled = false,
-                    BackupCodesHash = hashedBackups
-                };
-                await _mfaTokenRepo.AddAsync(mfaToken);
-            }
-            else
-            {
-                user.MfaToken.SecretKey = secretBase32;
-                user.MfaToken.IsEnabled = false;
-                user.MfaToken.BackupCodesHash = hashedBackups;
-                await _mfaTokenRepo.UpdateAsync(user.MfaToken);
+                var errors = string.Join("; ", result.Errors.Select(e => e.Description));
+                response.StatusCode = StatusCodes.Status400BadRequest;
+                response.Message = string.IsNullOrEmpty(errors) ? Constants.Messages.AuthPasswordIncorrect : errors;
+                return response;
             }
 
-            await _userRepo.UpdateAsync(user);
-            await _userRepo.SaveAsync();
-
-            var label = Uri.EscapeDataString(user.Email ?? string.Empty);
-            var issuer = Uri.EscapeDataString("TaxOmbud");
-            var qrUri = $"otpauth://totp/{issuer}:{label}?secret={secretBase32}&issuer={issuer}&algorithm=SHA1&digits=6&period=30";
+            // Revoke all refresh tokens so all other sessions are terminated
+            var tokens = await _refreshTokenRepo.FindAllAsync(t => t.UserId == user.Id);
+            await _refreshTokenRepo.RemoveRangeAsync(tokens);
+            await _refreshTokenRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = Constants.Messages.Success;
-            response.Data = new SetupMfaResponse(
-                QrCodeUri: qrUri,
-                SecretKey: secretBase32,
-                BackupCodes: backupCodes.AsReadOnly()
-            );
         }
         catch (Exception ex)
         {
@@ -508,12 +458,105 @@ public class AuthService : IAuthService
         return response;
     }
 
+    // ─── Forgot Password ──────────────────────────────────────────────────────
+
+    public async Task<Response<object?>> ForgotPasswordAsync(ForgotPasswordCommand request, CancellationToken cancellationToken = default)
+    {
+        var response = new Response<object?>();
+        try
+        {
+            var email = request.Email.Trim().ToLowerInvariant();
+            var user = await _userManager.FindByEmailAsync(email);
+
+            // Always return success to prevent email enumeration
+            if (user is null)
+            {
+                response.StatusCode = StatusCodes.Status200OK;
+                response.Message = Constants.Messages.Success;
+                return response;
+            }
+
+            // Generate a secure password reset token via Identity
+            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+
+            // Store token on user for lookup during reset
+            user.SetPasswordResetToken(token);
+            await _userManager.UpdateAsync(user);
+
+            // Password reset email disabled for local development
+            /*
+            await _emailService.SendAsync(
+                to: user.Email ?? string.Empty,
+                subject: "Reset your TaxOmbud password",
+                htmlBody: $"<p>Use this token to reset your password: <strong>{token}</strong></p><p>This link expires in 1 hour.</p>",
+                cancellationToken: cancellationToken);
+            */
+
+            response.StatusCode = StatusCodes.Status200OK;
+            response.Message = Constants.Messages.Success;
+        }
+        catch (Exception ex)
+        {
+            response.StatusCode = StatusCodes.Status500InternalServerError;
+            response.Message = ex.Message;
+        }
+        return response;
+    }
+
+    // ─── Reset Password ───────────────────────────────────────────────────────
+
+    public async Task<Response<object?>> ResetPasswordAsync(ResetPasswordCommand request, CancellationToken cancellationToken = default)
+    {
+        var response = new Response<object?>();
+        try
+        {
+            var email = request.Email.Trim().ToLowerInvariant();
+            var user = await _userManager.FindByEmailAsync(email);
+
+            if (user is null)
+            {
+                response.StatusCode = StatusCodes.Status400BadRequest;
+                response.Message = Constants.Messages.AuthInvalidResetToken;
+                return response;
+            }
+
+            // Reset password via Identity (validates the token internally)
+            var result = await _userManager.ResetPasswordAsync(user, request.Token, request.NewPassword);
+            if (!result.Succeeded)
+            {
+                response.StatusCode = StatusCodes.Status400BadRequest;
+                response.Message = Constants.Messages.AuthInvalidResetToken;
+                return response;
+            }
+
+            user.ClearPasswordResetToken();
+            await _userManager.UpdateAsync(user);
+
+            // Revoke all existing refresh tokens for security
+            var tokens = await _refreshTokenRepo.FindAllAsync(t => t.UserId == user.Id);
+            await _refreshTokenRepo.RemoveRangeAsync(tokens);
+            await _refreshTokenRepo.SaveAsync();
+
+            response.StatusCode = StatusCodes.Status200OK;
+            response.Message = Constants.Messages.PasswordReset;
+        }
+        catch (Exception ex)
+        {
+            response.StatusCode = StatusCodes.Status500InternalServerError;
+            response.Message = ex.Message;
+        }
+        return response;
+    }
+
+    // ─── Verify Email ─────────────────────────────────────────────────────────
+
     public async Task<Response<object?>> VerifyEmailAsync(VerifyEmailCommand request, CancellationToken cancellationToken = default)
     {
         var response = new Response<object?>();
         try
         {
-            var user = await _userRepo.FindAsync(u => u.EmailVerificationToken == request.Token);
+            var user = await _userManager.Users
+                .FirstOrDefaultAsync(u => u.EmailVerificationToken == request.Token, cancellationToken);
 
             if (user is null)
             {
@@ -536,9 +579,17 @@ public class AuthService : IAuthService
                 return response;
             }
 
+            // Confirm email via Identity
+            var confirmResult = await _userManager.ConfirmEmailAsync(user, request.Token);
+            if (!confirmResult.Succeeded)
+            {
+                response.StatusCode = StatusCodes.Status400BadRequest;
+                response.Message = Constants.Messages.AuthInvalidVerificationToken;
+                return response;
+            }
+
             user.MarkEmailVerified();
-            await _userRepo.UpdateAsync(user);
-            await _userRepo.SaveAsync();
+            await _userManager.UpdateAsync(user);
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = Constants.Messages.Success;
@@ -550,6 +601,81 @@ public class AuthService : IAuthService
         }
         return response;
     }
+
+    // ─── MFA Setup ────────────────────────────────────────────────────────────
+
+    public async Task<Response<SetupMfaResponse>> SetupMfaAsync(SetupMfaCommand request, CancellationToken cancellationToken = default)
+    {
+        var response = new Response<SetupMfaResponse>();
+        try
+        {
+            var user = await _userManager.Users
+                .Include(u => u.MfaToken)
+                .FirstOrDefaultAsync(u => u.Id == request.UserId, cancellationToken);
+
+            if (user is null)
+            {
+                response.StatusCode = StatusCodes.Status404NotFound;
+                response.Message = Constants.Messages.AuthUserNotFound;
+                return response;
+            }
+
+            // Generate a new TOTP secret (160-bit = 20 bytes per RFC 6238)
+            var secretBytes = KeyGeneration.GenerateRandomKey(20);
+            var secretBase32 = Base32Encoding.ToString(secretBytes);
+
+            // Generate 8 backup codes
+            var backupCodes = Enumerable.Range(0, 8)
+                .Select(_ => Guid.NewGuid().ToString("N")[..8].ToUpperInvariant())
+                .ToList();
+
+            // Hash backup codes via Identity's built-in password hasher
+            var identityHasher = new PasswordHasher<User>();
+            var hashedBackups = string.Join(",", backupCodes.Select(c => identityHasher.HashPassword(user, c)));
+
+            if (user.MfaToken is null)
+            {
+                var mfaToken = new MfaToken
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = user.Id,
+                    SecretKey = secretBase32,
+                    IsEnabled = false,
+                    BackupCodesHash = hashedBackups
+                };
+                await _mfaTokenRepo.AddAsync(mfaToken);
+            }
+            else
+            {
+                user.MfaToken.SecretKey = secretBase32;
+                user.MfaToken.IsEnabled = false;
+                user.MfaToken.BackupCodesHash = hashedBackups;
+                await _mfaTokenRepo.UpdateAsync(user.MfaToken);
+            }
+
+            await _mfaTokenRepo.SaveAsync();
+
+            var label = Uri.EscapeDataString(user.Email ?? string.Empty);
+            var issuer = Uri.EscapeDataString("TaxOmbud");
+            var qrUri = $"otpauth://totp/{issuer}:{label}?secret={secretBase32}&issuer={issuer}&algorithm=SHA1&digits=6&period=30";
+
+            response.StatusCode = StatusCodes.Status200OK;
+            response.Message = Constants.Messages.Success;
+            response.Data = new SetupMfaResponse(
+                QrCodeUri: qrUri,
+                SecretKey: secretBase32,
+                BackupCodes: backupCodes.AsReadOnly()
+            );
+        }
+        catch (Exception ex)
+        {
+            response.StatusCode = StatusCodes.Status500InternalServerError;
+            response.Message = ex.Message;
+        }
+        return response;
+    }
+
+    // ─── Verify MFA ───────────────────────────────────────────────────────────
 
     public async Task<Response<object?>> VerifyMfaAsync(VerifyMfaCommand request, CancellationToken cancellationToken = default)
     {
@@ -582,6 +708,55 @@ public class AuthService : IAuthService
 
             mfaToken.IsEnabled = true;
             await _mfaTokenRepo.UpdateAsync(mfaToken);
+            await _mfaTokenRepo.SaveAsync();
+
+            response.StatusCode = StatusCodes.Status200OK;
+            response.Message = Constants.Messages.OtpVerified;
+        }
+        catch (Exception ex)
+        {
+            response.StatusCode = StatusCodes.Status500InternalServerError;
+            response.Message = ex.Message;
+        }
+        return response;
+    }
+
+    // ─── Disable MFA ──────────────────────────────────────────────────────────
+
+    public async Task<Response<object?>> DisableMfaAsync(DisableMfaCommand request, CancellationToken cancellationToken = default)
+    {
+        var response = new Response<object?>();
+        try
+        {
+            var user = await _userManager.Users
+                .Include(u => u.MfaToken)
+                .FirstOrDefaultAsync(u => u.Id == request.UserId, cancellationToken);
+
+            if (user is null)
+            {
+                response.StatusCode = StatusCodes.Status404NotFound;
+                response.Message = Constants.Messages.AuthUserNotFound;
+                return response;
+            }
+
+            // Verify password before disabling MFA using UserManager
+            var passwordCheck = await _userManager.CheckPasswordAsync(user, request.Password);
+            if (!passwordCheck)
+            {
+                response.StatusCode = StatusCodes.Status400BadRequest;
+                response.Message = Constants.Messages.AuthPasswordConfirmationFailed;
+                return response;
+            }
+
+            if (user.MfaToken is null || !user.MfaToken.IsEnabled)
+            {
+                response.StatusCode = StatusCodes.Status200OK;
+                response.Message = Constants.Messages.Success;
+                return response;
+            }
+
+            user.MfaToken.IsEnabled = false;
+            await _mfaTokenRepo.UpdateAsync(user.MfaToken);
             await _mfaTokenRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;

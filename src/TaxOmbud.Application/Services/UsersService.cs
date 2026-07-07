@@ -1,34 +1,42 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using TaxOmbud.Application.Interfaces.InfrastructureService;
 using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Application.Users.DTOs;
 using TaxOmbud.Common.Responses;
+using TaxOmbud.Common.Utilities;
 using TaxOmbud.Domain.Entities.Identity;
 using TaxOmbud.Domain.Entities.System;
+using TaxOmbud.Domain.Enums;
 
 namespace TaxOmbud.Application.Services;
 
 public class UsersService : IUsersService
 {
-    // ── Repositories ─────────────────────────────────────────────────────────
+    // ── Identity ──────────────────────────────────────────────────────────────
+    private readonly UserManager<User> _userManager;
+
+    // ── Repositories ──────────────────────────────────────────────────────────
     private readonly IGenericRepository<User> _userRepo;
+    private readonly IGenericRepository<Role> _roleRepo;
     private readonly IGenericRepository<AuditLog> _auditRepo;
 
     // ── Infrastructure services ───────────────────────────────────────────────
     private readonly ICurrentUser _currentUser;
-    private readonly IPasswordHasher _passwordHasher;
 
     public UsersService(
+        UserManager<User> userManager,
         IGenericRepository<User> userRepo,
+        IGenericRepository<Role> roleRepo,
         IGenericRepository<AuditLog> auditRepo,
-        ICurrentUser currentUser,
-        IPasswordHasher passwordHasher)
+        ICurrentUser currentUser)
     {
+        _userManager = userManager;
         _userRepo = userRepo;
+        _roleRepo = roleRepo;
         _auditRepo = auditRepo;
         _currentUser = currentUser;
-        _passwordHasher = passwordHasher;
     }
 
     // ─── Queries ───────────────────────────────────────────────────────────────
@@ -209,29 +217,50 @@ public class UsersService : IUsersService
 
     // ─── Commands ──────────────────────────────────────────────────────────────
 
+    /// <summary>
+    /// Admin creates a staff user directly (bypass self-registration flow).
+    /// Password hashing is handled by UserManager — IPasswordHasher is no longer injected.
+    /// Only StaffUser accounts can be created here.
+    /// </summary>
     public async Task<Response<CreateUserResponse>> CreateUserAsync(CreateUserCommand request, CancellationToken cancellationToken = default)
     {
         var response = new Response<CreateUserResponse>();
         try
         {
-            if (await _userRepo.ExistsAsync(u => u.Email == request.Email))
+            var emailNormalized = request.Email.Trim().ToLowerInvariant();
+
+            var existing = await _userManager.FindByEmailAsync(emailNormalized);
+            if (existing is not null)
             {
                 response.StatusCode = StatusCodes.Status400BadRequest;
                 response.Message = "A user with this email already exists.";
                 return response;
             }
 
-            var user = User.Create(request.FirstName, request.LastName, new TaxOmbud.Common.Utilities.Email(request.Email), request.Phone);
-            user.SetPasswordHash(_passwordHasher.Hash(request.Password));
+            var user = User.Create(
+                request.FirstName,
+                request.LastName,
+                new Email(emailNormalized),
+                request.Phone,
+                UserType.StaffUser);
+
             if (request.JobTitle is not null)
                 user.UpdateProfile(request.FirstName, request.LastName, request.Phone, request.JobTitle);
+
             if (request.EmploymentType is not null)
                 user.SetEmploymentType(request.EmploymentType);
+
             if (request.DepartmentId.HasValue)
                 user.SetDepartment(request.DepartmentId.Value);
 
-            await _userRepo.AddAsync(user);
-            await _userRepo.SaveAsync();
+            // UserManager handles password hashing, security stamp, lockout seeding
+            var result = await _userManager.CreateAsync(user, request.Password);
+            if (!result.Succeeded)
+            {
+                response.StatusCode = StatusCodes.Status400BadRequest;
+                response.Message = string.Join("; ", result.Errors.Select(e => e.Description));
+                return response;
+            }
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "User created successfully.";
@@ -262,8 +291,7 @@ public class UsersService : IUsersService
             if (request.EmploymentType is not null) user.SetEmploymentType(request.EmploymentType);
             if (request.DepartmentId.HasValue) user.SetDepartment(request.DepartmentId.Value);
 
-            await _userRepo.UpdateAsync(user);
-            await _userRepo.SaveAsync();
+            await _userManager.UpdateAsync(user);
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "User updated successfully.";
@@ -289,7 +317,7 @@ public class UsersService : IUsersService
                 return response;
             }
 
-            var user = await _userRepo.GetByIdAsync(userId.Value);
+            var user = await _userManager.FindByIdAsync(userId.Value.ToString());
             if (user is null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
@@ -304,8 +332,7 @@ public class UsersService : IUsersService
                 user.JobTitle
             );
 
-            await _userRepo.UpdateAsync(user);
-            await _userRepo.SaveAsync();
+            await _userManager.UpdateAsync(user);
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Profile updated successfully.";
@@ -323,7 +350,7 @@ public class UsersService : IUsersService
         var response = new Response<object?>();
         try
         {
-            var user = await _userRepo.GetByIdAsync(request.Id);
+            var user = await _userManager.FindByIdAsync(request.Id.ToString());
             if (user is null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
@@ -336,8 +363,7 @@ public class UsersService : IUsersService
             else
                 user.Deactivate();
 
-            await _userRepo.UpdateAsync(user);
-            await _userRepo.SaveAsync();
+            await _userManager.UpdateAsync(user);
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "User status updated successfully.";
@@ -350,6 +376,11 @@ public class UsersService : IUsersService
         return response;
     }
 
+    /// <summary>
+    /// Assigns a staff role to a user.
+    /// RULE: Only StaffUser accounts can be assigned roles.
+    /// Taxpayers are identified by UserType — they must never be assigned a role.
+    /// </summary>
     public async Task<Response<object?>> AssignRoleAsync(AssignRolesCommand request, CancellationToken cancellationToken = default)
     {
         var response = new Response<object?>();
@@ -363,11 +394,30 @@ public class UsersService : IUsersService
                 return response;
             }
 
+            // Guard: roles are exclusively for staff users
+            if (user.UserType != UserType.StaffUser)
+            {
+                response.StatusCode = StatusCodes.Status400BadRequest;
+                response.Message = "Roles can only be assigned to staff accounts. Taxpayers and guests are identified by their UserType — they do not use roles.";
+                return response;
+            }
+
+            // Validate the role exists before assigning
             var roleId = request.RoleIds.FirstOrDefault();
+            if (roleId != Guid.Empty)
+            {
+                var roleExists = await _roleRepo.ExistsAsync(r => r.Id == roleId);
+                if (!roleExists)
+                {
+                    response.StatusCode = StatusCodes.Status400BadRequest;
+                    response.Message = "The specified role does not exist.";
+                    return response;
+                }
+            }
+
             user.AssignRole(roleId == Guid.Empty ? null : roleId);
 
-            await _userRepo.UpdateAsync(user);
-            await _userRepo.SaveAsync();
+            await _userManager.UpdateAsync(user);
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Role assigned successfully.";

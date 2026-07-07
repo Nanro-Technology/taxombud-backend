@@ -1,14 +1,19 @@
-using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
-using FluentValidation;
-using Microsoft.EntityFrameworkCore;
-using TaxOmbud.Domain.Entities.Identity;
-using TaxOmbud.Common.Responses;
-
 namespace TaxOmbud.Application.Roles.DTOs;
 
-public record CreateRoleCommand(string Name, string? Description);
+/// <summary>
+/// Creates a new staff role with a mandatory set of permission IDs.
+/// A role cannot be created without at least one permission — an empty role has no meaning.
+/// Only applicable to StaffUser type users.
+/// </summary>
+public record CreateRoleCommand(
+    string Name,
+    string? Description,
+    IReadOnlyList<Guid> PermissionIds
+);
 
-public record CreateRoleResponse(Guid Id, string Name, string? Description);
+public record CreateRoleResponse(
+    Guid Id,
+    string Name,
+    string? Description,
+    IReadOnlyList<PermissionDto> Permissions
+);
