@@ -1,28 +1,36 @@
 using Microsoft.EntityFrameworkCore;
 using TaxOmbud.Application.Appeals.DTOs;
 using TaxOmbud.Application.Interfaces.InfrastructureService;
-using TaxOmbud.Application.Interfaces.Persistence;
+using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Common.Responses;
 using TaxOmbud.Domain.Entities.Appeals;
+using TaxOmbud.Domain.Entities.Cases;
 using TaxOmbud.Domain.Entities.Documents;
 using TaxOmbud.Domain.Enums;
+using TaxOmbud.Common.Utilities;
 
 namespace TaxOmbud.Application.Services;
 
 public class AppealsService : IAppealsService
 {
-    private readonly IApplicationDbContext _context;
+    private readonly IGenericRepository<Appeal> _appealRepo;
+    private readonly IGenericRepository<Case> _caseRepo;
+    private readonly IGenericRepository<Document> _docRepo;
     private readonly ICurrentUser _currentUser;
     private readonly IFileStorageService _storage;
 
     public AppealsService(
-        IApplicationDbContext context,
+        IGenericRepository<Appeal> appealRepo,
+        IGenericRepository<Case> caseRepo,
+        IGenericRepository<Document> docRepo,
         ICurrentUser currentUser,
         IFileStorageService storage
     )
     {
-        _context = context;
+        _appealRepo = appealRepo;
+        _caseRepo = caseRepo;
+        _docRepo = docRepo;
         _currentUser = currentUser;
         _storage = storage;
     }
@@ -32,18 +40,18 @@ public class AppealsService : IAppealsService
         var response = new Response<FileAppealResponse>();
         try
         {
-            var kase = await _context.Cases.FirstOrDefaultAsync(c => c.Id == request.CaseId, cancellationToken);
+            var kase = await _caseRepo.FindAsync(c => c.Id == request.CaseId);
             if (kase == null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
-                response.Message = "Associated case not found.";
+                response.Message = Constants.Messages.CaseNotFound;
                 return response;
             }
 
             if (kase.Status != CaseStatus.Closed)
             {
                 response.StatusCode = StatusCodes.Status400BadRequest;
-                response.Message = "Appeals can only be filed against closed cases.";
+                response.Message = Constants.Messages.AppealClosedCaseOnly;
                 return response;
             }
 
@@ -51,11 +59,11 @@ public class AppealsService : IAppealsService
             var appeal = new Appeal(request.CaseId, request.Reason);
             appeal.Submit(actorUserId);
 
-            _context.Appeals.Add(appeal);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _appealRepo.AddAsync(appeal);
+            await _appealRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Appeal filed successfully.";
+            response.Message = Constants.Messages.AppealSubmitted;
             response.Data = new FileAppealResponse(
                 appeal.Id,
                 appeal.CaseId,
@@ -67,7 +75,7 @@ public class AppealsService : IAppealsService
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = "An error occurred while filing the appeal.";
+            response.Message = Constants.Messages.AppealFileError;
             return response;
         }
     }
@@ -77,11 +85,11 @@ public class AppealsService : IAppealsService
         var response = new Response<object?>();
         try
         {
-            var appeal = await _context.Appeals.FirstOrDefaultAsync(a => a.Id == request.AppealId, cancellationToken);
+            var appeal = await _appealRepo.FindAsync(a => a.Id == request.AppealId);
             if (appeal == null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
-                response.Message = "Appeal not found.";
+                response.Message = Constants.Messages.AppealNotFound;
                 return response;
             }
 
@@ -100,16 +108,17 @@ public class AppealsService : IAppealsService
                 appeal.Review(actorUserId, request.Notes);
             }
 
-            await _context.SaveChangesAsync(cancellationToken);
+            await _appealRepo.UpdateAsync(appeal);
+            await _appealRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Appeal reviewed successfully.";
+            response.Message = Constants.Messages.AppealStatusUpdated;
             return response;
         }
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = "An error occurred while reviewing the appeal.";
+            response.Message = Constants.Messages.AppealReviewError;
             return response;
         }
     }
@@ -119,13 +128,12 @@ public class AppealsService : IAppealsService
         var response = new Response<Guid>();
         try
         {
-            var exists = await _context.Appeals
-                .AnyAsync(a => a.Id == request.AppealId, cancellationToken);
+            var exists = await _appealRepo.ExistsAsync(a => a.Id == request.AppealId);
 
             if (!exists)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
-                response.Message = $"Appeal '{request.AppealId}' was not found.";
+                response.Message = Constants.Messages.AppealNotFound;
                 return response;
             }
 
@@ -148,18 +156,18 @@ public class AppealsService : IAppealsService
                 CreatedAt = DateTime.UtcNow
             };
 
-            _context.Documents.Add(doc);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _docRepo.AddAsync(doc);
+            await _docRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Document uploaded successfully.";
+            response.Message = Constants.Messages.DocumentUploaded;
             response.Data = doc.Id;
             return response;
         }
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = "An error occurred while uploading the document.";
+            response.Message = Constants.Messages.CaseDocUploadError;
             return response;
         }
     }
@@ -169,7 +177,7 @@ public class AppealsService : IAppealsService
         var response = new Response<AppealDetailDto>();
         try
         {
-            var appeal = await _context.Appeals
+            var appeal = await _appealRepo.Query()
                 .Include(a => a.Case)
                 .Include(a => a.StatusHistory)
                 .AsNoTracking()
@@ -178,7 +186,7 @@ public class AppealsService : IAppealsService
             if (appeal == null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
-                response.Message = "Appeal not found.";
+                response.Message = Constants.Messages.AppealNotFound;
                 return response;
             }
 
@@ -204,14 +212,14 @@ public class AppealsService : IAppealsService
             );
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Appeal retrieved successfully.";
+            response.Message = Constants.Messages.AppealRetrieved;
             response.Data = dto;
             return response;
         }
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = "An error occurred while retrieving the appeal.";
+            response.Message = Constants.Messages.AppealGetError;
             return response;
         }
     }
@@ -221,17 +229,16 @@ public class AppealsService : IAppealsService
         var response = new Response<IReadOnlyList<AppealDocumentDto>>();
         try
         {
-            var exists = await _context.Appeals
-                .AnyAsync(a => a.Id == request.AppealId, cancellationToken);
+            var exists = await _appealRepo.ExistsAsync(a => a.Id == request.AppealId);
 
             if (!exists)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
-                response.Message = $"Appeal '{request.AppealId}' was not found.";
+                response.Message = Constants.Messages.AppealNotFound;
                 return response;
             }
 
-            var documents = await _context.Documents
+            var documents = await _docRepo.Query()
                 .AsNoTracking()
                 .Where(d => d.EntityType == DocumentEntityType.Appeal && d.EntityId == request.AppealId)
                 .OrderByDescending(d => d.CreatedAt)
@@ -239,14 +246,14 @@ public class AppealsService : IAppealsService
                 .ToListAsync(cancellationToken);
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Documents retrieved successfully.";
+            response.Message = Constants.Messages.DocumentsRetrieved;
             response.Data = documents.AsReadOnly();
             return response;
         }
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = "An error occurred while retrieving the documents.";
+            response.Message = Constants.Messages.CaseDocsError;
             return response;
         }
     }
@@ -256,7 +263,7 @@ public class AppealsService : IAppealsService
         var response = new Response<PagedResult<AppealListDto>>();
         try
         {
-            var query = _context.Appeals
+            var query = _appealRepo.Query()
                 .Include(a => a.Case)
                 .AsNoTracking()
                 .AsQueryable();
@@ -285,14 +292,14 @@ public class AppealsService : IAppealsService
                 .ToListAsync(cancellationToken);
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Appeals retrieved successfully.";
+            response.Message = Constants.Messages.AppealsRetrieved;
             response.Data = new PagedResult<AppealListDto>(items.AsReadOnly(), total, request.Page, request.PageSize);
             return response;
         }
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = "An error occurred while retrieving the appeals.";
+            response.Message = Constants.Messages.AppealRetrieveError;
             return response;
         }
     }

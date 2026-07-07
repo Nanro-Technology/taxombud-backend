@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using TaxOmbud.Application.HrRequests.DTOs;
-using TaxOmbud.Application.Interfaces.Persistence;
+using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Common.Responses;
 using TaxOmbud.Domain.Entities.Hr;
@@ -9,11 +9,18 @@ namespace TaxOmbud.Application.Services;
 
 public class HrRequestsService : IHrRequestsService
 {
-    private readonly IApplicationDbContext _context;
+    private readonly IGenericRepository<LeaveRequest> _leaveRepo;
+    private readonly IGenericRepository<LoanRequest> _loanRepo;
+    private readonly IGenericRepository<EwaRequest> _ewaRepo;
 
-    public HrRequestsService(IApplicationDbContext context)
+    public HrRequestsService(
+        IGenericRepository<LeaveRequest> leaveRepo,
+        IGenericRepository<LoanRequest> loanRepo,
+        IGenericRepository<EwaRequest> ewaRepo)
     {
-        _context = context;
+        _leaveRepo = leaveRepo;
+        _loanRepo = loanRepo;
+        _ewaRepo = ewaRepo;
     }
 
     public async Task<Response<bool>> ApproveLeaveRequestAsync(ApproveLeaveRequestCommands request, CancellationToken cancellationToken = default)
@@ -21,7 +28,7 @@ public class HrRequestsService : IHrRequestsService
         var response = new Response<bool>();
         try
         {
-            var entity = await _context.LeaveRequests.FirstOrDefaultAsync(x => x.Id == request.LeaveId, cancellationToken);
+            var entity = await _leaveRepo.FindAsync(x => x.Id == request.LeaveId);
             if (entity == null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
@@ -30,7 +37,8 @@ public class HrRequestsService : IHrRequestsService
             }
 
             entity.Status = request.Approved ? "Approved" : "Rejected";
-            await _context.SaveChangesAsync(cancellationToken);
+            await _leaveRepo.UpdateAsync(entity);
+            await _leaveRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Success";
@@ -60,8 +68,8 @@ public class HrRequestsService : IHrRequestsService
                 Status = "Pending"
             };
 
-            _context.LeaveRequests.Add(entity);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _leaveRepo.AddAsync(entity);
+            await _leaveRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Success";
@@ -94,8 +102,8 @@ public class HrRequestsService : IHrRequestsService
                 CreatedAt = DateTime.UtcNow
             };
 
-            _context.LoanRequests.Add(entity);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _loanRepo.AddAsync(entity);
+            await _loanRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Success";
@@ -114,10 +122,10 @@ public class HrRequestsService : IHrRequestsService
         var response = new Response<List<EwaRequest>>();
         try
         {
-            var list = await _context.EwaRequests.ToListAsync(cancellationToken);
+            var list = await _ewaRepo.GetAllAsync();
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Success";
-            response.Data = list;
+            response.Data = list.ToList();
         }
         catch (Exception ex)
         {
@@ -132,10 +140,10 @@ public class HrRequestsService : IHrRequestsService
         var response = new Response<List<LeaveRequest>>();
         try
         {
-            var list = await _context.LeaveRequests.ToListAsync(cancellationToken);
+            var list = await _leaveRepo.GetAllAsync();
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Success";
-            response.Data = list;
+            response.Data = list.ToList();
         }
         catch (Exception ex)
         {
@@ -150,10 +158,10 @@ public class HrRequestsService : IHrRequestsService
         var response = new Response<List<LoanRequest>>();
         try
         {
-            var list = await _context.LoanRequests.ToListAsync(cancellationToken);
+            var list = await _loanRepo.GetAllAsync();
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Success";
-            response.Data = list;
+            response.Data = list.ToList();
         }
         catch (Exception ex)
         {

@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using TaxOmbud.Application.Interfaces.Persistence;
+using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Application.Officers.DTOs;
 using TaxOmbud.Common.Responses;
@@ -9,11 +9,15 @@ namespace TaxOmbud.Application.Services;
 
 public class OfficersService : IOfficersService
 {
-    private readonly IApplicationDbContext _context;
+    private readonly IGenericRepository<OfficerProfile> _officerRepo;
+    private readonly IGenericRepository<OfficerCaseload> _caseloadRepo;
 
-    public OfficersService(IApplicationDbContext context)
+    public OfficersService(
+        IGenericRepository<OfficerProfile> officerRepo,
+        IGenericRepository<OfficerCaseload> caseloadRepo)
     {
-        _context = context;
+        _officerRepo = officerRepo;
+        _caseloadRepo = caseloadRepo;
     }
 
     // ─── Queries ───────────────────────────────────────────────────────────────
@@ -23,7 +27,7 @@ public class OfficersService : IOfficersService
         var response = new Response<PagedResult<OfficerListDto>>();
         try
         {
-            var query = _context.OfficerProfiles
+            var query = _officerRepo.Query()
                 .Include(o => o.User)
                 .Include(o => o.User.Department)
                 .AsQueryable();
@@ -43,19 +47,10 @@ public class OfficersService : IOfficersService
                 .Skip((request.Page - 1) * request.PageSize)
                 .Take(request.PageSize)
                 .Select(o => new OfficerListDto(
-                    o.Id,
-                    o.UserId,
-                    $"{o.User.FirstName} {o.User.LastName}",
-                    o.User!.Email ?? string.Empty,
-                    o.User.Phone,
-                    o.User.JobTitle,
+                    o.Id, o.UserId, $"{o.User.FirstName} {o.User.LastName}",
+                    o.User!.Email ?? string.Empty, o.User.Phone, o.User.JobTitle,
                     o.User.Department == null ? null : new OfficerDepartmentDto(o.User.Department.Id, o.User.Department.Name),
-                    o.MaxCaseload,
-                    o.CurrentCaseload,
-                    o.IsAvailable,
-                    o.EmployeeNumber,
-                    o.Specialisation,
-                    o.CreatedAt
+                    o.MaxCaseload, o.CurrentCaseload, o.IsAvailable, o.EmployeeNumber, o.Specialisation, o.CreatedAt
                 ))
                 .ToListAsync(cancellationToken);
 
@@ -76,7 +71,7 @@ public class OfficersService : IOfficersService
         var response = new Response<PagedResult<OfficerListDto>>();
         try
         {
-            var query = _context.OfficerProfiles
+            var query = _officerRepo.Query()
                 .Include(o => o.User)
                 .Include(o => o.User.Department)
                 .Where(o => o.IsAvailable && o.CurrentCaseload < o.MaxCaseload);
@@ -87,19 +82,10 @@ public class OfficersService : IOfficersService
                 .Skip((request.Page - 1) * request.PageSize)
                 .Take(request.PageSize)
                 .Select(o => new OfficerListDto(
-                    o.Id,
-                    o.UserId,
-                    $"{o.User.FirstName} {o.User.LastName}",
-                    o.User!.Email ?? string.Empty,
-                    o.User.Phone,
-                    o.User.JobTitle,
+                    o.Id, o.UserId, $"{o.User.FirstName} {o.User.LastName}",
+                    o.User!.Email ?? string.Empty, o.User.Phone, o.User.JobTitle,
                     o.User.Department == null ? null : new OfficerDepartmentDto(o.User.Department.Id, o.User.Department.Name),
-                    o.MaxCaseload,
-                    o.CurrentCaseload,
-                    o.IsAvailable,
-                    o.EmployeeNumber,
-                    o.Specialisation,
-                    o.CreatedAt
+                    o.MaxCaseload, o.CurrentCaseload, o.IsAvailable, o.EmployeeNumber, o.Specialisation, o.CreatedAt
                 ))
                 .ToListAsync(cancellationToken);
 
@@ -120,7 +106,7 @@ public class OfficersService : IOfficersService
         var response = new Response<OfficerDetailDto>();
         try
         {
-            var o = await _context.OfficerProfiles
+            var o = await _officerRepo.Query()
                 .Include(x => x.User)
                 .Include(x => x.User.Department)
                 .FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken);
@@ -132,26 +118,17 @@ public class OfficersService : IOfficersService
                 return response;
             }
 
-            var activeCaseloadCount = await _context.OfficerCaseloads
-                .CountAsync(c => c.OfficerProfileId == o.Id && c.IsActive, cancellationToken);
+            var activeCaseloadCount = await _caseloadRepo.CountAsync(
+                c => c.OfficerProfileId == o.Id && c.IsActive);
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Officer retrieved successfully.";
             response.Data = new OfficerDetailDto(
-                o.Id,
-                o.UserId,
-                $"{o.User.FirstName} {o.User.LastName}",
-                o.User.Email,
-                o.User.Phone,
-                o.User.JobTitle,
+                o.Id, o.UserId, $"{o.User.FirstName} {o.User.LastName}",
+                o.User.Email, o.User.Phone, o.User.JobTitle,
                 o.User.Department == null ? null : new OfficerDepartmentDto(o.User.Department.Id, o.User.Department.Name),
-                o.MaxCaseload,
-                o.CurrentCaseload,
-                o.IsAvailable,
-                o.EmployeeNumber,
-                o.Specialisation,
-                activeCaseloadCount,
-                o.CreatedAt
+                o.MaxCaseload, o.CurrentCaseload, o.IsAvailable, o.EmployeeNumber, o.Specialisation,
+                activeCaseloadCount, o.CreatedAt
             );
         }
         catch (Exception)
@@ -167,7 +144,7 @@ public class OfficersService : IOfficersService
         var response = new Response<OfficerCaseloadsDto>();
         try
         {
-            var query = _context.OfficerCaseloads
+            var query = _caseloadRepo.Query()
                 .Where(c => c.OfficerProfileId == request.OfficerId);
 
             if (request.ActiveOnly == true)
@@ -195,7 +172,7 @@ public class OfficersService : IOfficersService
         var response = new Response<OfficerPerformanceDto>();
         try
         {
-            var officer = await _context.OfficerProfiles
+            var officer = await _officerRepo.Query()
                 .Include(o => o.User)
                 .FirstOrDefaultAsync(o => o.Id == request.OfficerId, cancellationToken);
 
@@ -206,22 +183,20 @@ public class OfficersService : IOfficersService
                 return response;
             }
 
-            var completedCaseloads = await _context.OfficerCaseloads
-                .Where(c => c.OfficerProfileId == request.OfficerId && !c.IsActive && c.CompletedAt.HasValue)
-                .ToListAsync(cancellationToken);
+            var completedCaseloads = await _caseloadRepo.FindAllAsync(
+                c => c.OfficerProfileId == request.OfficerId && !c.IsActive && c.CompletedAt.HasValue);
 
-            var casesHandled = completedCaseloads.Count;
+            var caseloadList = completedCaseloads.ToList();
+            var casesHandled = caseloadList.Count;
             var avgResolutionDays = casesHandled > 0
-                ? completedCaseloads.Average(c => (c.CompletedAt!.Value - c.AssignedAt).TotalDays)
+                ? caseloadList.Average(c => (c.CompletedAt!.Value - c.AssignedAt).TotalDays)
                 : 0;
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Officer performance retrieved successfully.";
             response.Data = new OfficerPerformanceDto(
-                officer.Id,
-                $"{officer.User.FirstName} {officer.User.LastName}",
-                casesHandled,
-                Math.Round(avgResolutionDays, 2)
+                officer.Id, $"{officer.User.FirstName} {officer.User.LastName}",
+                casesHandled, Math.Round(avgResolutionDays, 2)
             );
         }
         catch (Exception)
@@ -239,10 +214,7 @@ public class OfficersService : IOfficersService
         var response = new Response<CreatedOfficerResponse>();
         try
         {
-            var existing = await _context.OfficerProfiles
-                .AnyAsync(o => o.UserId == request.UserId, cancellationToken);
-
-            if (existing)
+            if (await _officerRepo.ExistsAsync(o => o.UserId == request.UserId))
             {
                 response.StatusCode = StatusCodes.Status400BadRequest;
                 response.Message = "An officer profile already exists for this user.";
@@ -261,8 +233,8 @@ public class OfficersService : IOfficersService
                 CreatedAt = DateTime.UtcNow
             };
 
-            _context.OfficerProfiles.Add(profile);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _officerRepo.AddAsync(profile);
+            await _officerRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Officer profile created successfully.";
@@ -281,9 +253,7 @@ public class OfficersService : IOfficersService
         var response = new Response<object?>();
         try
         {
-            var profile = await _context.OfficerProfiles
-                .FirstOrDefaultAsync(o => o.Id == request.Id, cancellationToken);
-
+            var profile = await _officerRepo.FindAsync(o => o.Id == request.Id);
             if (profile is null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
@@ -293,13 +263,12 @@ public class OfficersService : IOfficersService
 
             profile.MaxCaseload = request.MaxCaseload;
             profile.IsAvailable = request.IsAvailable;
-            if (request.EmployeeNumber is not null)
-                profile.EmployeeNumber = request.EmployeeNumber;
-            if (request.Specialisation is not null)
-                profile.Specialisation = request.Specialisation;
-
+            if (request.EmployeeNumber is not null) profile.EmployeeNumber = request.EmployeeNumber;
+            if (request.Specialisation is not null) profile.Specialisation = request.Specialisation;
             profile.LastModifiedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync(cancellationToken);
+
+            await _officerRepo.UpdateAsync(profile);
+            await _officerRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Officer profile updated successfully.";

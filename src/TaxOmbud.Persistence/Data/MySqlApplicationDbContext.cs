@@ -1,3 +1,4 @@
+using MediatR;
 using Microsoft.EntityFrameworkCore;
 using TaxOmbud.Application.Interfaces.InfrastructureService;
 
@@ -7,8 +8,9 @@ public class MySqlApplicationDbContext : ApplicationDbContext
 {
     public MySqlApplicationDbContext(
         DbContextOptions<MySqlApplicationDbContext> options,
-        ICurrentUser currentUser)
-        : base(options, currentUser)
+        ICurrentUser currentUser,
+        IMediator mediator)
+        : base(options, currentUser, mediator)
     {
     }
 }

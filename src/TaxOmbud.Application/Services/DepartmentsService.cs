@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using TaxOmbud.Application.Departments.DTOs;
-using TaxOmbud.Application.Interfaces.Persistence;
+using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Common.Responses;
 using TaxOmbud.Domain.Entities.Identity;
@@ -9,11 +9,15 @@ namespace TaxOmbud.Application.Services;
 
 public class DepartmentsService : IDepartmentsService
 {
-    private readonly IApplicationDbContext _context;
+    private readonly IGenericRepository<Department> _deptRepo;
+    private readonly IGenericRepository<User> _userRepo;
 
-    public DepartmentsService(IApplicationDbContext context)
+    public DepartmentsService(
+        IGenericRepository<Department> deptRepo,
+        IGenericRepository<User> userRepo)
     {
-        _context = context;
+        _deptRepo = deptRepo;
+        _userRepo = userRepo;
     }
 
     public async Task<Response<CreateDepartmentResponse>> CreateDepartmentAsync(CreateDepartmentCommand request, CancellationToken cancellationToken = default)
@@ -21,7 +25,7 @@ public class DepartmentsService : IDepartmentsService
         var response = new Response<CreateDepartmentResponse>();
         try
         {
-            if (await _context.Departments.AnyAsync(d => d.Name == request.Name, cancellationToken))
+            if (await _deptRepo.ExistsAsync(d => d.Name == request.Name))
             {
                 response.StatusCode = StatusCodes.Status400BadRequest;
                 response.Message = "Department name already exists.";
@@ -38,19 +42,17 @@ public class DepartmentsService : IDepartmentsService
 
             if (request.HeadUserId.HasValue)
             {
-                var userExists = await _context.Users.AnyAsync(u => u.Id == request.HeadUserId.Value, cancellationToken);
-                if (!userExists)
+                if (!await _userRepo.ExistsAsync(u => u.Id == request.HeadUserId.Value))
                 {
                     response.StatusCode = StatusCodes.Status400BadRequest;
                     response.Message = "Head user not found.";
                     return response;
                 }
-
                 department.HeadUserId = request.HeadUserId.Value;
             }
 
-            _context.Departments.Add(department);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _deptRepo.AddAsync(department);
+            await _deptRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Department created successfully.";
@@ -69,7 +71,7 @@ public class DepartmentsService : IDepartmentsService
         var response = new Response<object?>();
         try
         {
-            var department = await _context.Departments.FirstOrDefaultAsync(d => d.Id == request.Id, cancellationToken);
+            var department = await _deptRepo.FindAsync(d => d.Id == request.Id);
             if (department == null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
@@ -79,14 +81,12 @@ public class DepartmentsService : IDepartmentsService
 
             if (request.HeadUserId.HasValue)
             {
-                var userExists = await _context.Users.AnyAsync(u => u.Id == request.HeadUserId.Value, cancellationToken);
-                if (!userExists)
+                if (!await _userRepo.ExistsAsync(u => u.Id == request.HeadUserId.Value))
                 {
                     response.StatusCode = StatusCodes.Status400BadRequest;
                     response.Message = "Head user not found.";
                     return response;
                 }
-
                 department.HeadUserId = request.HeadUserId.Value;
             }
             else
@@ -98,7 +98,8 @@ public class DepartmentsService : IDepartmentsService
             department.RoutingMode = request.RoutingMode.ToLowerInvariant() == "head" ? "head" : "members";
             department.Description = request.Description;
 
-            await _context.SaveChangesAsync(cancellationToken);
+            await _deptRepo.UpdateAsync(department);
+            await _deptRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Department updated successfully.";
@@ -116,7 +117,7 @@ public class DepartmentsService : IDepartmentsService
         var response = new Response<DepartmentDto>();
         try
         {
-            var department = await _context.Departments
+            var department = await _deptRepo.Query()
                 .AsNoTracking()
                 .Include(d => d.HeadUser)
                 .FirstOrDefaultAsync(d => d.Id == request.Id, cancellationToken);
@@ -151,7 +152,7 @@ public class DepartmentsService : IDepartmentsService
         var response = new Response<IEnumerable<DepartmentDto>>();
         try
         {
-            var departments = await _context.Departments
+            var departments = await _deptRepo.Query()
                 .AsNoTracking()
                 .Include(d => d.HeadUser)
                 .Select(d => new DepartmentDto(

@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using OtpNet;
 using TaxOmbud.Application.Auth.DTOs;
 using TaxOmbud.Application.Interfaces.InfrastructureService;
-using TaxOmbud.Application.Interfaces.Persistence;
+using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Common.Responses;
 using TaxOmbud.Common.Utilities;
@@ -13,19 +13,29 @@ namespace TaxOmbud.Application.Services;
 
 public class AuthService : IAuthService
 {
-    private readonly IApplicationDbContext _context;
+    private readonly IGenericRepository<User> _userRepo;
+    private readonly IGenericRepository<RefreshToken> _refreshTokenRepo;
+    private readonly IGenericRepository<Role> _roleRepo;
+    private readonly IGenericRepository<MfaToken> _mfaTokenRepo;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IEmailService _emailService;
     private readonly ITokenService _tokenService;
 
+
     public AuthService(
-        IApplicationDbContext context,
+        IGenericRepository<User> userRepo,
+        IGenericRepository<RefreshToken> refreshTokenRepo,
+        IGenericRepository<Role> roleRepo,
+        IGenericRepository<MfaToken> mfaTokenRepo,
         IPasswordHasher passwordHasher,
         IEmailService emailService,
         ITokenService tokenService
     )
     {
-        _context = context;
+        _userRepo = userRepo;
+        _refreshTokenRepo = refreshTokenRepo;
+        _roleRepo = roleRepo;
+        _mfaTokenRepo = mfaTokenRepo;
         _passwordHasher = passwordHasher;
         _emailService = emailService;
         _tokenService = tokenService;
@@ -36,20 +46,20 @@ public class AuthService : IAuthService
         var response = new Response<object?>();
         try
         {
-            var user = await _context.Users
+            var user = await _userRepo.Query()
                 .FirstOrDefaultAsync(u => u.Id == request.UserId, cancellationToken);
 
             if (user is null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
-                response.Message = "User not found.";
+                response.Message = Constants.Messages.AuthUserNotFound;
                 return response;
             }
 
             if (!_passwordHasher.Verify(request.CurrentPassword, user.PasswordHash ?? string.Empty))
             {
                 response.StatusCode = StatusCodes.Status400BadRequest;
-                response.Message = "Current password is incorrect.";
+                response.Message = Constants.Messages.AuthPasswordIncorrect;
                 return response;
             }
 
@@ -57,15 +67,14 @@ public class AuthService : IAuthService
             user.SetPasswordHash(newHash);
 
             // Revoke all refresh tokens so all other sessions are terminated
-            var tokens = await _context.RefreshTokens
-                .Where(t => t.UserId == user.Id)
-                .ToListAsync(cancellationToken);
-            _context.RefreshTokens.RemoveRange(tokens);
+            var tokens = await _refreshTokenRepo.FindAllAsync(t => t.UserId == user.Id);
+            await _refreshTokenRepo.RemoveRangeAsync(tokens);
 
-            await _context.SaveChangesAsync(cancellationToken);
+            await _userRepo.UpdateAsync(user);
+            await _userRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Success";
+            response.Message = Constants.Messages.Success;
         }
         catch (Exception ex)
         {
@@ -80,14 +89,14 @@ public class AuthService : IAuthService
         var response = new Response<object?>();
         try
         {
-            var user = await _context.Users
+            var user = await _userRepo.Query()
                 .Include(u => u.MfaToken)
                 .FirstOrDefaultAsync(u => u.Id == request.UserId, cancellationToken);
 
             if (user is null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
-                response.Message = "User not found.";
+                response.Message = Constants.Messages.AuthUserNotFound;
                 return response;
             }
 
@@ -95,22 +104,23 @@ public class AuthService : IAuthService
             if (!_passwordHasher.Verify(request.Password, user.PasswordHash ?? string.Empty))
             {
                 response.StatusCode = StatusCodes.Status400BadRequest;
-                response.Message = "Password confirmation failed.";
+                response.Message = Constants.Messages.AuthPasswordConfirmationFailed;
                 return response;
             }
 
             if (user.MfaToken is null || !user.MfaToken.IsEnabled)
             {
                 response.StatusCode = StatusCodes.Status200OK;
-                response.Message = "Success";
+                response.Message = Constants.Messages.Success;
                 return response;
             }
 
             user.MfaToken.IsEnabled = false;
-            await _context.SaveChangesAsync(cancellationToken);
+            await _userRepo.UpdateAsync(user);
+            await _userRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Success";
+            response.Message = Constants.Messages.Success;
         }
         catch (Exception ex)
         {
@@ -127,14 +137,13 @@ public class AuthService : IAuthService
         {
             var email = request.Email.Trim().ToLowerInvariant();
 
-            var user = await _context.Users
-                .FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
+            var user = await _userRepo.FindAsync(u => u.Email == email);
 
             // Always return success to prevent email enumeration
             if (user is null)
             {
                 response.StatusCode = StatusCodes.Status200OK;
-                response.Message = "Success";
+                response.Message = Constants.Messages.Success;
                 return response;
             }
 
@@ -143,7 +152,8 @@ public class AuthService : IAuthService
                 .Replace("+", "-").Replace("/", "_").TrimEnd('=');
 
             user.SetPasswordResetToken(token);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _userRepo.UpdateAsync(user);
+            await _userRepo.SaveAsync();
 
             // Send email with reset link
             await _emailService.SendAsync(
@@ -153,7 +163,7 @@ public class AuthService : IAuthService
                 cancellationToken: cancellationToken);
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Success";
+            response.Message = Constants.Messages.Success;
         }
         catch (Exception ex)
         {
@@ -170,7 +180,7 @@ public class AuthService : IAuthService
         {
             var emailNormalized = request.Email.Trim().ToLowerInvariant();
 
-            var user = await _context.Users
+            var user = await _userRepo.Query()
                 .Include(u => u.Role)
                     .ThenInclude(r => r!.RolePermissions)
                         .ThenInclude(rp => rp.Permission)
@@ -179,14 +189,14 @@ public class AuthService : IAuthService
             if (user is null || !_passwordHasher.Verify(request.Password, user.PasswordHash ?? string.Empty))
             {
                 response.StatusCode = StatusCodes.Status400BadRequest;
-                response.Message = "Invalid email or password.";
+                response.Message = Constants.Messages.InvalidCredentials;
                 return response;
             }
 
             if (!user.IsActive || !user.CanSignIn)
             {
                 response.StatusCode = StatusCodes.Status403Forbidden;
-                response.Message = "This account has been disabled.";
+                response.Message = Constants.Messages.AuthAccountDisabled;
                 return response;
             }
 
@@ -213,11 +223,12 @@ public class AuthService : IAuthService
                 ExpiresAt = refreshExpiry,
                 CreatedAt = DateTime.UtcNow
             };
-            _context.RefreshTokens.Add(rt);
-            await _context.SaveChangesAsync(cancellationToken);
+
+            await _refreshTokenRepo.AddAsync(rt);
+            await _refreshTokenRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Success";
+            response.Message = Constants.Messages.Success;
             response.Data = new LoginResponse(
                 AccessToken: accessToken,
                 RefreshToken: refreshToken,
@@ -241,17 +252,16 @@ public class AuthService : IAuthService
         var response = new Response<object?>();
         try
         {
-            var token = await _context.RefreshTokens
-                .FirstOrDefaultAsync(t => t.Token == request.RefreshToken, cancellationToken);
+            var token = await _refreshTokenRepo.FindAsync(t => t.Token == request.RefreshToken);
 
             if (token is not null)
             {
-                _context.RefreshTokens.Remove(token);
-                await _context.SaveChangesAsync(cancellationToken);
+                await _refreshTokenRepo.RemoveAsync(token);
+                await _refreshTokenRepo.SaveAsync();
             }
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Success";
+            response.Message = Constants.Messages.Success;
         }
         catch (Exception ex)
         {
@@ -266,7 +276,7 @@ public class AuthService : IAuthService
         var response = new Response<RefreshTokenResponse>();
         try
         {
-            var storedToken = await _context.RefreshTokens
+            var storedToken = await _refreshTokenRepo.Query()
                 .Include(rt => rt.User)
                     .ThenInclude(u => u.Role)
                         .ThenInclude(r => r!.RolePermissions)
@@ -276,21 +286,21 @@ public class AuthService : IAuthService
             if (storedToken is null)
             {
                 response.StatusCode = StatusCodes.Status400BadRequest;
-                response.Message = "Invalid refresh token.";
+                response.Message = Constants.Messages.AuthInvalidRefreshToken;
                 return response;
             }
 
             if (storedToken.IsRevoked)
             {
                 response.StatusCode = StatusCodes.Status400BadRequest;
-                response.Message = "Refresh token has been revoked.";
+                response.Message = Constants.Messages.AuthRefreshTokenRevoked;
                 return response;
             }
 
             if (storedToken.ExpiresAt < DateTime.UtcNow)
             {
                 response.StatusCode = StatusCodes.Status400BadRequest;
-                response.Message = "Refresh token has expired. Please log in again.";
+                response.Message = Constants.Messages.AuthRefreshTokenExpired;
                 return response;
             }
 
@@ -323,11 +333,12 @@ public class AuthService : IAuthService
             };
             storedToken.ReplacedByToken = newRefreshToken;
 
-            _context.RefreshTokens.Add(newRt);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _refreshTokenRepo.UpdateAsync(storedToken);
+            await _refreshTokenRepo.AddAsync(newRt);
+            await _refreshTokenRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Success";
+            response.Message = Constants.Messages.Success;
             response.Data = new RefreshTokenResponse(accessToken, newRefreshToken, expiry);
         }
         catch (Exception ex)
@@ -345,8 +356,7 @@ public class AuthService : IAuthService
         {
             var emailNormalized = request.Email.Trim().ToLowerInvariant();
 
-            var exists = await _context.Users
-                .AnyAsync(u => u.Email == emailNormalized, cancellationToken);
+            var exists = await _userRepo.ExistsAsync(u => u.Email == emailNormalized);
 
             if (exists)
             {
@@ -356,8 +366,7 @@ public class AuthService : IAuthService
             }
 
             // Resolve the default Taxpayer role
-            var taxpayerRole = await _context.Roles
-                .FirstOrDefaultAsync(r => r.Name == "Taxpayer", cancellationToken);
+            var taxpayerRole = await _roleRepo.FindAsync(r => r.Name == "Taxpayer");
 
             // Create user
             var emailVo = new Email(request.Email);
@@ -367,11 +376,11 @@ public class AuthService : IAuthService
             if (taxpayerRole != null)
                 user.AssignRole(taxpayerRole.Id);
 
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _userRepo.AddAsync(user);
+            await _userRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Success";
+            response.Message = Constants.Messages.Success;
             response.Data = new RegisterResponse(user.Id, user.Email ?? string.Empty, user.FullName);
         }
         catch (Exception ex)
@@ -389,13 +398,12 @@ public class AuthService : IAuthService
         {
             var email = request.Email.Trim().ToLowerInvariant();
 
-            var user = await _context.Users
-                .FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
+            var user = await _userRepo.FindAsync(u => u.Email == email);
 
             if (user is null)
             {
                 response.StatusCode = StatusCodes.Status400BadRequest;
-                response.Message = "Invalid or expired reset token.";
+                response.Message = Constants.Messages.AuthInvalidResetToken;
                 return response;
             }
 
@@ -403,7 +411,7 @@ public class AuthService : IAuthService
                 user.PasswordResetTokenExpiresAt < DateTimeOffset.UtcNow)
             {
                 response.StatusCode = StatusCodes.Status400BadRequest;
-                response.Message = "Invalid or expired reset token.";
+                response.Message = Constants.Messages.AuthInvalidResetToken;
                 return response;
             }
 
@@ -412,15 +420,14 @@ public class AuthService : IAuthService
             user.ClearPasswordResetToken();
 
             // Revoke all existing refresh tokens for security
-            var tokens = await _context.RefreshTokens
-                .Where(t => t.UserId == user.Id)
-                .ToListAsync(cancellationToken);
-            _context.RefreshTokens.RemoveRange(tokens);
+            var tokens = await _refreshTokenRepo.FindAllAsync(t => t.UserId == user.Id);
+            await _refreshTokenRepo.RemoveRangeAsync(tokens);
 
-            await _context.SaveChangesAsync(cancellationToken);
+            await _userRepo.UpdateAsync(user);
+            await _userRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Success";
+            response.Message = Constants.Messages.Success;
         }
         catch (Exception ex)
         {
@@ -435,14 +442,14 @@ public class AuthService : IAuthService
         var response = new Response<SetupMfaResponse>();
         try
         {
-            var user = await _context.Users
+            var user = await _userRepo.Query()
                 .Include(u => u.MfaToken)
                 .FirstOrDefaultAsync(u => u.Id == request.UserId, cancellationToken);
 
             if (user is null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
-                response.Message = "User not found.";
+                response.Message = Constants.Messages.AuthUserNotFound;
                 return response;
             }
 
@@ -468,23 +475,25 @@ public class AuthService : IAuthService
                     IsEnabled = false,
                     BackupCodesHash = hashedBackups
                 };
-                _context.MfaTokens.Add(mfaToken);
+                await _mfaTokenRepo.AddAsync(mfaToken);
             }
             else
             {
                 user.MfaToken.SecretKey = secretBase32;
                 user.MfaToken.IsEnabled = false;
                 user.MfaToken.BackupCodesHash = hashedBackups;
+                await _mfaTokenRepo.UpdateAsync(user.MfaToken);
             }
 
-            await _context.SaveChangesAsync(cancellationToken);
+            await _userRepo.UpdateAsync(user);
+            await _userRepo.SaveAsync();
 
             var label = Uri.EscapeDataString(user.Email ?? string.Empty);
             var issuer = Uri.EscapeDataString("TaxOmbud");
             var qrUri = $"otpauth://totp/{issuer}:{label}?secret={secretBase32}&issuer={issuer}&algorithm=SHA1&digits=6&period=30";
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Success";
+            response.Message = Constants.Messages.Success;
             response.Data = new SetupMfaResponse(
                 QrCodeUri: qrUri,
                 SecretKey: secretBase32,
@@ -504,35 +513,35 @@ public class AuthService : IAuthService
         var response = new Response<object?>();
         try
         {
-            var user = await _context.Users
-                .FirstOrDefaultAsync(u => u.EmailVerificationToken == request.Token, cancellationToken);
+            var user = await _userRepo.FindAsync(u => u.EmailVerificationToken == request.Token);
 
             if (user is null)
             {
                 response.StatusCode = StatusCodes.Status400BadRequest;
-                response.Message = "Invalid or expired verification token.";
+                response.Message = Constants.Messages.AuthInvalidVerificationToken;
                 return response;
             }
 
             if (user.EmailVerificationTokenExpiresAt < DateTimeOffset.UtcNow)
             {
                 response.StatusCode = StatusCodes.Status400BadRequest;
-                response.Message = "Verification token has expired. Please request a new one.";
+                response.Message = Constants.Messages.AuthVerificationTokenExpired;
                 return response;
             }
 
             if (user.EmailVerified)
             {
                 response.StatusCode = StatusCodes.Status200OK;
-                response.Message = "Success";
+                response.Message = Constants.Messages.Success;
                 return response;
             }
 
             user.MarkEmailVerified();
-            await _context.SaveChangesAsync(cancellationToken);
+            await _userRepo.UpdateAsync(user);
+            await _userRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Success";
+            response.Message = Constants.Messages.Success;
         }
         catch (Exception ex)
         {
@@ -547,13 +556,12 @@ public class AuthService : IAuthService
         var response = new Response<object?>();
         try
         {
-            var mfaToken = await _context.MfaTokens
-                .FirstOrDefaultAsync(m => m.UserId == request.UserId, cancellationToken);
+            var mfaToken = await _mfaTokenRepo.FindAsync(m => m.UserId == request.UserId);
 
             if (mfaToken is null)
             {
                 response.StatusCode = StatusCodes.Status400BadRequest;
-                response.Message = "MFA has not been set up. Please call /mfa/setup first.";
+                response.Message = Constants.Messages.AuthMfaNotSetUp;
                 return response;
             }
 
@@ -568,15 +576,16 @@ public class AuthService : IAuthService
             if (!isValid)
             {
                 response.StatusCode = StatusCodes.Status400BadRequest;
-                response.Message = "Invalid TOTP code.";
+                response.Message = Constants.Messages.AuthInvalidTotp;
                 return response;
             }
 
             mfaToken.IsEnabled = true;
-            await _context.SaveChangesAsync(cancellationToken);
+            await _mfaTokenRepo.UpdateAsync(mfaToken);
+            await _mfaTokenRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Success";
+            response.Message = Constants.Messages.Success;
         }
         catch (Exception ex)
         {

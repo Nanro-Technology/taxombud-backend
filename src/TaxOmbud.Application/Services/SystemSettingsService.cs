@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using TaxOmbud.Application.Interfaces.InfrastructureService;
-using TaxOmbud.Application.Interfaces.Persistence;
+using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Application.SystemSettings.DTOs;
 using TaxOmbud.Common.Responses;
@@ -10,15 +10,14 @@ namespace TaxOmbud.Application.Services;
 
 public class SystemSettingsService : ISystemSettingsService
 {
-    private readonly IApplicationDbContext _context;
+    private readonly IGenericRepository<SystemSetting> _settingRepo;
     private readonly ICacheService _cache;
 
     public SystemSettingsService(
-        IApplicationDbContext context,
-        ICacheService cache
-    )
+        IGenericRepository<SystemSetting> settingRepo,
+        ICacheService cache)
     {
-        _context = context;
+        _settingRepo = settingRepo;
         _cache = cache;
     }
 
@@ -27,8 +26,7 @@ public class SystemSettingsService : ISystemSettingsService
         var response = new Response<object?>();
         try
         {
-            var setting = await _context.SystemSettings
-                .FirstOrDefaultAsync(s => s.Key == "E2EE_ENABLED", cancellationToken);
+            var setting = await _settingRepo.FindAsync(s => s.Key == "E2EE_ENABLED");
 
             if (setting == null)
             {
@@ -38,25 +36,25 @@ public class SystemSettingsService : ISystemSettingsService
                     Value = request.Enable.ToString(),
                     Description = "Globally enables or disables End-to-End Encryption for API payloads."
                 };
-                _context.SystemSettings.Add(setting);
+                await _settingRepo.AddAsync(setting);
             }
             else
             {
                 setting.Value = request.Enable.ToString();
+                await _settingRepo.UpdateAsync(setting);
             }
 
-            await _context.SaveChangesAsync(cancellationToken);
-            
+            await _settingRepo.SaveAsync();
             await _cache.RemoveAsync("E2EE_ENABLED", cancellationToken);
 
-            response.StatusCode = Microsoft.AspNetCore.Http.StatusCodes.Status200OK;
+            response.StatusCode = StatusCodes.Status200OK;
             response.Message = "E2EE toggled successfully.";
             response.Data = null;
             return response;
         }
         catch (Exception)
         {
-            response.StatusCode = Microsoft.AspNetCore.Http.StatusCodes.Status500InternalServerError;
+            response.StatusCode = StatusCodes.Status500InternalServerError;
             response.Message = "An error occurred while toggling E2EE.";
             return response;
         }
@@ -67,8 +65,7 @@ public class SystemSettingsService : ISystemSettingsService
         var response = new Response<E2eeStatusDto>();
         try
         {
-            var setting = await _context.SystemSettings
-                .FirstOrDefaultAsync(s => s.Key == "E2EE_ENABLED", cancellationToken);
+            var setting = await _settingRepo.FindAsync(s => s.Key == "E2EE_ENABLED");
 
             bool isEnabled = false;
             if (setting != null && bool.TryParse(setting.Value, out var val))
@@ -76,14 +73,14 @@ public class SystemSettingsService : ISystemSettingsService
                 isEnabled = val;
             }
 
-            response.StatusCode = Microsoft.AspNetCore.Http.StatusCodes.Status200OK;
+            response.StatusCode = StatusCodes.Status200OK;
             response.Message = "E2EE status retrieved successfully.";
             response.Data = new E2eeStatusDto(isEnabled);
             return response;
         }
         catch (Exception)
         {
-            response.StatusCode = Microsoft.AspNetCore.Http.StatusCodes.Status500InternalServerError;
+            response.StatusCode = StatusCodes.Status500InternalServerError;
             response.Message = "An error occurred while retrieving E2EE status.";
             return response;
         }

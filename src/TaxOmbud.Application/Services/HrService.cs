@@ -1,24 +1,46 @@
 using Microsoft.EntityFrameworkCore;
 using TaxOmbud.Application.Hr.DTOs;
 using TaxOmbud.Application.Interfaces.InfrastructureService;
-using TaxOmbud.Application.Interfaces.Persistence;
+using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Common.Responses;
 using TaxOmbud.Domain.Entities.Hr;
+using TaxOmbud.Domain.Entities.Identity;
 
 namespace TaxOmbud.Application.Services;
 
 public class HrService : IHrService
 {
-    private readonly IApplicationDbContext _context;
+    private readonly IGenericRepository<LeaveRequest> _leaveRepo;
+    private readonly IGenericRepository<LoanRequest> _loanRepo;
+    private readonly IGenericRepository<PayrollRun> _payrollRunRepo;
+    private readonly IGenericRepository<PayrollPeriod> _payrollPeriodRepo;
+    private readonly IGenericRepository<StaffProfile> _staffRepo;
+    private readonly IGenericRepository<EmployeeWallet> _walletRepo;
+    private readonly IGenericRepository<EwaRequest> _ewaRepo;
+    private readonly IGenericRepository<User> _userRepo;
     private readonly ICurrentUser _currentUser;
 
     public HrService(
-        IApplicationDbContext context,
+        IGenericRepository<LeaveRequest> leaveRepo,
+        IGenericRepository<LoanRequest> loanRepo,
+        IGenericRepository<PayrollRun> payrollRunRepo,
+        IGenericRepository<PayrollPeriod> payrollPeriodRepo,
+        IGenericRepository<StaffProfile> staffRepo,
+        IGenericRepository<EmployeeWallet> walletRepo,
+        IGenericRepository<EwaRequest> ewaRepo,
+        IGenericRepository<User> userRepo,
         ICurrentUser currentUser
     )
     {
-        _context = context;
+        _leaveRepo = leaveRepo;
+        _loanRepo = loanRepo;
+        _payrollRunRepo = payrollRunRepo;
+        _payrollPeriodRepo = payrollPeriodRepo;
+        _staffRepo = staffRepo;
+        _walletRepo = walletRepo;
+        _ewaRepo = ewaRepo;
+        _userRepo = userRepo;
         _currentUser = currentUser;
     }
 
@@ -27,7 +49,7 @@ public class HrService : IHrService
         var response = new Response<object?>();
         try
         {
-            var leave = await _context.LeaveRequests.FirstOrDefaultAsync(l => l.Id == request.Id, cancellationToken);
+            var leave = await _leaveRepo.FindAsync(l => l.Id == request.Id);
             if (leave == null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
@@ -39,7 +61,8 @@ public class HrService : IHrService
             leave.ApproverUserId = _currentUser.UserId ?? Guid.Empty;
             leave.SupervisorNote = request.SupervisorNote;
 
-            await _context.SaveChangesAsync(cancellationToken);
+            await _leaveRepo.UpdateAsync(leave);
+            await _leaveRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Leave request processed successfully.";
@@ -58,7 +81,7 @@ public class HrService : IHrService
         var response = new Response<object?>();
         try
         {
-            var loan = await _context.LoanRequests.FirstOrDefaultAsync(l => l.Id == request.Id, cancellationToken);
+            var loan = await _loanRepo.FindAsync(l => l.Id == request.Id);
             if (loan == null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
@@ -67,7 +90,8 @@ public class HrService : IHrService
             }
 
             loan.Status = request.Approved ? "approved" : "rejected";
-            await _context.SaveChangesAsync(cancellationToken);
+            await _loanRepo.UpdateAsync(loan);
+            await _loanRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Loan request processed successfully.";
@@ -86,7 +110,7 @@ public class HrService : IHrService
         var response = new Response<PayrollRun>();
         try
         {
-            var period = await _context.PayrollPeriods.FirstOrDefaultAsync(p => p.Id == request.PeriodId, cancellationToken);
+            var period = await _payrollPeriodRepo.FindAsync(p => p.Id == request.PeriodId);
             if (period == null)
             {
                 response.StatusCode = StatusCodes.Status400BadRequest;
@@ -101,8 +125,8 @@ public class HrService : IHrService
                 Status = "draft"
             };
 
-            _context.PayrollRuns.Add(payrollRun);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _payrollRunRepo.AddAsync(payrollRun);
+            await _payrollRunRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Payroll run created successfully.";
@@ -135,8 +159,8 @@ public class HrService : IHrService
                 Status = "pending"
             };
 
-            _context.LeaveRequests.Add(leave);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _leaveRepo.AddAsync(leave);
+            await _leaveRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Leave request submitted successfully.";
@@ -168,8 +192,8 @@ public class HrService : IHrService
                 Status = "pending"
             };
 
-            _context.LoanRequests.Add(loan);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _loanRepo.AddAsync(loan);
+            await _loanRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Loan request submitted successfully.";
@@ -189,7 +213,7 @@ public class HrService : IHrService
         var response = new Response<StaffProfile>();
         try
         {
-            var userExists = await _context.Users.AnyAsync(u => u.Id == request.UserId, cancellationToken);
+            var userExists = await _userRepo.ExistsAsync(u => u.Id == request.UserId);
             if (!userExists)
             {
                 response.StatusCode = StatusCodes.Status400BadRequest;
@@ -197,7 +221,7 @@ public class HrService : IHrService
                 return response;
             }
 
-            var staff = await _context.StaffProfiles.FirstOrDefaultAsync(s => s.UserId == request.UserId, cancellationToken);
+            var staff = await _staffRepo.FindAsync(s => s.UserId == request.UserId);
             bool isNew = false;
             if (staff == null)
             {
@@ -230,9 +254,11 @@ public class HrService : IHrService
             staff.NextOfKinAddress = request.NextOfKinAddress;
 
             if (isNew)
-                _context.StaffProfiles.Add(staff);
+                await _staffRepo.AddAsync(staff);
+            else
+                await _staffRepo.UpdateAsync(staff);
 
-            await _context.SaveChangesAsync(cancellationToken);
+            await _staffRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Staff profile saved successfully.";
@@ -254,7 +280,10 @@ public class HrService : IHrService
         {
             var currentUserId = _currentUser.UserId ?? Guid.Empty;
 
-            var wallet = await _context.EmployeeWallets.FirstOrDefaultAsync(w => w.UserId == currentUserId, cancellationToken);
+            var wallet = await _walletRepo.Query()
+                .Include(w => w.Transactions)
+                .FirstOrDefaultAsync(w => w.UserId == currentUserId, cancellationToken);
+
             if (wallet == null || wallet.BalanceNgn < request.Amount)
             {
                 response.StatusCode = StatusCodes.Status400BadRequest;
@@ -281,8 +310,9 @@ public class HrService : IHrService
                 Reference = "EWA-" + Guid.NewGuid().ToString("N").Substring(0, 8)
             });
 
-            _context.EwaRequests.Add(req);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _walletRepo.UpdateAsync(wallet);
+            await _ewaRepo.AddAsync(req);
+            await _walletRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Earned Wage Access payout initiated successfully.";
@@ -302,7 +332,7 @@ public class HrService : IHrService
         var response = new Response<IEnumerable<LeaveRequestDto>>();
         try
         {
-            var query = _context.LeaveRequests
+            var query = _leaveRepo.Query()
                 .Include(l => l.User)
                 .AsNoTracking()
                 .AsQueryable();
@@ -349,7 +379,7 @@ public class HrService : IHrService
         var response = new Response<IEnumerable<PayrollPeriod>>();
         try
         {
-            var periods = await _context.PayrollPeriods.AsNoTracking().ToListAsync(cancellationToken);
+            var periods = await _payrollPeriodRepo.Query().AsNoTracking().ToListAsync(cancellationToken);
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Payroll periods retrieved successfully.";
@@ -369,7 +399,7 @@ public class HrService : IHrService
         var response = new Response<PagedResult<StaffListDto>>();
         try
         {
-            var query = _context.StaffProfiles
+            var query = _staffRepo.Query()
                 .Include(s => s.User)
                     .ThenInclude(u => u.Department)
                 .AsNoTracking()
@@ -421,7 +451,7 @@ public class HrService : IHrService
         var response = new Response<StaffDetailDto>();
         try
         {
-            var staff = await _context.StaffProfiles
+            var staff = await _staffRepo.Query()
                 .Include(s => s.User)
                     .ThenInclude(u => u.Department)
                 .AsNoTracking()
@@ -474,15 +504,15 @@ public class HrService : IHrService
         {
             var currentUserId = _currentUser.UserId ?? Guid.Empty;
 
-            var wallet = await _context.EmployeeWallets
+            var wallet = await _walletRepo.Query()
                 .Include(w => w.Transactions)
                 .FirstOrDefaultAsync(w => w.UserId == currentUserId, cancellationToken);
 
             if (wallet == null)
             {
                 wallet = new EmployeeWallet { UserId = currentUserId, BalanceNgn = 0, LedgerVersion = 1 };
-                _context.EmployeeWallets.Add(wallet);
-                await _context.SaveChangesAsync(cancellationToken);
+                await _walletRepo.AddAsync(wallet);
+                await _walletRepo.SaveAsync();
             }
 
             response.StatusCode = StatusCodes.Status200OK;

@@ -1,22 +1,43 @@
 using Microsoft.EntityFrameworkCore;
 using TaxOmbud.Application.Cases.DTOs;
-using TaxOmbud.Application.Interfaces.Persistence;
+using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Common.Responses;
 using TaxOmbud.Domain.Entities.Cases;
 using TaxOmbud.Domain.Entities.Complaints;
+using TaxOmbud.Domain.Entities.Communications;
 using TaxOmbud.Domain.Entities.Documents;
 using TaxOmbud.Domain.Enums;
+using TaxOmbud.Common.Utilities;
 
 namespace TaxOmbud.Application.Services;
 
 public class CasesService : ICasesService
 {
-    private readonly IApplicationDbContext _context;
+    private readonly IGenericRepository<Case> _caseRepo;
+    private readonly IGenericRepository<Complaint> _complaintRepo;
+    private readonly IGenericRepository<CaseFinding> _findingRepo;
+    private readonly IGenericRepository<CaseMilestone> _milestoneRepo;
+    private readonly IGenericRepository<CaseCommunicationLog> _communicationRepo;
+    private readonly IGenericRepository<Document> _docRepo;
+    private readonly IGenericRepository<CaseNote> _noteRepo;
 
-    public CasesService(IApplicationDbContext context)
+    public CasesService(
+        IGenericRepository<Case> caseRepo,
+        IGenericRepository<Complaint> complaintRepo,
+        IGenericRepository<CaseFinding> findingRepo,
+        IGenericRepository<CaseMilestone> milestoneRepo,
+        IGenericRepository<CaseCommunicationLog> communicationRepo,
+        IGenericRepository<Document> docRepo,
+        IGenericRepository<CaseNote> noteRepo)
     {
-        _context = context;
+        _caseRepo = caseRepo;
+        _complaintRepo = complaintRepo;
+        _findingRepo = findingRepo;
+        _milestoneRepo = milestoneRepo;
+        _communicationRepo = communicationRepo;
+        _docRepo = docRepo;
+        _noteRepo = noteRepo;
     }
 
     // ─── Queries ───────────────────────────────────────────────────────────────
@@ -26,7 +47,7 @@ public class CasesService : ICasesService
         var response = new Response<PagedResult<CaseListDto>>();
         try
         {
-            var query = _context.Cases
+            var query = _caseRepo.Query()
                 .Include(c => c.Complaint)
                     .ThenInclude(co => co.Taxpayer)
                 .AsQueryable();
@@ -63,13 +84,13 @@ public class CasesService : ICasesService
                 .ToListAsync(cancellationToken);
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Cases retrieved successfully.";
+            response.Message = Constants.Messages.CasesRetrieved;
             response.Data = new PagedResult<CaseListDto>(items, total, request.Page, request.PageSize);
         }
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = "An error occurred while retrieving cases.";
+            response.Message = Constants.Messages.CaseRetrieveError;
         }
         return response;
     }
@@ -79,7 +100,7 @@ public class CasesService : ICasesService
         var response = new Response<PagedResult<CaseListDto>>();
         try
         {
-            var query = _context.Cases
+            var query = _caseRepo.Query()
                 .Include(c => c.Complaint)
                     .ThenInclude(co => co.Taxpayer)
                 .AsQueryable();
@@ -115,13 +136,13 @@ public class CasesService : ICasesService
                 .ToListAsync(cancellationToken);
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Cases retrieved successfully.";
+            response.Message = Constants.Messages.CasesRetrieved;
             response.Data = new PagedResult<CaseListDto>(items, total, request.Page, request.PageSize);
         }
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = "An error occurred while retrieving cases.";
+            response.Message = Constants.Messages.CaseRetrieveError;
         }
         return response;
     }
@@ -132,7 +153,7 @@ public class CasesService : ICasesService
         try
         {
             var now = DateTimeOffset.UtcNow;
-            var query = _context.Cases
+            var query = _caseRepo.Query()
                 .Include(c => c.Complaint)
                     .ThenInclude(co => co.Taxpayer)
                 .Where(c => c.DueDate.HasValue && c.DueDate < now);
@@ -174,7 +195,7 @@ public class CasesService : ICasesService
         var response = new Response<QueueResultDto>();
         try
         {
-            var query = _context.Cases
+            var query = _caseRepo.Query()
                 .Include(c => c.Complaint)
                     .ThenInclude(co => co.Taxpayer)
                 .Where(c => c.CurrentStage == request.QueueName);
@@ -199,13 +220,13 @@ public class CasesService : ICasesService
                 .ToListAsync(cancellationToken);
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Queue retrieved successfully.";
+            response.Message = Constants.Messages.CaseQueueRetrieved;
             response.Data = new QueueResultDto(request.QueueName, items, total, request.Page, request.PageSize);
         }
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = "An error occurred while retrieving the queue.";
+            response.Message = Constants.Messages.CaseQueueError;
         }
         return response;
     }
@@ -215,7 +236,7 @@ public class CasesService : ICasesService
         var response = new Response<CaseDetailDto>();
         try
         {
-            var c = await _context.Cases
+            var c = await _caseRepo.Query()
                 .Include(x => x.Complaint).ThenInclude(co => co.Taxpayer)
                 .Include(x => x.AssignedOfficer).ThenInclude(o => o!.User)
                 .Include(x => x.Department)
@@ -228,12 +249,12 @@ public class CasesService : ICasesService
             if (c is null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
-                response.Message = "Case not found.";
+                response.Message = Constants.Messages.CaseNotFound;
                 return response;
             }
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Case retrieved successfully.";
+            response.Message = Constants.Messages.CaseRetrieved;
             response.Data = new CaseDetailDto(
                 c.Id,
                 c.CaseNumber.Value,
@@ -260,7 +281,7 @@ public class CasesService : ICasesService
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = "An error occurred while retrieving the case.";
+            response.Message = Constants.Messages.CaseGetError;
         }
         return response;
     }
@@ -270,20 +291,20 @@ public class CasesService : ICasesService
         var response = new Response<IReadOnlyList<CaseFindingDto>>();
         try
         {
-            var findings = await _context.CaseFindings
+            var findings = await _findingRepo.Query()
                 .Where(f => f.CaseId == request.CaseId)
                 .OrderByDescending(f => f.CreatedAt)
                 .Select(f => new CaseFindingDto(f.Id, f.CaseId, f.Description, f.CreatedAt, f.CreatedByUserId))
                 .ToListAsync(cancellationToken);
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Findings retrieved successfully.";
+            response.Message = Constants.Messages.CaseFindingsRetrieved;
             response.Data = findings.AsReadOnly();
         }
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = "An error occurred while retrieving findings.";
+            response.Message = Constants.Messages.CaseFindingsError;
         }
         return response;
     }
@@ -293,20 +314,20 @@ public class CasesService : ICasesService
         var response = new Response<IReadOnlyList<CaseMilestoneDto>>();
         try
         {
-            var milestones = await _context.CaseMilestones
+            var milestones = await _milestoneRepo.Query()
                 .Where(m => m.CaseId == request.CaseId)
                 .OrderBy(m => m.CreatedAt)
                 .Select(m => new CaseMilestoneDto(m.Id, m.CaseId, m.Title, m.Description, m.TargetDate, m.CompletedAt, m.IsCompleted))
                 .ToListAsync(cancellationToken);
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Milestones retrieved successfully.";
+            response.Message = Constants.Messages.CaseMilestonesRetrieved;
             response.Data = milestones.AsReadOnly();
         }
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = "An error occurred while retrieving milestones.";
+            response.Message = Constants.Messages.CaseMilestonesError;
         }
         return response;
     }
@@ -316,20 +337,20 @@ public class CasesService : ICasesService
         var response = new Response<IReadOnlyList<CaseCommunicationDto>>();
         try
         {
-            var logs = await _context.CaseCommunicationLogs
+            var logs = await _communicationRepo.Query()
                 .Where(l => l.CaseId == request.CaseId)
                 .OrderByDescending(l => l.SentAt)
                 .Select(l => new CaseCommunicationDto(l.Id, l.CaseId, l.Sender, l.Recipient, l.Direction.ToString(), l.Subject, l.Body, l.SentAt, l.Channel))
                 .ToListAsync(cancellationToken);
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Communications retrieved successfully.";
+            response.Message = Constants.Messages.CaseCommsRetrieved;
             response.Data = logs.AsReadOnly();
         }
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = "An error occurred while retrieving communications.";
+            response.Message = Constants.Messages.CaseCommsError;
         }
         return response;
     }
@@ -339,20 +360,20 @@ public class CasesService : ICasesService
         var response = new Response<IReadOnlyList<CaseDocumentDto>>();
         try
         {
-            var documents = await _context.Documents
+            var documents = await _docRepo.Query()
                 .Where(d => d.EntityId == request.CaseId && d.EntityType == DocumentEntityType.Case)
                 .OrderByDescending(d => d.CreatedAt)
                 .Select(d => new CaseDocumentDto(d.Id, d.FileName, d.ContentType, d.FileSize, d.CreatedAt))
                 .ToListAsync(cancellationToken);
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Documents retrieved successfully.";
+            response.Message = Constants.Messages.DocumentsRetrieved;
             response.Data = documents.AsReadOnly();
         }
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = "An error occurred while retrieving documents.";
+            response.Message = Constants.Messages.CaseDocsError;
         }
         return response;
     }
@@ -362,18 +383,18 @@ public class CasesService : ICasesService
         var response = new Response<TrackComplaintResponse>();
         try
         {
-            var complaint = await _context.Complaints
+            var complaint = await _complaintRepo.Query()
                 .FirstOrDefaultAsync(c => c.ReferenceNumber == request.TrackingNumber, cancellationToken);
 
             if (complaint is null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
-                response.Message = "No complaint found with the given tracking number.";
+                response.Message = Constants.Messages.ComplaintTrackNotFound;
                 return response;
             }
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Complaint tracked successfully.";
+            response.Message = Constants.Messages.ComplaintTracked;
             response.Data = new TrackComplaintResponse(
                 complaint.ReferenceNumber,
                 complaint.Status.ToString(),
@@ -386,7 +407,7 @@ public class CasesService : ICasesService
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = "An error occurred while tracking the complaint.";
+            response.Message = Constants.Messages.ComplaintTrackError;
         }
         return response;
     }
@@ -411,17 +432,17 @@ public class CasesService : ICasesService
             complaint.Submit();
             complaint.UpdateStage("input");
 
-            _context.Complaints.Add(complaint);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _complaintRepo.AddAsync(complaint);
+            await _complaintRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Case submitted successfully.";
+            response.Message = Constants.Messages.CaseCreated;
             response.Data = new SubmitPublicCaseResponse(complaint.Id, refNumber);
         }
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = "An error occurred while submitting the case.";
+            response.Message = Constants.Messages.CaseSubmitError;
         }
         return response;
     }
@@ -431,11 +452,11 @@ public class CasesService : ICasesService
         var response = new Response<AddCaseNoteResponse>();
         try
         {
-            var caseEntity = await _context.Cases.FindAsync(new object[] { request.CaseId }, cancellationToken);
+            var caseEntity = await _caseRepo.GetByIdAsync(request.CaseId);
             if (caseEntity is null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
-                response.Message = "Case not found.";
+                response.Message = Constants.Messages.CaseNotFound;
                 return response;
             }
 
@@ -448,17 +469,17 @@ public class CasesService : ICasesService
                 CreatedAt = DateTime.UtcNow
             };
 
-            _context.CaseNotes.Add(note);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _noteRepo.AddAsync(note);
+            await _noteRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Note added successfully.";
+            response.Message = Constants.Messages.NoteAdded;
             response.Data = new AddCaseNoteResponse(note.Id, note.Content, !note.IsInternal, note.CreatedAt);
         }
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = "An error occurred while adding the note.";
+            response.Message = Constants.Messages.CaseNoteAddError;
         }
         return response;
     }
@@ -476,17 +497,17 @@ public class CasesService : ICasesService
                 CreatedAt = DateTime.UtcNow
             };
 
-            _context.CaseFindings.Add(finding);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _findingRepo.AddAsync(finding);
+            await _findingRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Finding added successfully.";
+            response.Message = Constants.Messages.CaseFindingAdded;
             response.Data = finding.Id;
         }
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = "An error occurred while adding the finding.";
+            response.Message = Constants.Messages.CaseFindingAddError;
         }
         return response;
     }
@@ -496,26 +517,27 @@ public class CasesService : ICasesService
         var response = new Response<object?>();
         try
         {
-            var finding = await _context.CaseFindings
+            var finding = await _findingRepo.Query()
                 .FirstOrDefaultAsync(f => f.Id == request.FindingId && f.CaseId == request.CaseId, cancellationToken);
 
             if (finding is null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
-                response.Message = "Finding not found.";
+                response.Message = Constants.Messages.CaseFindingNotFound;
                 return response;
             }
 
             finding.Description = request.Description;
-            await _context.SaveChangesAsync(cancellationToken);
+            await _findingRepo.UpdateAsync(finding);
+            await _findingRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Finding updated successfully.";
+            response.Message = Constants.Messages.CaseFindingUpdated;
         }
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = "An error occurred while updating the finding.";
+            response.Message = Constants.Messages.CaseFindingUpdateError;
         }
         return response;
     }
@@ -525,24 +547,25 @@ public class CasesService : ICasesService
         var response = new Response<object?>();
         try
         {
-            var caseEntity = await _context.Cases.FindAsync(new object[] { request.CaseId }, cancellationToken);
+            var caseEntity = await _caseRepo.GetByIdAsync(request.CaseId);
             if (caseEntity is null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
-                response.Message = "Case not found.";
+                response.Message = Constants.Messages.CaseNotFound;
                 return response;
             }
 
             caseEntity.Assign(request.OfficerId, Guid.Empty);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _caseRepo.UpdateAsync(caseEntity);
+            await _caseRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Case assigned successfully.";
+            response.Message = Constants.Messages.CaseAssigned;
         }
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = "An error occurred while assigning the case.";
+            response.Message = Constants.Messages.CaseAssignError;
         }
         return response;
     }
@@ -552,24 +575,25 @@ public class CasesService : ICasesService
         var response = new Response<object?>();
         try
         {
-            var caseEntity = await _context.Cases.FindAsync(new object[] { request.CaseId }, cancellationToken);
+            var caseEntity = await _caseRepo.GetByIdAsync(request.CaseId);
             if (caseEntity is null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
-                response.Message = "Case not found.";
+                response.Message = Constants.Messages.CaseNotFound;
                 return response;
             }
 
             caseEntity.UpdateStatus(caseEntity.Status, request.TargetStage, Guid.Empty);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _caseRepo.UpdateAsync(caseEntity);
+            await _caseRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = $"Case transitioned to '{request.TargetStage}' successfully.";
+            response.Message = string.Format(Constants.Messages.CaseUpdated);
         }
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = "An error occurred while transitioning the case.";
+            response.Message = Constants.Messages.CaseTransitionError;
         }
         return response;
     }
@@ -579,11 +603,11 @@ public class CasesService : ICasesService
         var response = new Response<PostRecommendationResponse>();
         try
         {
-            var caseEntity = await _context.Cases.FindAsync(new object[] { request.CaseId }, cancellationToken);
+            var caseEntity = await _caseRepo.GetByIdAsync(request.CaseId);
             if (caseEntity is null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
-                response.Message = "Case not found.";
+                response.Message = Constants.Messages.CaseNotFound;
                 return response;
             }
 
@@ -596,16 +620,17 @@ public class CasesService : ICasesService
             };
 
             caseEntity.Recommendations.Add(rec);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _caseRepo.UpdateAsync(caseEntity);
+            await _caseRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Recommendation posted successfully.";
+            response.Message = Constants.Messages.CaseRecommendationPosted;
             response.Data = new PostRecommendationResponse(rec.Id, rec.RecommendationText, rec.CreatedAt);
         }
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = "An error occurred while posting the recommendation.";
+            response.Message = Constants.Messages.CaseRecommendationError;
         }
         return response;
     }
@@ -615,18 +640,18 @@ public class CasesService : ICasesService
         var response = new Response<object?>();
         try
         {
-            var caseEntity = await _context.Cases.FindAsync(new object[] { request.CaseId }, cancellationToken);
+            var caseEntity = await _caseRepo.GetByIdAsync(request.CaseId);
             if (caseEntity is null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
-                response.Message = "Case not found.";
+                response.Message = Constants.Messages.CaseNotFound;
                 return response;
             }
 
             if (request.Rationale.Length < 100)
             {
                 response.StatusCode = StatusCodes.Status400BadRequest;
-                response.Message = "CE approval rationale must be at least 100 characters.";
+                response.Message = Constants.Messages.CaseCeApprovalRationaleShort;
                 return response;
             }
 
@@ -635,7 +660,8 @@ public class CasesService : ICasesService
                 caseEntity.Close("Approved for closure", request.Rationale, Guid.Empty);
             }
 
-            await _context.SaveChangesAsync(cancellationToken);
+            await _caseRepo.UpdateAsync(caseEntity);
+            await _caseRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = request.Approve ? "Case closure approved." : "Case closure rejected.";
@@ -643,7 +669,7 @@ public class CasesService : ICasesService
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = "An error occurred while processing closure approval.";
+            response.Message = Constants.Messages.CaseClosureApprovalError;
         }
         return response;
     }
@@ -653,27 +679,28 @@ public class CasesService : ICasesService
         var response = new Response<object?>();
         try
         {
-            var milestone = await _context.CaseMilestones
+            var milestone = await _milestoneRepo.Query()
                 .FirstOrDefaultAsync(m => m.Id == request.MilestoneId && m.CaseId == request.CaseId, cancellationToken);
 
             if (milestone is null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
-                response.Message = "Milestone not found.";
+                response.Message = Constants.Messages.CaseMilestoneNotFound;
                 return response;
             }
 
             milestone.IsCompleted = true;
             milestone.CompletedAt = DateTimeOffset.UtcNow;
-            await _context.SaveChangesAsync(cancellationToken);
+            await _milestoneRepo.UpdateAsync(milestone);
+            await _milestoneRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Milestone completed.";
+            response.Message = Constants.Messages.CaseMilestoneCompleted;
         }
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = "An error occurred while completing the milestone.";
+            response.Message = Constants.Messages.CaseMilestoneCompleteError;
         }
         return response;
     }
@@ -695,17 +722,17 @@ public class CasesService : ICasesService
                 CreatedAt = DateTime.UtcNow
             };
 
-            _context.Documents.Add(doc);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _docRepo.AddAsync(doc);
+            await _docRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "Document uploaded successfully.";
+            response.Message = Constants.Messages.DocumentUploaded;
             response.Data = docId;
         }
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = "An error occurred while uploading the document.";
+            response.Message = Constants.Messages.CaseDocUploadError;
         }
         return response;
     }

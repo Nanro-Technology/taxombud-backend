@@ -1,11 +1,11 @@
 using Microsoft.EntityFrameworkCore.Storage;
 using System.Linq.Expressions;
-using TaxOmbud.Domain.Common;
 using TaxOmbud.Common.Responses;
+using TaxOmbud.Domain.Common;
 
 namespace TaxOmbud.Application.Interfaces.Repositories;
 
-public interface IGenericRepository<T> where T : BaseEntity
+public interface IGenericRepository<T> where T : class
 {
     #region Basic CRUD
     Task<T?> GetByIdAsync(Guid id);

@@ -1,7 +1,7 @@
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using TaxOmbud.Application.Interfaces.InfrastructureService;
-using TaxOmbud.Application.Interfaces.Persistence;
+using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Application.System.DTOs;
 using TaxOmbud.Common.Responses;
@@ -13,17 +13,29 @@ namespace TaxOmbud.Application.Services;
 
 public class SystemService : ISystemService
 {
-    private readonly IApplicationDbContext _context;
+    private readonly IGenericRepository<Announcement> _announcementRepo;
+    private readonly IGenericRepository<User> _userRepo;
+    private readonly IGenericRepository<AuditLog> _auditLogRepo;
+    private readonly IGenericRepository<FeatureFlag> _featureFlagRepo;
+    private readonly IGenericRepository<SystemSetting> _settingRepo;
     private readonly ICurrentUser _currentUser;
     private readonly ITokenService _tokenService;
 
     public SystemService(
-        IApplicationDbContext context,
+        IGenericRepository<Announcement> announcementRepo,
+        IGenericRepository<User> userRepo,
+        IGenericRepository<AuditLog> auditLogRepo,
+        IGenericRepository<FeatureFlag> featureFlagRepo,
+        IGenericRepository<SystemSetting> settingRepo,
         ICurrentUser currentUser,
         ITokenService tokenService
     )
     {
-        _context = context;
+        _announcementRepo = announcementRepo;
+        _userRepo = userRepo;
+        _auditLogRepo = auditLogRepo;
+        _featureFlagRepo = featureFlagRepo;
+        _settingRepo = settingRepo;
         _currentUser = currentUser;
         _tokenService = tokenService;
     }
@@ -38,8 +50,8 @@ public class SystemService : ISystemService
             Scope = request.Scope,
             CreatedAt = DateTime.UtcNow
         };
-        _context.Announcements.Add(entity);
-        await _context.SaveChangesAsync(cancellationToken);
+        await _announcementRepo.AddAsync(entity);
+        await _announcementRepo.SaveAsync();
         return new Response<Guid> { StatusCode = StatusCodes.Status200OK, Message = "Success", Data = entity.Id };
     }
 
@@ -51,7 +63,7 @@ public class SystemService : ISystemService
             return new Response<ImpersonationResponseDto> { StatusCode = StatusCodes.Status400BadRequest, Message = "Cannot impersonate yourself." };
         try
         {
-            var targetUser = await _context.Users
+            var targetUser = await _userRepo.Query()
                 .Include(u => u.Role)
                     .ThenInclude(r => r!.RolePermissions)
                         .ThenInclude(rp => rp.Permission)
@@ -97,7 +109,6 @@ public class SystemService : ISystemService
 
     public async Task<Response<StopImpersonationResponseDto>> StopImpersonationAsync(StopImpersonationCommand request, CancellationToken cancellationToken = default)
     {
-        var response = new Response<StopImpersonationResponseDto>();
         var currentUserId = _currentUser.UserId ?? Guid.Empty;
         var audit = new AuditLog
         {
@@ -110,8 +121,8 @@ public class SystemService : ISystemService
             NewValues = "Impersonation Session Terminated",
             CreatedAt = DateTime.UtcNow
         };
-        _context.AuditLogs.Add(audit);
-        await _context.SaveChangesAsync(cancellationToken);
+        await _auditLogRepo.AddAsync(audit);
+        await _auditLogRepo.SaveAsync();
 
         return new Response<StopImpersonationResponseDto> { StatusCode = StatusCodes.Status200OK, Message = "Success", Data = new StopImpersonationResponseDto("Impersonation session terminated successfully.") };
     }
@@ -119,13 +130,14 @@ public class SystemService : ISystemService
     public async Task<Response<object?>> ToggleFeatureFlagAsync(ToggleFeatureFlagCommand request, CancellationToken cancellationToken = default)
     {
         var response = new Response<object?>();
-        var flag = await _context.FeatureFlags.FirstOrDefaultAsync(f => f.Id == request.Id, cancellationToken);
+        var flag = await _featureFlagRepo.FindAsync(f => f.Id == request.Id);
         if (flag == null)
             return new Response<object?> { StatusCode = StatusCodes.Status404NotFound, Message = "Feature flag not found." };
         try
         {
             flag.IsEnabled = !flag.IsEnabled;
-            await _context.SaveChangesAsync(cancellationToken);
+            await _featureFlagRepo.UpdateAsync(flag);
+            await _featureFlagRepo.SaveAsync();
 
             return new Response<object?> { StatusCode = StatusCodes.Status200OK, Message = "Success" };
         }
@@ -139,8 +151,7 @@ public class SystemService : ISystemService
 
     public async Task<Response<object?>> UpdateSettingAsync(UpdateSettingCommand request, CancellationToken cancellationToken = default)
     {
-        var response = new Response<object?>();
-        var setting = await _context.SystemSettings.FirstOrDefaultAsync(s => s.Key == request.Key, cancellationToken);
+        var setting = await _settingRepo.FindAsync(s => s.Key == request.Key);
         if (setting == null)
         {
             setting = new SystemSetting
@@ -150,16 +161,17 @@ public class SystemService : ISystemService
                 Value = request.Value,
                 Description = request.Description
             };
-            _context.SystemSettings.Add(setting);
+            await _settingRepo.AddAsync(setting);
         }
         else
         {
             setting.Value = request.Value;
             if (request.Description != null)
                 setting.Description = request.Description;
+            await _settingRepo.UpdateAsync(setting);
         }
 
-        await _context.SaveChangesAsync(cancellationToken);
+        await _settingRepo.SaveAsync();
 
         return new Response<object?> { StatusCode = StatusCodes.Status200OK, Message = "Success" };
     }
@@ -169,7 +181,7 @@ public class SystemService : ISystemService
         var response = new Response<PagedResult<AuditLog>>();
         try
         {
-            var query = _context.AuditLogs.AsNoTracking().AsQueryable();
+            var query = _auditLogRepo.Query().AsNoTracking().AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(request.EntityName))
             {
@@ -202,10 +214,10 @@ public class SystemService : ISystemService
         var response = new Response<IEnumerable<FeatureFlag>>();
         try
         {
-            var flags = await _context.FeatureFlags.AsNoTracking().ToListAsync(cancellationToken);
+            var flags = await _featureFlagRepo.GetAllAsync();
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Success";
-            response.Data = flags;
+            response.Data = flags.ToList();
             return response;
         }
         catch (Exception)
@@ -221,10 +233,10 @@ public class SystemService : ISystemService
         var response = new Response<IEnumerable<SystemSetting>>();
         try
         {
-            var settings = await _context.SystemSettings.AsNoTracking().ToListAsync(cancellationToken);
+            var settings = await _settingRepo.GetAllAsync();
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Success";
-            response.Data = settings;
+            response.Data = settings.ToList();
             return response;
         }
         catch (Exception)
@@ -234,5 +246,4 @@ public class SystemService : ISystemService
             return response;
         }
     }
-
 }

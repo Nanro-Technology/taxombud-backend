@@ -1,20 +1,33 @@
 using Microsoft.EntityFrameworkCore;
-using TaxOmbud.Application.Interfaces.Persistence;
+using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Application.Search.DTOs;
 using TaxOmbud.Common.Responses;
+using TaxOmbud.Domain.Entities.Complaints;
+using TaxOmbud.Domain.Entities.Cases;
+using TaxOmbud.Domain.Entities.Taxpayers;
+using TaxOmbud.Domain.Entities.Documents;
 
 namespace TaxOmbud.Application.Services;
 
 public class SearchService : ISearchService
 {
-    private readonly IApplicationDbContext _context;
+    private readonly IGenericRepository<Complaint> _complaintRepo;
+    private readonly IGenericRepository<Case> _caseRepo;
+    private readonly IGenericRepository<Taxpayer> _taxpayerRepo;
+    private readonly IGenericRepository<Document> _documentRepo;
 
     public SearchService(
-        IApplicationDbContext context
+        IGenericRepository<Complaint> complaintRepo,
+        IGenericRepository<Case> caseRepo,
+        IGenericRepository<Taxpayer> taxpayerRepo,
+        IGenericRepository<Document> documentRepo
     )
     {
-        _context = context;
+        _complaintRepo = complaintRepo;
+        _caseRepo = caseRepo;
+        _taxpayerRepo = taxpayerRepo;
+        _documentRepo = documentRepo;
     }
 
     public async Task<Response<GlobalSearchResultDto>> GlobalSearchAsync(GlobalSearchQuery request, CancellationToken cancellationToken = default)
@@ -32,7 +45,7 @@ public class SearchService : ISearchService
 
             var searchTerm = $"%{request.Query}%";
 
-            var complaints = await _context.Complaints
+            var complaints = await _complaintRepo.Query()
                 .AsNoTracking()
                 .Where(c => EF.Functions.Like(c.ReferenceNumber, searchTerm) || EF.Functions.Like(c.Subject, searchTerm))
                 .Take(request.Top)
@@ -44,7 +57,7 @@ public class SearchService : ISearchService
                     $"/api/v1/complaints/{c.Id}"))
                 .ToListAsync(cancellationToken);
 
-            var cases = await _context.Cases
+            var cases = await _caseRepo.Query()
                 .AsNoTracking()
                 .Where(c => EF.Functions.Like(c.CaseNumber.Value, searchTerm) || EF.Functions.Like(c.Subject, searchTerm))
                 .Take(request.Top)
@@ -56,7 +69,7 @@ public class SearchService : ISearchService
                     $"/api/v1/cases/{c.Id}"))
                 .ToListAsync(cancellationToken);
 
-            var taxpayers = await _context.Taxpayers
+            var taxpayers = await _taxpayerRepo.Query()
                 .AsNoTracking()
                 .Where(t => EF.Functions.Like(t.FirstName, searchTerm)
                          || EF.Functions.Like(t.LastName, searchTerm)
@@ -89,7 +102,7 @@ public class SearchService : ISearchService
         try
         {
             var term = $"%{request.Term}%";
-            var results = await _context.Cases
+            var results = await _caseRepo.Query()
                 .AsNoTracking()
                 .Where(c => c.CaseNumber != null && EF.Functions.Like(EF.Property<string>(c, "CaseNumber"), term))
                 .Select(c => new CaseSearchResultDto(c.Id, c.CaseNumber != null ? c.CaseNumber.Value : "", c.Status.ToString()))
@@ -115,7 +128,7 @@ public class SearchService : ISearchService
         try
         {
             var term = $"%{request.Term}%";
-            var results = await _context.Complaints
+            var results = await _complaintRepo.Query()
                 .AsNoTracking()
                 .Where(c => EF.Functions.Like(c.ReferenceNumber, term) ||
                             EF.Functions.Like(c.TaxType, term))
@@ -142,7 +155,7 @@ public class SearchService : ISearchService
         try
         {
             var term = $"%{request.Term}%";
-            var results = await _context.Documents
+            var results = await _documentRepo.Query()
                 .AsNoTracking()
                 .Where(d => EF.Functions.Like(d.FileName, term) ||
                             (d.Classification != null && EF.Functions.Like(d.Classification, term)))
@@ -169,7 +182,7 @@ public class SearchService : ISearchService
         try
         {
             var term = $"%{request.Term}%";
-            var results = await _context.Taxpayers
+            var results = await _taxpayerRepo.Query()
                 .AsNoTracking()
                 .Where(t => (t.TaxId != null && EF.Functions.Like(EF.Property<string>(t, "TaxId"), term)) ||
                             EF.Functions.Like(t.FirstName + " " + t.LastName, term))

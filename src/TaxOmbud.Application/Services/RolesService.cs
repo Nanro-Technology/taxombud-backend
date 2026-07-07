@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using TaxOmbud.Application.Interfaces.Persistence;
+using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Application.Roles.DTOs;
 using TaxOmbud.Common.Responses;
@@ -10,18 +10,25 @@ namespace TaxOmbud.Application.Services;
 
 public class RolesService : IRolesService
 {
-    private readonly IApplicationDbContext _context;
+    private readonly IGenericRepository<Role> _roleRepo;
+    private readonly IGenericRepository<Permission> _permissionRepo;
+    private readonly IGenericRepository<RolePermission> _rolePermissionRepo;
 
-    public RolesService(IApplicationDbContext context)
+    public RolesService(
+        IGenericRepository<Role> roleRepo,
+        IGenericRepository<Permission> permissionRepo,
+        IGenericRepository<RolePermission> rolePermissionRepo)
     {
-        _context = context;
+        _roleRepo = roleRepo;
+        _permissionRepo = permissionRepo;
+        _rolePermissionRepo = rolePermissionRepo;
     }
 
     public async Task<Response<CreateRoleResponse>> CreateRoleAsync(CreateRoleCommand request, CancellationToken cancellationToken = default)
     {
         var response = new Response<CreateRoleResponse>();
 
-        if (await _context.Roles.AnyAsync(r => r.Name == request.Name, cancellationToken))
+        if (await _roleRepo.ExistsAsync(r => r.Name == request.Name))
             return new Response<CreateRoleResponse> { StatusCode = StatusCodes.Status400BadRequest, Message = "A role with this name already exists." };
 
         try
@@ -36,8 +43,8 @@ public class RolesService : IRolesService
                 CreatedAt = DateTime.UtcNow
             };
 
-            _context.Roles.Add(role);
-            await _context.SaveChangesAsync(cancellationToken);
+            await _roleRepo.AddAsync(role);
+            await _roleRepo.SaveAsync();
 
             return new Response<CreateRoleResponse>
             {
@@ -57,7 +64,8 @@ public class RolesService : IRolesService
     public async Task<Response<object?>> UpdateRolePermissionsAsync(UpdateRolePermissionsCommand request, CancellationToken cancellationToken = default)
     {
         var response = new Response<object?>();
-        var role = await _context.Roles
+
+        var role = await _roleRepo.Query()
             .Include(r => r.RolePermissions)
             .FirstOrDefaultAsync(r => r.Id == request.RoleId, cancellationToken);
 
@@ -66,17 +74,15 @@ public class RolesService : IRolesService
 
         try
         {
-            // Remove current permission assignments
-            _context.RolePermissions.RemoveRange(role.RolePermissions);
+            await _rolePermissionRepo.RemoveRangeAsync(role.RolePermissions);
 
-            // Add new permission assignments by Permission Guid ID
             foreach (var permId in request.PermissionIds)
             {
-                var permission = await _context.Permissions.FindAsync(new object[] { permId }, cancellationToken);
+                var permission = await _permissionRepo.GetByIdAsync(permId);
                 if (permission == null)
                     return new Response<object?> { StatusCode = StatusCodes.Status400BadRequest, Message = $"Permission with ID '{permId}' does not exist." };
 
-                role.RolePermissions.Add(new RolePermission
+                await _rolePermissionRepo.AddAsync(new RolePermission
                 {
                     Id = Guid.NewGuid(),
                     RoleId = request.RoleId,
@@ -85,7 +91,7 @@ public class RolesService : IRolesService
                 });
             }
 
-            await _context.SaveChangesAsync(cancellationToken);
+            await _rolePermissionRepo.SaveAsync();
             return new Response<object?> { StatusCode = StatusCodes.Status200OK, Message = "Role permissions updated successfully." };
         }
         catch (Exception)
@@ -101,7 +107,7 @@ public class RolesService : IRolesService
         var response = new Response<IEnumerable<PermissionDetailDto>>();
         try
         {
-            var permissions = await _context.Permissions
+            var permissions = await _permissionRepo.Query()
                 .AsNoTracking()
                 .OrderBy(p => p.Module)
                 .ThenBy(p => p.Action)
@@ -127,7 +133,8 @@ public class RolesService : IRolesService
     public async Task<Response<RoleDetailDto>> GetRoleByIdAsync(GetRoleByIdQuery request, CancellationToken cancellationToken = default)
     {
         var response = new Response<RoleDetailDto>();
-        var role = await _context.Roles
+
+        var role = await _roleRepo.Query()
             .AsNoTracking()
             .Include(r => r.RolePermissions)
                 .ThenInclude(rp => rp.Permission)
@@ -166,7 +173,7 @@ public class RolesService : IRolesService
         var response = new Response<IEnumerable<RoleDto>>();
         try
         {
-            var roles = await _context.Roles
+            var roles = await _roleRepo.Query()
                 .AsNoTracking()
                 .OrderBy(r => r.Name)
                 .Select(r => new RoleDto(r.Id, r.Name, r.Description, r.IsSystemRole, r.IsActive))

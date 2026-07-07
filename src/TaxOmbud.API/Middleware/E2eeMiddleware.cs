@@ -118,36 +118,43 @@ public class E2eeMiddleware
         using var responseBody = new MemoryStream();
         context.Response.Body = responseBody;
 
-        await _next(context);
-
-        responseBody.Seek(0, SeekOrigin.Begin);
-
-        // 4. Encrypt Response Body if it is JSON
-        if (responseBody.Length > 0 && context.Response.ContentType?.Contains("application/json") == true && aesSessionKey != null)
+        try
         {
-            var plainTextResponse = responseBody.ToArray();
-            
-            var responseIv = new byte[12];
-            RandomNumberGenerator.Fill(responseIv);
-            
-            byte[] responseTag;
-            var encryptedResponseBytes = encryptionService.EncryptAesGcm(plainTextResponse, aesSessionKey, responseIv, out responseTag);
-            
-            var encryptedResponseBase64 = Convert.ToBase64String(encryptedResponseBytes);
-            var encryptedResponseOutput = Encoding.UTF8.GetBytes(encryptedResponseBase64);
+            await _next(context);
 
-            context.Response.Headers["X-E2EE-IV"] = Convert.ToBase64String(responseIv);
-            context.Response.Headers["X-E2EE-Tag"] = Convert.ToBase64String(responseTag);
-            // Even though original was application/json, the body is now a base64 string
-            context.Response.ContentType = "text/plain"; 
-            context.Response.ContentLength = encryptedResponseOutput.Length;
+            responseBody.Seek(0, SeekOrigin.Begin);
 
-            await originalBodyStream.WriteAsync(encryptedResponseOutput, 0, encryptedResponseOutput.Length);
+            // 4. Encrypt Response Body if it is JSON
+            if (responseBody.Length > 0 && context.Response.ContentType?.Contains("application/json") == true && aesSessionKey != null)
+            {
+                var plainTextResponse = responseBody.ToArray();
+                
+                var responseIv = new byte[12];
+                RandomNumberGenerator.Fill(responseIv);
+                
+                byte[] responseTag;
+                var encryptedResponseBytes = encryptionService.EncryptAesGcm(plainTextResponse, aesSessionKey, responseIv, out responseTag);
+                
+                var encryptedResponseBase64 = Convert.ToBase64String(encryptedResponseBytes);
+                var encryptedResponseOutput = Encoding.UTF8.GetBytes(encryptedResponseBase64);
+
+                context.Response.Headers["X-E2EE-IV"] = Convert.ToBase64String(responseIv);
+                context.Response.Headers["X-E2EE-Tag"] = Convert.ToBase64String(responseTag);
+                // Even though original was application/json, the body is now a base64 string
+                context.Response.ContentType = "text/plain"; 
+                context.Response.ContentLength = encryptedResponseOutput.Length;
+
+                await originalBodyStream.WriteAsync(encryptedResponseOutput, 0, encryptedResponseOutput.Length);
+            }
+            else
+            {
+                // Just copy over non-JSON responses (like file downloads or empty responses)
+                await responseBody.CopyToAsync(originalBodyStream);
+            }
         }
-        else
+        finally
         {
-            // Just copy over non-JSON responses (like file downloads or empty responses)
-            await responseBody.CopyToAsync(originalBodyStream);
+            context.Response.Body = originalBodyStream;
         }
     }
 }

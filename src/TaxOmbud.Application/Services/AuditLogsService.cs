@@ -1,20 +1,19 @@
 using Microsoft.EntityFrameworkCore;
 using TaxOmbud.Application.AuditLogs.DTOs;
-using TaxOmbud.Application.Interfaces.Persistence;
+using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Common.Responses;
+using TaxOmbud.Domain.Entities.System;
 
 namespace TaxOmbud.Application.Services;
 
 public class AuditLogsService : IAuditLogsService
 {
-    private readonly IApplicationDbContext _context;
+    private readonly IGenericRepository<AuditLog> _auditRepo;
 
-    public AuditLogsService(
-        IApplicationDbContext context
-    )
+    public AuditLogsService(IGenericRepository<AuditLog> auditRepo)
     {
-        _context = context;
+        _auditRepo = auditRepo;
     }
 
     public async Task<Response<AuditLogDetailDto>> GetAuditLogByIdAsync(GetAuditLogByIdQuery request, CancellationToken cancellationToken = default)
@@ -22,18 +21,18 @@ public class AuditLogsService : IAuditLogsService
         var response = new Response<AuditLogDetailDto>();
         try
         {
-            var log = await _context.AuditLogs
-                .AsNoTracking()
-                .FirstOrDefaultAsync(l => l.Id == request.Id, cancellationToken);
+            var log = await _auditRepo.FindAsync(l => l.Id == request.Id);
 
             if (log == null)
             {
-                response.StatusCode = Microsoft.AspNetCore.Http.StatusCodes.Status404NotFound;
+                response.StatusCode = StatusCodes.Status404NotFound;
                 response.Message = "Audit log entry not found.";
                 return response;
             }
 
-            var dto = new AuditLogDetailDto(
+            response.StatusCode = StatusCodes.Status200OK;
+            response.Message = "Audit log retrieved successfully.";
+            response.Data = new AuditLogDetailDto(
                 log.Id,
                 log.EntityType,
                 log.EntityId,
@@ -46,10 +45,6 @@ public class AuditLogsService : IAuditLogsService
                 log.UserAgent,
                 log.CreatedAt
             );
-
-            response.StatusCode =  StatusCodes.Status200OK;
-            response.Message = "Audit log retrieved successfully.";
-            response.Data = dto;
             return response;
         }
         catch (Exception)
@@ -65,7 +60,7 @@ public class AuditLogsService : IAuditLogsService
         var response = new Response<PagedResult<AuditLogDto>>();
         try
         {
-            var query = _context.AuditLogs.AsNoTracking().AsQueryable();
+            var query = _auditRepo.Query().AsNoTracking();
 
             if (!string.IsNullOrWhiteSpace(request.EntityType))
                 query = query.Where(l => l.EntityType == request.EntityType);
@@ -105,10 +100,9 @@ public class AuditLogsService : IAuditLogsService
                 ))
                 .ToListAsync(cancellationToken);
 
-            var pagedResult = new PagedResult<AuditLogDto>(items, total, request.Page, request.PageSize);
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Audit logs retrieved successfully.";
-            response.Data = pagedResult;
+            response.Data = new PagedResult<AuditLogDto>(items, total, request.Page, request.PageSize);
             return response;
         }
         catch (Exception)
@@ -118,5 +112,4 @@ public class AuditLogsService : IAuditLogsService
             return response;
         }
     }
-
 }
