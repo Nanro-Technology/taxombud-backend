@@ -25,7 +25,7 @@ public interface IApplicationDbContext
 {
     // Identity & RBAC
     DbSet<User> Users { get; }
-    DbSet<Role> Roles { get; }
+    DbSet<Role> CustomRoles { get; }
     DbSet<Permission> Permissions { get; }
     DbSet<RolePermission> RolePermissions { get; }
     DbSet<RefreshToken> RefreshTokens { get; }

@@ -1,9 +1,9 @@
-using System;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using TaxOmbud.Domain.Entities.Identity;
 using TaxOmbud.Persistence.Data;
 
 namespace TaxOmbud.Persistence.Extensions;
@@ -21,14 +21,15 @@ public static class DatabaseSeedingExtensions
 
         try
         {
-            var context = services.GetRequiredService<ApplicationDbContext>();
-            var logger  = services.GetRequiredService<ILogger<DataSeeder>>();
+            var context     = services.GetRequiredService<ApplicationDbContext>();
+            var userManager = services.GetRequiredService<UserManager<User>>();
+            var logger      = services.GetRequiredService<ILogger<DataSeeder>>();
 
             logger.LogInformation("Applying pending EF migrations...");
             await context.Database.MigrateAsync();
 
             logger.LogInformation("Starting database seeding...");
-            var seeder = new DataSeeder(context, logger);
+            var seeder = new DataSeeder(context, userManager, logger);
             await seeder.SeedAllAsync();
 
             logger.LogInformation("Database seeding completed successfully.");

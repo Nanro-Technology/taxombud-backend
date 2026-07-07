@@ -41,4 +41,7 @@ public class CurrentUserService : ICurrentUser
         User?.FindAll(ClaimTypes.Role).Select(c => c.Value).ToArray() ?? [];
 
     public ClaimsPrincipal? Principal => User;
+
+    public string? UserType => User?.FindFirstValue("user_type")
+                            ?? User?.FindFirstValue("usertype");
 }

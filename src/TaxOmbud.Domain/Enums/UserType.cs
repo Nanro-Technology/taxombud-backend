@@ -4,12 +4,12 @@ namespace TaxOmbud.Domain.Enums;
 
 public enum UserType
 {
-    [EnumMember(Value = "guest_user")]
+    [EnumMember(Value = "GuestUser")]
     GuestUser = 1,
 
-    [EnumMember(Value = "registered_taxpayer")]
+    [EnumMember(Value = "RegisteredTaxpayer")]
     RegisteredTaxpayer = 2,
 
-    [EnumMember(Value = "staff_user")]
+    [EnumMember(Value = "StaffUser")]
     StaffUser = 3
 }
