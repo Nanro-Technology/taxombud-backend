@@ -574,6 +574,9 @@ public class ReportsService : IReportsService
         if (request.To.HasValue)
             query = query.Where(i => i.CreatedAt <= request.To.Value);
 
+        if (!string.IsNullOrEmpty(request.Channel))
+            query = query.Where(i => i.Channel == request.Channel);
+
         var total = await query.CountAsync(cancellationToken);
 
         var channels = await query.GroupBy(i => i.Channel)

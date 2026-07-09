@@ -8,4 +8,7 @@ using TaxOmbud.Common.Responses;
 
 namespace TaxOmbud.Application.Reports.DTOs;
 
-public class GetInteractionReportsQuery : ReportFilterDto { }
+public class GetInteractionReportsQuery : ReportFilterDto
+{
+    public string? Channel { get; set; }
+}

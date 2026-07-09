@@ -144,7 +144,10 @@ try
         });
     }
 
-    app.UseHttpsRedirection();
+    if (!app.Environment.IsDevelopment())
+    {
+        app.UseHttpsRedirection();
+    }
     app.UseCors("TaxOmbudCors");
     app.UseRateLimiter();
     app.UseMiddleware<E2eeMiddleware>();

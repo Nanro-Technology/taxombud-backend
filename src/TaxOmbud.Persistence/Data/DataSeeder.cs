@@ -34,6 +34,7 @@ public class DataSeeder
         await SeedPermissionsAsync();
         await SeedRolesAsync();
         await SeedRolePermissionsAsync();
+        await SeedDepartmentsAsync();
         await SeedUsersAsync();
     }
 
@@ -156,17 +157,47 @@ public class DataSeeder
         const string adminEmail = "admin@taxombud.gov.ng";
         const string defaultPassword = "Admin@TaxOmbud2025!";
 
-        // Idempotency check — check raw Email to handle databases seeded before the Identity migration.
         var existingAdmin = await _userManager.Users.FirstOrDefaultAsync(u => u.Email == adminEmail);
+        var ictDept = await _context.Departments.FirstOrDefaultAsync(d => d.Name == "ICT");
+
         if (existingAdmin is not null)
         {
+            bool needsUpdate = false;
             // Backfill normalized fields for existing records
             if (string.IsNullOrEmpty(existingAdmin.NormalizedEmail) || string.IsNullOrEmpty(existingAdmin.NormalizedUserName))
             {
                 existingAdmin.NormalizedEmail = _userManager.NormalizeEmail(adminEmail);
                 existingAdmin.NormalizedUserName = _userManager.NormalizeName(adminEmail);
-                await _userManager.UpdateAsync(existingAdmin);
+                needsUpdate = true;
                 _logger.LogInformation("✓ Backfilled normalized email/username fields for: {Email}", adminEmail);
+            }
+
+            // Backfill default profile details if empty
+            if (string.IsNullOrEmpty(existingAdmin.Phone))
+            {
+                existingAdmin.Phone = "+2349052129949";
+                needsUpdate = true;
+            }
+            if (string.IsNullOrEmpty(existingAdmin.JobTitle))
+            {
+                existingAdmin.JobTitle = "S.A on ICT";
+                needsUpdate = true;
+            }
+            if (string.IsNullOrEmpty(existingAdmin.EmploymentType))
+            {
+                existingAdmin.EmploymentType = "Full-Time";
+                needsUpdate = true;
+            }
+            if (existingAdmin.DepartmentId == null && ictDept is not null)
+            {
+                existingAdmin.DepartmentId = ictDept.Id;
+                needsUpdate = true;
+            }
+
+            if (needsUpdate)
+            {
+                await _userManager.UpdateAsync(existingAdmin);
+                _logger.LogInformation("✓ Backfilled seeded admin profile details: Phone, Job Title, Employment Type, Department.");
             }
             return;
         }
@@ -182,10 +213,16 @@ public class DataSeeder
             "System",
             "Administrator",
             new Email(adminEmail),
-            null,
+            "+2349052129949",
             UserType.StaffUser);
 
         admin.AssignRole(superAdminRole.Id);
+        admin.UpdateProfile("System", "Administrator", "+2349052129949", "S.A on ICT");
+        admin.SetEmploymentType("Full-Time");
+        if (ictDept is not null)
+        {
+            admin.SetDepartment(ictDept.Id);
+        }
 
         // Use UserManager to create the admin — Identity handles hashing & security stamp
         var result = await _userManager.CreateAsync(admin, defaultPassword);
@@ -199,6 +236,24 @@ public class DataSeeder
         {
             var errors = string.Join(", ", result.Errors.Select(e => e.Description));
             _logger.LogError("✗ Failed to seed Super Admin: {Errors}", errors);
+        }
+    }
+
+    // ─── 5. Default Departments ──────────────────────────────────────────────────
+    private async Task SeedDepartmentsAsync()
+    {
+        var existing = await _context.Departments.AnyAsync();
+        if (!existing)
+        {
+            var depts = new[]
+            {
+                new Department { Id = Guid.NewGuid(), Name = "ICT", RoutingMode = "members", Description = "Information and Communication Technology department" },
+                new Department { Id = Guid.NewGuid(), Name = "Resolution", RoutingMode = "members", Description = "Case resolution and mediation department" },
+                new Department { Id = Guid.NewGuid(), Name = "Corporate HQ", RoutingMode = "members", Description = "Corporate Headquarters" }
+            };
+            await _context.Departments.AddRangeAsync(depts);
+            await _context.SaveChangesAsync();
+            _logger.LogInformation("✓ Seeded default departments");
         }
     }
 }

@@ -7,7 +7,9 @@ using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Common.Responses;
 using TaxOmbud.Common.Utilities;
+using Microsoft.AspNetCore.Http;
 using TaxOmbud.Domain.Entities.Identity;
+using TaxOmbud.Domain.Entities.System;
 using TaxOmbud.Domain.Entities.Taxpayers;
 using TaxOmbud.Domain.Enums;
 
@@ -23,6 +25,8 @@ public class AuthService : IAuthService
     private readonly IGenericRepository<TaxpayerProfile> _taxpayerProfileRepo;
     private readonly IEmailService _emailService;
     private readonly ITokenService _tokenService;
+    private readonly IGenericRepository<AuditLog> _auditLogRepo;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
     public AuthService(
         UserManager<User> userManager,
@@ -32,7 +36,9 @@ public class AuthService : IAuthService
         IGenericRepository<MfaToken> mfaTokenRepo,
         IGenericRepository<TaxpayerProfile> taxpayerProfileRepo,
         IEmailService emailService,
-        ITokenService tokenService
+        ITokenService tokenService,
+        IGenericRepository<AuditLog> auditLogRepo,
+        IHttpContextAccessor httpContextAccessor
     )
     {
         _userManager = userManager;
@@ -43,6 +49,8 @@ public class AuthService : IAuthService
         _taxpayerProfileRepo = taxpayerProfileRepo;
         _emailService = emailService;
         _tokenService = tokenService;
+        _auditLogRepo = auditLogRepo;
+        _httpContextAccessor = httpContextAccessor;
     }
 
     // ─── Taxpayer Self-Registration (public portal) ───────────────────────────
@@ -214,6 +222,10 @@ public class AuthService : IAuthService
     public async Task<Response<LoginResponse>> LoginAsync(LoginCommand request, CancellationToken cancellationToken = default)
     {
         var response = new Response<LoginResponse>();
+        string? ipAddress = null;
+        string? userAgent = null;
+        AuditLog? audit = null;
+
         try
         {
             var emailNormalized = request.Email.Trim().ToLowerInvariant();
@@ -227,6 +239,23 @@ public class AuthService : IAuthService
             // Generic invalid-credential message to prevent email enumeration
             if (user is null)
             {
+                ipAddress = _httpContextAccessor.HttpContext?.Connection?.RemoteIpAddress?.ToString();
+                userAgent = _httpContextAccessor.HttpContext?.Request?.Headers["User-Agent"].ToString();
+                audit = new AuditLog
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = null,
+                    Action = "sign in blocked",
+                    EntityType = "Users",
+                    EntityId = Guid.Empty,
+                    NewValues = $"Failed login attempt for unknown email {request.Email}",
+                    IPAddress = ipAddress,
+                    UserAgent = userAgent,
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _auditLogRepo.AddAsync(audit);
+                await _auditLogRepo.SaveAsync();
+
                 response.StatusCode = StatusCodes.Status400BadRequest;
                 response.Message = Constants.Messages.InvalidCredentials;
                 return response;
@@ -251,6 +280,23 @@ public class AuthService : IAuthService
             var signInResult = await _signInManager.CheckPasswordSignInAsync(user, request.Password, lockoutOnFailure: true);
             if (!signInResult.Succeeded)
             {
+                ipAddress = _httpContextAccessor.HttpContext?.Connection?.RemoteIpAddress?.ToString();
+                userAgent = _httpContextAccessor.HttpContext?.Request?.Headers["User-Agent"].ToString();
+                audit = new AuditLog
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = user.Id,
+                    Action = "sign in blocked",
+                    EntityType = "Users",
+                    EntityId = user.Id,
+                    NewValues = $"Failed login attempt for user {user.Email}",
+                    IPAddress = ipAddress,
+                    UserAgent = userAgent,
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _auditLogRepo.AddAsync(audit);
+                await _auditLogRepo.SaveAsync();
+
                 if (signInResult.IsLockedOut)
                 {
                     response.StatusCode = StatusCodes.Status423Locked;
@@ -289,6 +335,23 @@ public class AuthService : IAuthService
             await _refreshTokenRepo.AddAsync(rt);
             await _refreshTokenRepo.SaveAsync();
 
+            ipAddress = _httpContextAccessor.HttpContext?.Connection?.RemoteIpAddress?.ToString();
+            userAgent = _httpContextAccessor.HttpContext?.Request?.Headers["User-Agent"].ToString();
+            audit = new AuditLog
+            {
+                Id = Guid.NewGuid(),
+                UserId = user.Id,
+                Action = "sign in",
+                EntityType = "Users",
+                EntityId = user.Id,
+                NewValues = $"Successful login from {user.Email}",
+                IPAddress = ipAddress,
+                UserAgent = userAgent,
+                CreatedAt = DateTime.UtcNow
+            };
+            await _auditLogRepo.AddAsync(audit);
+            await _auditLogRepo.SaveAsync();
+
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = Constants.Messages.Success;
             response.Data = new LoginResponse(
@@ -322,6 +385,23 @@ public class AuthService : IAuthService
 
             if (token is not null)
             {
+                var ipAddress = _httpContextAccessor.HttpContext?.Connection?.RemoteIpAddress?.ToString();
+                var userAgent = _httpContextAccessor.HttpContext?.Request?.Headers["User-Agent"].ToString();
+                var audit = new AuditLog
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = token.UserId,
+                    Action = "sign out",
+                    EntityType = "Users",
+                    EntityId = token.UserId,
+                    NewValues = "Successful logout",
+                    IPAddress = ipAddress,
+                    UserAgent = userAgent,
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _auditLogRepo.AddAsync(audit);
+                await _auditLogRepo.SaveAsync();
+
                 await _refreshTokenRepo.RemoveAsync(token);
                 await _refreshTokenRepo.SaveAsync();
             }

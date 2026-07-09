@@ -25,8 +25,17 @@ public static class DatabaseSeedingExtensions
             var userManager = services.GetRequiredService<UserManager<User>>();
             var logger      = services.GetRequiredService<ILogger<DataSeeder>>();
 
-            logger.LogInformation("Applying pending EF migrations...");
-            await context.Database.MigrateAsync();
+            var dbProvider = context.Database.ProviderName;
+            if (dbProvider != null && dbProvider.Contains("MySql"))
+            {
+                logger.LogInformation("Ensuring MySQL database is created...");
+                await context.Database.EnsureCreatedAsync();
+            }
+            else
+            {
+                logger.LogInformation("Applying pending EF migrations...");
+                await context.Database.MigrateAsync();
+            }
 
             logger.LogInformation("Starting database seeding...");
             var seeder = new DataSeeder(context, userManager, logger);
