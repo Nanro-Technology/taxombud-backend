@@ -23,5 +23,6 @@ public record TaxpayerDetailDto(
     string? State,
     bool IsVerified,
     DateTimeOffset CreatedAt,
-    DateTimeOffset? UpdatedAt
+    DateTimeOffset? UpdatedAt,
+    string? Account
 );

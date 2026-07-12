@@ -36,6 +36,9 @@ public class User : IdentityUser<Guid>, ISoftDelete
     public string? PasswordResetToken { get; set; }
     public DateTimeOffset? PasswordResetTokenExpiresAt { get; set; }
 
+    // CalDAV integration
+    public string? CaldavPassword { get; set; }
+
     // User Classification / UserType
     public UserType UserType { get; set; } = UserType.StaffUser;
 
@@ -54,6 +57,7 @@ public class User : IdentityUser<Guid>, ISoftDelete
     public Guid? LastModifiedByUserId { get; set; }
 
     // Compatibility wrapper for original Username property
+    [global::System.Text.Json.Serialization.JsonIgnore]
     public string Username 
     { 
         get => UserName ?? string.Empty; 

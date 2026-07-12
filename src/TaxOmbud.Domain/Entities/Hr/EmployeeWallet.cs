@@ -12,6 +12,7 @@ public class EmployeeWallet : BaseEntity
 
     public decimal BalanceNgn { get; set; }
     public int LedgerVersion { get; set; }
+    public string Status { get; set; } = "active";
 
     public ICollection<WalletTransaction> Transactions { get; set; } = new List<WalletTransaction>();
 }

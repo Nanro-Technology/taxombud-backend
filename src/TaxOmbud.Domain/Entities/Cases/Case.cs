@@ -44,6 +44,10 @@ public class Case : BaseEntity, IHasDomainEvents
     
     public string? Outcome { get; private set; }
     public string? FindingsSummary { get; private set; }
+    
+    public int? CsatRating { get; set; }
+    public int? NpsScore { get; set; }
+    public string? CsatComment { get; set; }
 
     public ICollection<CaseFinding> Findings { get; set; } = new List<CaseFinding>();
     public ICollection<CaseRecommendation> Recommendations { get; set; } = new List<CaseRecommendation>();

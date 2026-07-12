@@ -40,7 +40,11 @@ public class PayGradesService : IPayGradesService
                 Id = Guid.NewGuid(),
                 Name = request.Name,
                 Level = request.Level,
-                BasicSalaryBand = request.BasicSalaryBand
+                BasicSalaryBand = request.BasicSalaryBand,
+                Currency = request.Currency,
+                MinSalary = request.MinSalary,
+                MaxSalary = request.MaxSalary,
+                Description = request.Description
             };
 
             await _payGradeRepo.AddAsync(grade);
@@ -138,6 +142,10 @@ public class PayGradesService : IPayGradesService
             grade.Name = request.Name;
             grade.Level = request.Level;
             grade.BasicSalaryBand = request.BasicSalaryBand;
+            grade.Currency = request.Currency;
+            grade.MinSalary = request.MinSalary;
+            grade.MaxSalary = request.MaxSalary;
+            grade.Description = request.Description;
 
             await _payGradeRepo.UpdateAsync(grade);
             await _payGradeRepo.SaveAsync();
@@ -165,6 +173,10 @@ public class PayGradesService : IPayGradesService
                 grade.Name,
                 grade.Level,
                 grade.BasicSalaryBand,
+                grade.Currency,
+                grade.MinSalary,
+                grade.MaxSalary,
+                grade.Description,
                 grade.CreatedAt
             );
 
@@ -191,6 +203,10 @@ public class PayGradesService : IPayGradesService
                     g.Name,
                     g.Level,
                     g.BasicSalaryBand,
+                    g.Currency,
+                    g.MinSalary,
+                    g.MaxSalary,
+                    g.Description,
                     g.CreatedAt
                 ))
                 .ToListAsync(cancellationToken);

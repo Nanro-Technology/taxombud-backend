@@ -94,6 +94,23 @@ public class CasesController : ControllerBase
         return StatusCode(result.StatusCode, result);
     }
 
+    /// <summary>Get paginated audit log of all case stage transitions, with optional date and search filters.</summary>
+    [HttpGet("history")]
+    [Authorize(Policy = "OfficerOrAbove")]
+    [ProducesResponseType(typeof(Response<PagedResult<CaseHistoryListDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetCaseHistory(
+        [FromQuery] string? search,
+        [FromQuery] string? dateFrom,
+        [FromQuery] string? dateTo,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken ct = default)
+    {
+        var result = await _casesService.GetCaseHistoryAsync(
+            new GetCaseHistoryQuery(search, dateFrom, dateTo, page, pageSize), ct);
+        return StatusCode(result.StatusCode, result);
+    }
+
     /// <summary>Get findings for a case.</summary>
     [HttpGet("{id:guid}/findings")]
     [ProducesResponseType(typeof(Response<IReadOnlyList<CaseFindingDto>>), StatusCodes.Status200OK)]

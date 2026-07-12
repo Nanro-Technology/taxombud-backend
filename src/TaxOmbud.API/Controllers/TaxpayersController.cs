@@ -70,6 +70,22 @@ public class TaxpayersController : ControllerBase
         return StatusCode(result.StatusCode, result);
     }
 
+    /// <summary>Create a new taxpayer profile administratively.</summary>
+    [HttpPost]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> CreateTaxpayer([FromBody] CreateTaxpayerRequest request, CancellationToken ct)
+    {
+        var command = new CreateTaxpayerCommand(
+            request.FirstName, request.LastName, request.Email, request.Phone, request.AltPhone,
+            request.TinNumber, request.Nin, request.Bvn, request.Gender,
+            request.CompanyName, request.RcNumber, request.Address, request.City, request.State,
+            request.Country, request.Account
+        );
+        var result = await _taxpayersService.CreateTaxpayerAsync(command, ct);
+        return StatusCode(result.StatusCode, result);
+    }
+
     /// <summary>Update taxpayer profile (either corporate or individual details).</summary>
     [HttpPut("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -77,9 +93,10 @@ public class TaxpayersController : ControllerBase
     public async Task<IActionResult> UpdateTaxpayer(Guid id, [FromBody] UpdateTaxpayerRequest request, CancellationToken ct)
     {
         var command = new UpdateTaxpayerCommand(
-            id, request.FirstName, request.LastName, request.Phone, request.TinNumber,
+            id, request.FirstName, request.LastName, request.Phone, request.AltPhone, request.TinNumber,
             request.Nin, request.Bvn, request.Gender, request.DateOfBirth,
-            request.CompanyName, request.RcNumber, request.Address, request.City, request.State);
+            request.CompanyName, request.RcNumber, request.Address, request.City, request.State,
+            request.Country, request.Account);
         var result = await _taxpayersService.UpdateTaxpayerAsync(command, ct);
         return StatusCode(result.StatusCode, result);
     }

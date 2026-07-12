@@ -7,6 +7,7 @@ namespace TaxOmbud.Application.Interfaces.Services;
 public interface ITaxpayersService
 {
     Task<Response<object?>> DeactivateTaxpayerAsync(DeactivateTaxpayerCommand request, CancellationToken cancellationToken = default);
+    Task<Response<object?>> CreateTaxpayerAsync(CreateTaxpayerCommand request, CancellationToken cancellationToken = default);
     Task<Response<object?>> UpdateTaxpayerAsync(UpdateTaxpayerCommand request, CancellationToken cancellationToken = default);
     Task<Response<object?>> VerifyTaxpayerAsync(VerifyTaxpayerCommand request, CancellationToken cancellationToken = default);
     Task<Response<TaxpayerDetailDto>> GetCurrentTaxpayerAsync(GetCurrentTaxpayerQuery request, CancellationToken cancellationToken = default);

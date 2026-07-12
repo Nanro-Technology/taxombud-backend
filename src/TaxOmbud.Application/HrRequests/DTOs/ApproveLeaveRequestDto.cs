@@ -7,4 +7,4 @@ using TaxOmbud.Common.Responses;
 
 namespace TaxOmbud.Application.HrRequests.DTOs;
 
-public record ApproveLeaveRequestCommands(Guid LeaveId, bool Approved) ;
+public record ApproveLeaveRequestCommands(Guid LeaveId, bool Approved, string? SupervisorNote = null) ;

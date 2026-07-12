@@ -97,6 +97,7 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.AltPhone).HasMaxLength(30);
         builder.Property(u => u.JobTitle).HasMaxLength(200);
         builder.Property(u => u.EmploymentType).HasMaxLength(50);
+        builder.Property(u => u.CaldavPassword).HasMaxLength(256);
 
         builder.Property(u => u.Status)
             .HasConversion<string>()

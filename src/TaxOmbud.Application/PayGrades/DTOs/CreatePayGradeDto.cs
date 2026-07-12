@@ -12,7 +12,11 @@ namespace TaxOmbud.Application.PayGrades.DTOs;
 public record CreatePayGradeCommand(
     string Name,
     int Level,
-    string BasicSalaryBand
+    string BasicSalaryBand,
+    string Currency,
+    decimal MinSalary,
+    decimal MaxSalary,
+    string? Description
 ) ;
 
 public record CreatedPayGradeResponse(
@@ -21,4 +25,12 @@ public record CreatedPayGradeResponse(
     int Level
 );
 
-public record CreatePayGradeRequest(string Name, int Level, string BasicSalaryBand);
+public record CreatePayGradeRequest(
+    string Name,
+    int Level,
+    string BasicSalaryBand,
+    string Currency,
+    decimal MinSalary,
+    decimal MaxSalary,
+    string? Description
+);

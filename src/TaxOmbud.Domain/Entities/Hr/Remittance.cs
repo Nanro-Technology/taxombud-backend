@@ -20,4 +20,5 @@ public class Remittance : BaseEntity
     
     public string Status { get; set; } = "draft"; // draft, submitted, paid
     public string? ReferenceNumber { get; set; }
+    public string? Reference { get; set; }
 }

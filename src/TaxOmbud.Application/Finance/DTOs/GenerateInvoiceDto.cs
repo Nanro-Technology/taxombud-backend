@@ -5,7 +5,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using TaxOmbud.Common.Responses;
 
-
 namespace TaxOmbud.Application.Finance.DTOs;
 
 public record InvoiceItemDto(string ItemName, string Description, decimal UnitPrice, int Quantity, string? Unit);
@@ -23,3 +22,5 @@ public record GenerateInvoiceCommands(
     string Notes,
     List<InvoiceItemDto> Items
 );
+
+public record DeleteInvoiceCommand(Guid Id);

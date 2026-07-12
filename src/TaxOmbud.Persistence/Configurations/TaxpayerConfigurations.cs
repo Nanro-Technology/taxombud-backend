@@ -67,6 +67,11 @@ public class TaxpayerProfileConfiguration : IEntityTypeConfiguration<TaxpayerPro
             .WithMany()
             .HasForeignKey(tp => tp.UserId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne(tp => tp.Account)
+            .WithMany()
+            .HasForeignKey(tp => tp.AccountId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }
 

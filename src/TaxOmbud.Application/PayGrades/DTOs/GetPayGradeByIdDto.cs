@@ -14,5 +14,9 @@ public record PayGradeDetailDto(
     string Name,
     int Level,
     string BasicSalaryBand,
+    string Currency,
+    decimal MinSalary,
+    decimal MaxSalary,
+    string? Description,
     DateTimeOffset CreatedAt
 );

@@ -38,6 +38,31 @@ TaxOmbud.KeyGenerator    ← Utility to generate JWT signing keys
 
 ---
 
+## Completed Modules & Integrations
+
+During the integration phase, the backend API was fully connected to the React frontend. Key completed modules include:
+
+### 1. Authentication & Security
+*   **JWT & MFA**: Standard JWT Bearer token issue, along with Otp.NET-based TOTP multi-factor authentication.
+*   **Taxpayer Specific Bypass**: Secured endpoints to fetch profile data via `/api/v1/taxpayers/me` and complaints via `/api/v1/complaints/my`.
+*   **E2EE**: Global Bank-Grade E2EE encryption toggle with automatic interceptors encrypting/decrypting payloads.
+
+### 2. Complaints & Case Workflow
+*   **Multi-Stage Lifecycle**: Full state transitions across intake officer, assessment officer, investigation officer, and approvals.
+*   **Automatic Assignment**: Integrates automatic routing rules allocating cases to officers.
+*   **Timeline History**: Full audit trail tracking every single status change, note, and assignment.
+
+### 3. Finance & CRM
+*   **Invoices, Contracts, and Quotes**: Fully integrated relational database mappings.
+*   **Dynamic Parent Mapping**: Supports linking financial items to accounts, organizations, and contacts (taxpayers) in SQL Server.
+*   **Wallets & Advances**: Live endpoints managing payroll advances, loans, and EWA (Earned Wage Access) transactions.
+
+### 4. Communications & Notifications
+*   **Real-time Messaging**: SignalR-powered `ChatHub` facilitating direct agent-to-agent private messaging and AI-chatbot interactions.
+*   **SMTP Service**: Configured to send email notifications for ticket status changes, case approvals, and reminders.
+
+---
+
 ## Endpoints Summary (165 total)
 
 | Controller | Count |
@@ -75,8 +100,8 @@ Full OpenAPI documentation available at `/swagger` when running in Development.
 ## Getting Started
 
 ### Prerequisites
-- .NET 10 SDK
-- SQL Server (local or Docker)
+*   .NET 10 SDK
+*   SQL Server (local or Docker)
 
 ### Configuration
 
@@ -102,10 +127,10 @@ dotnet run --project src/TaxOmbud.API
 ```
 
 The API will:
-1. Apply any pending EF Core migrations automatically
-2. Seed roles, permissions, lookup data, and a default admin user
-3. Start Hangfire background workers
-4. Serve Swagger UI at http://localhost:5013
+1. Apply any pending EF Core migrations automatically.
+2. Seed roles, permissions, lookup data, and a default admin/taxpayer user.
+3. Start Hangfire background workers.
+4. Serve Swagger UI at http://localhost:5013 (or configured Port).
 
 ---
 

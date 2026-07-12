@@ -6,6 +6,8 @@ using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Common.Responses;
 using TaxOmbud.Domain.Entities.Hr;
 using TaxOmbud.Domain.Entities.Identity;
+using TaxOmbud.Domain.Enums;
+
 
 namespace TaxOmbud.Application.Services;
 
@@ -19,6 +21,9 @@ public class HrService : IHrService
     private readonly IGenericRepository<EmployeeWallet> _walletRepo;
     private readonly IGenericRepository<EwaRequest> _ewaRepo;
     private readonly IGenericRepository<User> _userRepo;
+    private readonly IGenericRepository<Competency> _competencyRepo;
+    private readonly IGenericRepository<ReviewTemplate> _reviewTemplateRepo;
+    private readonly IGenericRepository<PerformanceCycle> _cycleRepo;
     private readonly ICurrentUser _currentUser;
 
     public HrService(
@@ -30,6 +35,9 @@ public class HrService : IHrService
         IGenericRepository<EmployeeWallet> walletRepo,
         IGenericRepository<EwaRequest> ewaRepo,
         IGenericRepository<User> userRepo,
+        IGenericRepository<Competency> competencyRepo,
+        IGenericRepository<ReviewTemplate> reviewTemplateRepo,
+        IGenericRepository<PerformanceCycle> cycleRepo,
         ICurrentUser currentUser
     )
     {
@@ -41,6 +49,9 @@ public class HrService : IHrService
         _walletRepo = walletRepo;
         _ewaRepo = ewaRepo;
         _userRepo = userRepo;
+        _competencyRepo = competencyRepo;
+        _reviewTemplateRepo = reviewTemplateRepo;
+        _cycleRepo = cycleRepo;
         _currentUser = currentUser;
     }
 
@@ -537,5 +548,205 @@ public class HrService : IHrService
             response.Message = "An error occurred while retrieving the wallet.";
             return response;
         }
+    }
+
+    // ── Competencies ────────────────────────────────────────────────────────────
+
+    public async Task<Response<IEnumerable<CompetencyDto>>> GetCompetenciesAsync(GetCompetenciesQuery request, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var items = await _competencyRepo.Query()
+                .AsNoTracking()
+                .Where(c => !c.IsDeleted)
+                .OrderBy(c => c.SortOrder)
+                .Select(c => new CompetencyDto(c.Id, c.Name, c.Description, c.SortOrder, c.Status, c.CreatedAt))
+                .ToListAsync(cancellationToken);
+            return new Response<IEnumerable<CompetencyDto>> { StatusCode = 200, Message = "Success", Data = items };
+        }
+        catch (Exception)
+        {
+            return new Response<IEnumerable<CompetencyDto>> { StatusCode = 500, Message = "Failed to retrieve competencies." };
+        }
+    }
+
+    public async Task<Response<object?>> CreateCompetencyAsync(CreateCompetencyCommand request, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var c = new Competency { Id = Guid.NewGuid(), Name = request.Name, Description = request.Description, SortOrder = request.SortOrder };
+            await _competencyRepo.AddAsync(c);
+            await _competencyRepo.SaveAsync();
+            return new Response<object?> { StatusCode = 201, Message = "Competency created.", Data = c.Id };
+        }
+        catch (Exception)
+        {
+            return new Response<object?> { StatusCode = 500, Message = "Failed to create competency." };
+        }
+    }
+
+    public async Task<Response<object?>> UpdateCompetencyAsync(UpdateCompetencyCommand request, CancellationToken cancellationToken = default)
+    {
+        var c = await _competencyRepo.FindAsync(x => x.Id == request.Id);
+        if (c == null) return new Response<object?> { StatusCode = 404, Message = "Competency not found." };
+        try
+        {
+            c.Name = request.Name; c.Description = request.Description; c.SortOrder = request.SortOrder; c.Status = request.Status;
+            await _competencyRepo.UpdateAsync(c);
+            await _competencyRepo.SaveAsync();
+            return new Response<object?> { StatusCode = 200, Message = "Updated." };
+        }
+        catch (Exception) { return new Response<object?> { StatusCode = 500, Message = "Update failed." }; }
+    }
+
+    public async Task<Response<object?>> DeleteCompetencyAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var c = await _competencyRepo.FindAsync(x => x.Id == id);
+        if (c == null) return new Response<object?> { StatusCode = 404, Message = "Competency not found." };
+        await _competencyRepo.RemoveAsync(c);
+        await _competencyRepo.SaveAsync();
+        return new Response<object?> { StatusCode = 200, Message = "Deleted." };
+    }
+
+    // ── Review Templates ────────────────────────────────────────────────────────
+
+    public async Task<Response<IEnumerable<ReviewTemplateDto>>> GetReviewTemplatesAsync(GetReviewTemplatesQuery request, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var items = await _reviewTemplateRepo.Query()
+                .AsNoTracking()
+                .Where(t => !t.IsDeleted)
+                .OrderByDescending(t => t.CreatedAt)
+                .Select(t => new ReviewTemplateDto(t.Id, t.Name, t.Description, t.QuestionCount, t.Status, t.CreatedAt))
+                .ToListAsync(cancellationToken);
+            return new Response<IEnumerable<ReviewTemplateDto>> { StatusCode = 200, Message = "Success", Data = items };
+        }
+        catch (Exception) { return new Response<IEnumerable<ReviewTemplateDto>> { StatusCode = 500, Message = "Failed." }; }
+    }
+
+    public async Task<Response<object?>> CreateReviewTemplateAsync(CreateReviewTemplateCommand request, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var t = new ReviewTemplate { Id = Guid.NewGuid(), Name = request.Name, Description = request.Description, QuestionCount = request.QuestionCount };
+            await _reviewTemplateRepo.AddAsync(t);
+            await _reviewTemplateRepo.SaveAsync();
+            return new Response<object?> { StatusCode = 201, Message = "Template created.", Data = t.Id };
+        }
+        catch (Exception) { return new Response<object?> { StatusCode = 500, Message = "Failed to create template." }; }
+    }
+
+    public async Task<Response<object?>> UpdateReviewTemplateAsync(UpdateReviewTemplateCommand request, CancellationToken cancellationToken = default)
+    {
+        var t = await _reviewTemplateRepo.FindAsync(x => x.Id == request.Id);
+        if (t == null) return new Response<object?> { StatusCode = 404, Message = "Template not found." };
+        t.Name = request.Name; t.Description = request.Description; t.QuestionCount = request.QuestionCount; t.Status = request.Status;
+        await _reviewTemplateRepo.UpdateAsync(t);
+        await _reviewTemplateRepo.SaveAsync();
+        return new Response<object?> { StatusCode = 200, Message = "Updated." };
+    }
+
+    public async Task<Response<object?>> DeleteReviewTemplateAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var t = await _reviewTemplateRepo.FindAsync(x => x.Id == id);
+        if (t == null) return new Response<object?> { StatusCode = 404, Message = "Template not found." };
+        await _reviewTemplateRepo.RemoveAsync(t);
+        await _reviewTemplateRepo.SaveAsync();
+        return new Response<object?> { StatusCode = 200, Message = "Deleted." };
+    }
+
+    // ── Performance Cycles ──────────────────────────────────────────────────────
+
+    public async Task<Response<IEnumerable<PerformanceCycleDto>>> GetPerformanceCyclesAsync(GetPerformanceCyclesQuery request, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var items = await _cycleRepo.Query()
+                .AsNoTracking()
+                .Where(c => !c.IsDeleted)
+                .OrderByDescending(c => c.StartDate)
+                .Select(c => new PerformanceCycleDto(c.Id, c.Name, c.StartDate, c.EndDate, c.Status, c.CreatedAt))
+                .ToListAsync(cancellationToken);
+            return new Response<IEnumerable<PerformanceCycleDto>> { StatusCode = 200, Message = "Success", Data = items };
+        }
+        catch (Exception) { return new Response<IEnumerable<PerformanceCycleDto>> { StatusCode = 500, Message = "Failed." }; }
+    }
+
+    public async Task<Response<object?>> CreatePerformanceCycleAsync(CreatePerformanceCycleCommand request, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var c = new PerformanceCycle { Id = Guid.NewGuid(), Name = request.Name, StartDate = request.StartDate, EndDate = request.EndDate, Status = "Draft" };
+            await _cycleRepo.AddAsync(c);
+            await _cycleRepo.SaveAsync();
+            return new Response<object?> { StatusCode = 201, Message = "Performance cycle created.", Data = c.Id };
+        }
+        catch (Exception) { return new Response<object?> { StatusCode = 500, Message = "Failed to create cycle." }; }
+    }
+
+    // ── Bulk Onboarding ─────────────────────────────────────────────────────────
+
+    public async Task<Response<List<BulkOnboardResultItem>>> BulkOnboardAsync(BulkOnboardRequest request, CancellationToken cancellationToken = default)
+    {
+        var results = new List<BulkOnboardResultItem>();
+        foreach (var item in request.Employees)
+        {
+            try
+            {
+                // Check for duplicates
+                var exists = await _userRepo.ExistsAsync(u => u.Email == item.Email);
+                if (exists)
+                {
+                    results.Add(new BulkOnboardResultItem(item.Email, false, "Email already exists."));
+                    continue;
+                }
+
+                // Create user
+                var userId = Guid.NewGuid();
+                var user = new User
+                {
+                    Id = userId,
+                    FirstName = item.FirstName,
+                    LastName = item.LastName,
+                    UserName = item.Email,
+                    NormalizedUserName = item.Email.ToUpper(),
+                    Email = item.Email,
+                    NormalizedEmail = item.Email.ToUpper(),
+                    EmailConfirmed = true,
+                    PhoneNumber = item.Phone,
+                    JobTitle = item.JobTitle,
+                    EmploymentType = item.EmploymentType,
+                    Status = UserStatus.Active,
+                    SecurityStamp = Guid.NewGuid().ToString("D"),
+                    ConcurrencyStamp = Guid.NewGuid().ToString("D")
+                };
+                user.PasswordHash = new Microsoft.AspNetCore.Identity.PasswordHasher<User>().HashPassword(user, "TaxOmbudPassword@2026");
+                await _userRepo.AddAsync(user);
+
+
+                // Create staff profile
+                var profile = new StaffProfile
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = userId,
+                    EmployeeCode = $"EMP-{DateTime.UtcNow.Ticks % 100000}",
+                    HireDate = DateTime.TryParse(item.HireDate, out var hd) ? hd : DateTime.UtcNow,
+                    EmploymentStatus = "Active",
+                    DateOfBirth = new DateTime(1995, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                    BankAccountNo = "0000000000",
+                    BankId = "058"
+                };
+                await _staffRepo.AddAsync(profile);
+
+                await _userRepo.SaveAsync();
+                results.Add(new BulkOnboardResultItem(item.Email, true, "Onboarded successfully."));
+            }
+            catch (Exception ex)
+            {
+                results.Add(new BulkOnboardResultItem(item.Email, false, ex.Message));
+            }
+        }
+        return new Response<List<BulkOnboardResultItem>> { StatusCode = 200, Message = "Bulk onboarding complete.", Data = results };
     }
 }

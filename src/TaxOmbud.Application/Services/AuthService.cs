@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using OtpNet;
 using TaxOmbud.Application.Auth.DTOs;
 using TaxOmbud.Application.Interfaces.InfrastructureService;
@@ -27,6 +29,8 @@ public class AuthService : IAuthService
     private readonly ITokenService _tokenService;
     private readonly IGenericRepository<AuditLog> _auditLogRepo;
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly IConfiguration _configuration;
+    private readonly ILogger<AuthService> _logger;
 
     public AuthService(
         UserManager<User> userManager,
@@ -38,7 +42,9 @@ public class AuthService : IAuthService
         IEmailService emailService,
         ITokenService tokenService,
         IGenericRepository<AuditLog> auditLogRepo,
-        IHttpContextAccessor httpContextAccessor
+        IHttpContextAccessor httpContextAccessor,
+        IConfiguration configuration,
+        ILogger<AuthService> logger
     )
     {
         _userManager = userManager;
@@ -51,6 +57,8 @@ public class AuthService : IAuthService
         _tokenService = tokenService;
         _auditLogRepo = auditLogRepo;
         _httpContextAccessor = httpContextAccessor;
+        _configuration = configuration;
+        _logger = logger;
     }
 
     // ─── Taxpayer Self-Registration (public portal) ───────────────────────────
@@ -558,19 +566,58 @@ public class AuthService : IAuthService
 
             // Generate a secure password reset token via Identity
             var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+            var encodedToken = Uri.EscapeDataString(token);
 
             // Store token on user for lookup during reset
             user.SetPasswordResetToken(token);
             await _userManager.UpdateAsync(user);
 
-            // Password reset email disabled for local development
-            /*
-            await _emailService.SendAsync(
-                to: user.Email ?? string.Empty,
-                subject: "Reset your TaxOmbud password",
-                htmlBody: $"<p>Use this token to reset your password: <strong>{token}</strong></p><p>This link expires in 1 hour.</p>",
-                cancellationToken: cancellationToken);
-            */
+            // Build the reset link pointing to the frontend page
+            var baseUrl = _configuration["AppBaseUrl"]?.TrimEnd('/') ?? "http://localhost:5173";
+            var resetLink = $"{baseUrl}/auth-new-password?email={Uri.EscapeDataString(user.Email ?? string.Empty)}&token={encodedToken}";
+
+            var htmlBody = $"""
+                <div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;">
+                  <div style="background:#0a3d22;padding:28px 32px;text-align:center;border-bottom:4px solid #c9a227;">
+                    <h1 style="color:#c9a227;font-size:1.1rem;margin:0 0 4px;letter-spacing:.5px;">OFFICE OF THE TAX OMBUD</h1>
+                    <p style="color:rgba(255,255,255,.7);font-size:.8rem;margin:0;">Federal Republic of Nigeria</p>
+                  </div>
+                  <div style="padding:32px;background:#fff;color:#333;font-size:.95rem;line-height:1.7;">
+                    <h2 style="color:#0a3d22;font-size:1.15rem;margin-top:0;">Password Reset Request</h2>
+                    <p>Hello <strong>{user.FirstName}</strong>,</p>
+                    <p>We received a request to reset the password for your Tax Ombud account associated with <strong>{user.Email}</strong>.</p>
+                    <p>Click the button below to reset your password. This link is valid for <strong>1 hour</strong>.</p>
+                    <div style="text-align:center;margin:32px 0;">
+                      <a href="{resetLink}" style="background:#0a3d22;color:#fff;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:700;font-size:1rem;display:inline-block;">Reset My Password</a>
+                    </div>
+                    <p style="font-size:.85rem;color:#666;">If the button does not work, copy and paste this link into your browser:</p>
+                    <p style="font-size:.82rem;color:#0a3d22;word-break:break-all;">{resetLink}</p>
+                    <p style="font-size:.85rem;color:#666;">If you did not request a password reset, please ignore this email — your password will remain unchanged.</p>
+                  </div>
+                  <div style="background:#0a3d22;padding:20px 32px;text-align:center;">
+                    <p style="color:#c9a227;font-style:italic;font-size:.9rem;font-weight:700;margin:4px 0;">Pax Christi!!!</p>
+                    <p style="color:rgba(255,255,255,.55);font-size:.76rem;margin:4px 0;">Office of the Tax Ombud &middot; Federal Republic of Nigeria</p>
+                  </div>
+                </div>
+                """;
+
+            // Send email in the background — do not await so SMTP issues never block the API response
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _emailService.SendAsync(
+                        to: user.Email ?? string.Empty,
+                        subject: "Reset your Tax Ombud password",
+                        htmlBody: htmlBody,
+                        cancellationToken: CancellationToken.None);
+                }
+                catch (Exception emailEx)
+                {
+                    // Log but swallow — the reset token is already saved to DB
+                    _logger.LogError(emailEx, "Failed to send password reset email to {Email}", user.Email);
+                }
+            });
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = Constants.Messages.Success;

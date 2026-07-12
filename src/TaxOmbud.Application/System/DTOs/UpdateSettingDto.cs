@@ -12,3 +12,5 @@ namespace TaxOmbud.Application.System.DTOs;
 public record UpdateSettingCommand(string Key, string Value, string? Description) ;
 
 public record UpdateSettingRequest(string Key, string Value, string? Description);
+
+public record DeleteSettingCommand(string Key);

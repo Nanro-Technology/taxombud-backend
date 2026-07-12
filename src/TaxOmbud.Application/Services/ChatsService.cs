@@ -208,6 +208,37 @@ public class ChatsService : IChatsService
             });
         }
 
-        return result.OrderByDescending(c => c.LastMessage?.CreatedAt ?? DateTime.MinValue).ToList();
+        return result.OrderByDescending(c => c.LastMessage?.CreatedAt ?? DateTimeOffset.MinValue).ToList();
+    }
+
+    public async Task<bool> MarkChatAsReadAsync(Guid chatId, CancellationToken cancellationToken = default)
+    {
+        if (!_currentUser.UserId.HasValue) return false;
+        var userId = _currentUser.UserId.Value;
+        var userIdStr = userId.ToString();
+
+        var unreadMessages = await _messageRepo.Query()
+            .Where(m => m.AgentChatId == chatId && m.SenderId != userId && !m.ReadReceipts.Contains(userIdStr))
+            .ToListAsync(cancellationToken);
+
+        if (!unreadMessages.Any()) return true;
+
+        foreach (var message in unreadMessages)
+        {
+            var receipts = JsonSerializer.Deserialize<List<ReadReceiptDto>>(message.ReadReceipts) ?? new List<ReadReceiptDto>();
+            if (!receipts.Any(r => r.UserId == userId))
+            {
+                receipts.Add(new ReadReceiptDto
+                {
+                    UserId = userId,
+                    ReadAt = DateTime.UtcNow
+                });
+                message.ReadReceipts = JsonSerializer.Serialize(receipts);
+                await _messageRepo.UpdateAsync(message);
+            }
+        }
+
+        await _messageRepo.SaveAsync();
+        return true;
     }
 }

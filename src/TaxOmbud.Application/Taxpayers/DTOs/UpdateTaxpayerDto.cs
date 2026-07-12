@@ -5,6 +5,7 @@ public record UpdateTaxpayerCommand(
     string FirstName,
     string LastName,
     string Phone,
+    string? AltPhone,
     string? TinNumber,
     string? Nin,
     string? Bvn,
@@ -14,13 +15,16 @@ public record UpdateTaxpayerCommand(
     string? RcNumber,
     string? Address,
     string? City,
-    string? State
+    string? State,
+    string? Country,
+    string? Account
 ) ;
 
 public record UpdateTaxpayerRequest(
     string FirstName,
     string LastName,
     string Phone,
+    string? AltPhone,
     string? TinNumber,
     string? Nin,
     string? Bvn,
@@ -30,5 +34,7 @@ public record UpdateTaxpayerRequest(
     string? RcNumber,
     string? Address,
     string? City,
-    string? State
+    string? State,
+    string? Country,
+    string? Account
 );

@@ -12,4 +12,13 @@ public class Account : BaseEntity
     public int HealthScore { get; set; } = 100;
     public string? Description { get; set; }
     public bool IsWorkflowLane { get; set; } = true;
+
+    // Extended Accounts fields
+    public string? Website { get; set; }
+    public string? AltPhone { get; set; }
+    public string? Address { get; set; }
+    public string? State { get; set; }
+    public string? City { get; set; }
+    public string? PostalCode { get; set; }
+    public string? Industry { get; set; }
 }

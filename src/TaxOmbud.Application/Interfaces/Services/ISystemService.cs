@@ -11,6 +11,7 @@ public interface ISystemService
     Task<Response<StopImpersonationResponseDto>> StopImpersonationAsync(StopImpersonationCommand request, CancellationToken cancellationToken = default);
     Task<Response<object?>> ToggleFeatureFlagAsync(ToggleFeatureFlagCommand request, CancellationToken cancellationToken = default);
     Task<Response<object?>> UpdateSettingAsync(UpdateSettingCommand request, CancellationToken cancellationToken = default);
+    Task<Response<object?>> DeleteSettingAsync(DeleteSettingCommand request, CancellationToken cancellationToken = default);
     Task<Response<PagedResult<AuditLog>>> GetAdminAuditLogsAsync(GetAdminAuditLogsQuery request, CancellationToken cancellationToken = default);
     Task<Response<IEnumerable<FeatureFlag>>> GetFeatureFlagsAsync(GetFeatureFlagsQuery request, CancellationToken cancellationToken = default);
     Task<Response<IEnumerable<SystemSetting>>> GetSettingsAsync(GetSettingsQuery request, CancellationToken cancellationToken = default);

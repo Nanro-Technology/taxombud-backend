@@ -164,6 +164,7 @@ public class EmployeeWalletConfiguration : IEntityTypeConfiguration<EmployeeWall
         builder.HasKey(ew => ew.Id);
 
         builder.Property(ew => ew.BalanceNgn).HasPrecision(18, 2);
+        builder.Property(ew => ew.Status).HasMaxLength(50).IsRequired();
 
         builder.HasOne(ew => ew.User)
             .WithMany()
@@ -187,6 +188,9 @@ public class WalletTransactionConfiguration : IEntityTypeConfiguration<WalletTra
         builder.Property(wt => wt.Type).HasMaxLength(50).IsRequired();
         builder.Property(wt => wt.Amount).HasPrecision(18, 2);
         builder.Property(wt => wt.Reference).HasMaxLength(100).IsRequired();
+        builder.Property(wt => wt.Status).HasMaxLength(50).IsRequired();
+        builder.Property(wt => wt.BankDetail).HasMaxLength(200);
+        builder.Property(wt => wt.ProviderRef).HasMaxLength(100);
     }
 }
 
@@ -200,6 +204,7 @@ public class LoanRequestConfiguration : IEntityTypeConfiguration<LoanRequest>
         builder.Property(lr => lr.Amount).HasPrecision(18, 2);
         builder.Property(lr => lr.Purpose).HasMaxLength(1000).IsRequired();
         builder.Property(lr => lr.Status).HasMaxLength(50).IsRequired();
+        builder.Property(lr => lr.IsSalaryAdvance).IsRequired();
 
         builder.HasQueryFilter(lr => !lr.IsDeleted);
 
@@ -256,5 +261,31 @@ public class LeaveRequestConfiguration : IEntityTypeConfiguration<LeaveRequest>
             .WithMany()
             .HasForeignKey(lr => lr.ApproverUserId)
             .OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+public class CompetencyConfiguration : IEntityTypeConfiguration<Competency>
+{
+    public void Configure(EntityTypeBuilder<Competency> builder)
+    {
+        builder.ToTable("Competencies");
+        builder.HasKey(c => c.Id);
+        builder.Property(c => c.Name).HasMaxLength(200).IsRequired();
+        builder.Property(c => c.Description).HasMaxLength(1000).IsRequired();
+        builder.Property(c => c.Status).HasMaxLength(50).IsRequired();
+        builder.HasQueryFilter(c => !c.IsDeleted);
+    }
+}
+
+public class ReviewTemplateConfiguration : IEntityTypeConfiguration<ReviewTemplate>
+{
+    public void Configure(EntityTypeBuilder<ReviewTemplate> builder)
+    {
+        builder.ToTable("ReviewTemplates");
+        builder.HasKey(rt => rt.Id);
+        builder.Property(rt => rt.Name).HasMaxLength(200).IsRequired();
+        builder.Property(rt => rt.Description).HasMaxLength(1000).IsRequired();
+        builder.Property(rt => rt.Status).HasMaxLength(50).IsRequired();
+        builder.HasQueryFilter(rt => !rt.IsDeleted);
     }
 }

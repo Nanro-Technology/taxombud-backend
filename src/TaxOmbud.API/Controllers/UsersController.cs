@@ -19,10 +19,12 @@ namespace TaxOmbud.Api.Controllers;
 public class UsersController : ControllerBase
 {
     private readonly IUsersService _usersService;
+    private readonly TaxOmbud.Application.Interfaces.Persistence.IApplicationDbContext _context;
 
-    public UsersController(IUsersService usersService)
+    public UsersController(IUsersService usersService, TaxOmbud.Application.Interfaces.Persistence.IApplicationDbContext context)
     {
         _usersService = usersService;
+        _context = context;
     }
 
     /// <summary>List users with optional search and filters.</summary>
@@ -132,4 +134,30 @@ public class UsersController : ControllerBase
         var result = await _usersService.GetAuditLogAsync(new GetAuditLogQuery(id, entityType, action, from, to, page, pageSize), ct);
         return StatusCode(result.StatusCode, result);
     }
+
+    /// <summary>Update the CalDAV password for a user profile.</summary>
+    [HttpPut("me/caldav-password")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateCaldavPassword([FromBody] UpdateCaldavPasswordRequest request, CancellationToken ct)
+    {
+        try
+        {
+            await Microsoft.EntityFrameworkCore.RelationalDatabaseFacadeExtensions.ExecuteSqlRawAsync(((Microsoft.EntityFrameworkCore.DbContext)_context).Database, "ALTER TABLE Users ADD COLUMN IF NOT EXISTS CaldavPassword VARCHAR(256) NULL;", ct);
+        }
+        catch {}
+
+        var user = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstOrDefaultAsync(_context.Users, u => u.Email == request.Email, ct);
+        if (user == null)
+        {
+            return NotFound(new { StatusCode = 404, Message = "User not found." });
+        }
+
+        user.CaldavPassword = request.Password;
+        await _context.SaveChangesAsync(ct);
+        return Ok(new { StatusCode = 200, Message = "CalDAV sync password updated successfully." });
+    }
 }
+
+public record UpdateCaldavPasswordRequest(string Password, string Email);

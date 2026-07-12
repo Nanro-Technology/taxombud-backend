@@ -111,6 +111,8 @@ public static class DependencyInjection
         services.AddAuthorizationBuilder()
             .AddPolicy("RequireAuthenticated", p => p.RequireAuthenticatedUser())
             .AddPolicy("AdminOnly", p => p.RequireRole(RoleConstants.SuperAdmin, RoleConstants.Admin))
+            .AddPolicy("OfficerOrAbove", p => p.RequireRole(RoleConstants.SuperAdmin, RoleConstants.Admin, RoleConstants.Director, RoleConstants.Manager, RoleConstants.SeniorOfficer, RoleConstants.Officer))
+            .AddPolicy("TaxpayerOnly", p => p.RequireRole("Taxpayer"))
             // Complaints
             .AddPolicy("CanViewComplaints",   p => p.RequireClaim("permission", "Complaints:View"))
             .AddPolicy("CanCreateComplaints", p => p.RequireClaim("permission", "Complaints:Create"))

@@ -13,6 +13,8 @@ public class LeaveRequest : BaseEntity
     public DateTimeOffset StartDate { get; set; }
     public DateTimeOffset EndDate { get; set; }
     public int Days { get; set; }
+    
+    public string? Reason { get; set; }
 
     public string Status { get; set; } = "pending"; // pending, approved, rejected, cancelled
     public Guid? ApproverUserId { get; set; }

@@ -12,6 +12,9 @@ public class TaxpayerProfile : BaseEntity
     public Guid UserId { get; set; }
     public User User { get; set; } = null!;
 
+    public Guid? AccountId { get; set; }
+    public Account? Account { get; set; }
+
     public TaxpayerType TaxpayerType { get; set; } = TaxpayerType.Individual;
     public string? TinNumber { get; set; }
     public string? Nin { get; set; }
