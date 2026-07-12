@@ -21,5 +21,6 @@ public record TaxpayerListDto(
     string? CompanyName,
     string? RcNumber,
     bool IsVerified,
-    DateTimeOffset CreatedAt
+    DateTimeOffset CreatedAt,
+    string? Account
 );

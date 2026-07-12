@@ -37,3 +37,19 @@ public class PerformanceReview : BaseEntity
     
     public string Status { get; set; } = "Draft"; // Draft, Submitted, Acknowledged
 }
+
+public class Competency : BaseEntity
+{
+    public string Name { get; set; } = null!;
+    public string Description { get; set; } = null!;
+    public int SortOrder { get; set; } = 1;
+    public string Status { get; set; } = "Active"; // Active, Inactive
+}
+
+public class ReviewTemplate : BaseEntity
+{
+    public string Name { get; set; } = null!;
+    public string Description { get; set; } = null!;
+    public int QuestionCount { get; set; } = 5;
+    public string Status { get; set; } = "Active"; // Active, Inactive
+}

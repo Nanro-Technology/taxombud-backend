@@ -25,7 +25,7 @@ public class Complaint : BaseEntity, IHasDomainEvents
     public string? WhyOtoHandle { get; private set; }
 
     public Guid TaxpayerId { get; private set; }
-    public Taxpayer Taxpayer { get; private set; } = null!;
+    public TaxpayerProfile Taxpayer { get; private set; } = null!;
 
     public string TaxType { get; private set; } = null!;
     public string TaxPeriod { get; private set; } = null!;

@@ -8,4 +8,4 @@ using TaxOmbud.Common.Responses;
 
 namespace TaxOmbud.Application.HrRequests.DTOs;
 
-public record GetLoanRequestsQueries  { }
+public record GetLoanRequestsQueries { public bool? IsSalaryAdvance { get; init; } }

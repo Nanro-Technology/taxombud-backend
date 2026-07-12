@@ -176,6 +176,20 @@ public class SystemService : ISystemService
         return new Response<object?> { StatusCode = StatusCodes.Status200OK, Message = "Success" };
     }
 
+    public async Task<Response<object?>> DeleteSettingAsync(DeleteSettingCommand request, CancellationToken cancellationToken = default)
+    {
+        var setting = await _settingRepo.FindAsync(s => s.Key == request.Key);
+        if (setting == null)
+        {
+            return new Response<object?> { StatusCode = StatusCodes.Status404NotFound, Message = "Setting not found." };
+        }
+
+        await _settingRepo.RemoveAsync(setting);
+        await _settingRepo.SaveAsync();
+
+        return new Response<object?> { StatusCode = StatusCodes.Status200OK, Message = "Success" };
+    }
+
     public async Task<Response<PagedResult<AuditLog>>> GetAdminAuditLogsAsync(GetAdminAuditLogsQuery request, CancellationToken cancellationToken = default)
     {
         var response = new Response<PagedResult<AuditLog>>();

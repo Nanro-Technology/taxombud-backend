@@ -50,7 +50,8 @@ public class PayGradesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> CreatePayGrade([FromBody] CreatePayGradeRequest request, CancellationToken ct)
     {
-        var result = await _payGradesService.CreatePayGradeAsync(new CreatePayGradeCommand(request.Name, request.Level, request.BasicSalaryBand), ct);
+        var result = await _payGradesService.CreatePayGradeAsync(new CreatePayGradeCommand(
+            request.Name, request.Level, request.BasicSalaryBand, request.Currency, request.MinSalary, request.MaxSalary, request.Description), ct);
         if (!(result.StatusCode >= 200 && result.StatusCode < 300))
             return StatusCode(result.StatusCode, result);
         return CreatedAtAction(nameof(GetPayGradeById), new { id = result.Data!.Id }, result);
@@ -62,7 +63,8 @@ public class PayGradesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdatePayGrade(Guid id, [FromBody] UpdatePayGradeRequest request, CancellationToken ct)
     {
-        var result = await _payGradesService.UpdatePayGradeAsync(new UpdatePayGradeCommand(id, request.Name, request.Level, request.BasicSalaryBand), ct);
+        var result = await _payGradesService.UpdatePayGradeAsync(new UpdatePayGradeCommand(
+            id, request.Name, request.Level, request.BasicSalaryBand, request.Currency, request.MinSalary, request.MaxSalary, request.Description), ct);
         return StatusCode(result.StatusCode, result);
     }
 

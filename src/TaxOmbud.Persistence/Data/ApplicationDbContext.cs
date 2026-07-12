@@ -73,6 +73,16 @@ public class ApplicationDbContext : IdentityDbContext<User, IdentityRole<Guid>, 
     // ─── Documents ────────────────────────────────────────────────────────────
     public DbSet<Document> Documents => Set<Document>();
     public DbSet<DocumentVersion> DocumentVersions => Set<DocumentVersion>();
+    public DbSet<UserFile> UserFiles => Set<UserFile>();
+    public DbSet<SignRequest> SignRequests => Set<SignRequest>();
+    public DbSet<PublicFileRequest> PublicFileRequests => Set<PublicFileRequest>();
+    public DbSet<PublicFileRequestUpload> PublicFileRequestUploads => Set<PublicFileRequestUpload>();
+
+    // ─── Secured Filing ───────────────────────────────────────────────────────
+    public DbSet<TaxOmbud.Domain.Entities.SecuredFiling.FilingFolder> FilingFolders => Set<TaxOmbud.Domain.Entities.SecuredFiling.FilingFolder>();
+    public DbSet<TaxOmbud.Domain.Entities.SecuredFiling.FilingDocument> FilingDocuments => Set<TaxOmbud.Domain.Entities.SecuredFiling.FilingDocument>();
+    public DbSet<TaxOmbud.Domain.Entities.SecuredFiling.FilingCategory> FilingCategories => Set<TaxOmbud.Domain.Entities.SecuredFiling.FilingCategory>();
+    public DbSet<TaxOmbud.Domain.Entities.SecuredFiling.FilingInboxRouting> FilingInboxRoutings => Set<TaxOmbud.Domain.Entities.SecuredFiling.FilingInboxRouting>();
 
     // ─── Communications ───────────────────────────────────────────────────────
     public DbSet<CommunicationLog> CommunicationLogs => Set<CommunicationLog>();
@@ -97,6 +107,7 @@ public class ApplicationDbContext : IdentityDbContext<User, IdentityRole<Guid>, 
     public DbSet<ScheduledReport> ScheduledReports => Set<ScheduledReport>();
 
     // ─── HR & Payroll ─────────────────────────────────────────────────────────
+    public DbSet<Account> Accounts => Set<Account>();
     public DbSet<StaffProfile> StaffProfiles => Set<StaffProfile>();
     public DbSet<PayGrade> PayGrades => Set<PayGrade>();
     public DbSet<SalaryProfile> SalaryProfiles => Set<SalaryProfile>();
@@ -109,6 +120,8 @@ public class ApplicationDbContext : IdentityDbContext<User, IdentityRole<Guid>, 
     public DbSet<LoanRequest> LoanRequests => Set<LoanRequest>();
     public DbSet<EwaRequest> EwaRequests => Set<EwaRequest>();
     public DbSet<LeaveRequest> LeaveRequests => Set<LeaveRequest>();
+    public DbSet<Competency> Competencies => Set<Competency>();
+    public DbSet<ReviewTemplate> ReviewTemplates => Set<ReviewTemplate>();
 
     // ─── Operations & Finance ─────────────────────────────────────────────────
     public DbSet<TaxOmbud.Domain.Entities.Operations.Project> Projects => Set<TaxOmbud.Domain.Entities.Operations.Project>();
@@ -154,6 +167,11 @@ public class ApplicationDbContext : IdentityDbContext<User, IdentityRole<Guid>, 
     public DbSet<TaxOmbud.Domain.Entities.Crm.Interaction> Interactions => Set<TaxOmbud.Domain.Entities.Crm.Interaction>();
     public DbSet<TaxOmbud.Domain.Entities.Crm.Call> Calls => Set<TaxOmbud.Domain.Entities.Crm.Call>();
     public DbSet<TaxOmbud.Domain.Entities.Hr.TimeLog> TimeLogs => Set<TaxOmbud.Domain.Entities.Hr.TimeLog>();
+    public DbSet<TaxOmbud.Domain.Entities.Communications.ChatbotSession> ChatbotSessions => Set<TaxOmbud.Domain.Entities.Communications.ChatbotSession>();
+    public DbSet<TaxOmbud.Domain.Entities.Communications.ChatbotMessage> ChatbotMessages => Set<TaxOmbud.Domain.Entities.Communications.ChatbotMessage>();
+    public DbSet<TaxOmbud.Domain.Entities.Knowledge.KnowledgeCategory> KnowledgeCategories => Set<TaxOmbud.Domain.Entities.Knowledge.KnowledgeCategory>();
+    public DbSet<TaxOmbud.Domain.Entities.Knowledge.KnowledgeTopic> KnowledgeTopics => Set<TaxOmbud.Domain.Entities.Knowledge.KnowledgeTopic>();
+
 
     // ─── EF Model ─────────────────────────────────────────────────────────────
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -172,6 +190,9 @@ public class ApplicationDbContext : IdentityDbContext<User, IdentityRole<Guid>, 
         modelBuilder.Entity<IdentityUserLogin<Guid>>(b => b.ToTable("AspNetUserLogins"));
         modelBuilder.Entity<IdentityRoleClaim<Guid>>(b => b.ToTable("AspNetRoleClaims"));
         modelBuilder.Entity<IdentityUserToken<Guid>>(b => b.ToTable("AspNetUserTokens"));
+
+        // Map Account entity to singular table name
+        modelBuilder.Entity<Account>(b => b.ToTable("Account"));
     }
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)

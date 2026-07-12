@@ -11,6 +11,8 @@ public class PayrollRun : BaseEntity
 
     public string RunType { get; set; } = "regular"; // regular, offcycle
     public string Status { get; set; } = "draft"; // draft, validated, approved, posted
+    public string Currency { get; set; } = "NGN";
+    public int EmployeesCount { get; set; }
 
     public decimal TotalGross { get; set; }
     public decimal TotalNet { get; set; }

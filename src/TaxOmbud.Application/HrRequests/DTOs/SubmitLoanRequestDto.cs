@@ -14,5 +14,6 @@ public record SubmitLoanRequestCommands(
     string Purpose,
     string? DisburseTo,
     string? PayoutReference,
-    string? ActionNote
+    string? ActionNote,
+    bool IsSalaryAdvance
 ) ;

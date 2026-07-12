@@ -55,6 +55,16 @@ public interface IApplicationDbContext
     // Documents
     DbSet<Document> Documents { get; }
     DbSet<DocumentVersion> DocumentVersions { get; }
+    DbSet<TaxOmbud.Domain.Entities.Documents.UserFile> UserFiles { get; }
+    DbSet<TaxOmbud.Domain.Entities.Documents.SignRequest> SignRequests { get; }
+    DbSet<TaxOmbud.Domain.Entities.Documents.PublicFileRequest> PublicFileRequests { get; }
+    DbSet<TaxOmbud.Domain.Entities.Documents.PublicFileRequestUpload> PublicFileRequestUploads { get; }
+
+    // Secured Filing
+    DbSet<TaxOmbud.Domain.Entities.SecuredFiling.FilingFolder> FilingFolders { get; }
+    DbSet<TaxOmbud.Domain.Entities.SecuredFiling.FilingDocument> FilingDocuments { get; }
+    DbSet<TaxOmbud.Domain.Entities.SecuredFiling.FilingCategory> FilingCategories { get; }
+    DbSet<TaxOmbud.Domain.Entities.SecuredFiling.FilingInboxRouting> FilingInboxRoutings { get; }
 
     // Communications
     DbSet<CommunicationLog> CommunicationLogs { get; }
@@ -79,6 +89,7 @@ public interface IApplicationDbContext
     DbSet<ScheduledReport> ScheduledReports { get; }
 
     // HR & Payroll
+    DbSet<Account> Accounts { get; }
     DbSet<StaffProfile> StaffProfiles { get; }
     DbSet<PayGrade> PayGrades { get; }
     DbSet<SalaryProfile> SalaryProfiles { get; }
@@ -91,6 +102,8 @@ public interface IApplicationDbContext
     DbSet<LoanRequest> LoanRequests { get; }
     DbSet<EwaRequest> EwaRequests { get; }
     DbSet<LeaveRequest> LeaveRequests { get; }
+    DbSet<Competency> Competencies { get; }
+    DbSet<ReviewTemplate> ReviewTemplates { get; }
 
     DbSet<Project> Projects { get; }
     DbSet<ProjectTask> ProjectTasks { get; }

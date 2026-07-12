@@ -25,4 +25,5 @@ public interface ICasesService
     Task<Response<PagedResult<CaseListDto>>> GetOverdueCasesAsync(GetOverdueCasesQuery request, CancellationToken cancellationToken = default);
     Task<Response<QueueResultDto>> GetQueueAsync(GetQueueQuery request, CancellationToken cancellationToken = default);
     Task<Response<TrackComplaintResponse>> TrackComplaintAsync(TrackComplaintQuery request, CancellationToken cancellationToken = default);
+    Task<Response<PagedResult<CaseHistoryListDto>>> GetCaseHistoryAsync(GetCaseHistoryQuery request, CancellationToken cancellationToken = default);
 }

@@ -116,6 +116,70 @@ public class ReportsController : ControllerBase
         return StatusCode(result.StatusCode, result);
     }
 
+    [HttpGet("cases")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetCaseReports([FromQuery] GetCaseReportsQuery query, CancellationToken ct)
+    {
+        var result = await _reportsService.GetCaseReportsAsync(query, ct);
+        return Ok(result);
+    }
+
+    [HttpGet("erp")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetErpReports([FromQuery] GetErpReportsQuery query, CancellationToken ct)
+    {
+        var result = await _reportsService.GetErpReportsAsync(query, ct);
+        return Ok(result);
+    }
+
+    [HttpGet("agents")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAgentReports([FromQuery] GetAgentReportsQuery query, CancellationToken ct)
+    {
+        var result = await _reportsService.GetAgentReportsAsync(query, ct);
+        return Ok(result);
+    }
+
+    [HttpGet("interactions")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetInteractionReports([FromQuery] GetInteractionReportsQuery query, CancellationToken ct)
+    {
+        var result = await _reportsService.GetInteractionReportsAsync(query, ct);
+        return Ok(result);
+    }
+
+    [HttpGet("sla")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetSlaReports([FromQuery] GetSlaReportsQuery query, CancellationToken ct)
+    {
+        var result = await _reportsService.GetSlaReportsAsync(query, ct);
+        return Ok(result);
+    }
+
+    [HttpGet("tasks")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetTaskReports([FromQuery] GetTaskReportsQuery query, CancellationToken ct)
+    {
+        var result = await _reportsService.GetTaskReportsAsync(query, ct);
+        return Ok(result);
+    }
+
+    [HttpGet("time-tracking")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetTimeTrackingReports([FromQuery] GetTimeTrackingReportsQuery query, CancellationToken ct)
+    {
+        var result = await _reportsService.GetTimeTrackingReportsAsync(query, ct);
+        return Ok(result);
+    }
+
+    [HttpGet("hr")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetHrReports([FromQuery] GetHrReportsQuery query, CancellationToken ct)
+    {
+        var result = await _reportsService.GetHrReportsAsync(query, ct);
+        return Ok(result);
+    }
+
     // ─── Scheduled Reports ─────────────────────────────────────────────────────
 
     /// <summary>List all configured scheduled reports.</summary>

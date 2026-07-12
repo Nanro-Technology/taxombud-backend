@@ -41,6 +41,25 @@ public class SystemSettingsController : ControllerBase
         return StatusCode(result.StatusCode, result);
     }
 
+    /// <summary>Create a new system setting value.</summary>
+    [HttpPost("settings")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> CreateSetting([FromBody] UpdateSettingRequest request, CancellationToken ct)
+    {
+        var result = await _systemService.UpdateSettingAsync(new UpdateSettingCommand(request.Key, request.Value, request.Description), ct);
+        return StatusCode(result.StatusCode, result);
+    }
+
+    /// <summary>Delete a system setting value.</summary>
+    [HttpDelete("settings/{key}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteSetting(string key, CancellationToken ct)
+    {
+        var result = await _systemService.DeleteSettingAsync(new DeleteSettingCommand(key), ct);
+        return StatusCode(result.StatusCode, result);
+    }
+
     /// <summary>Get list of all application feature flags.</summary>
     [HttpGet("feature-flags")]
     [ProducesResponseType(StatusCodes.Status200OK)]

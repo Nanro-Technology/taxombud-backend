@@ -10,4 +10,5 @@ public interface IChatsService
     Task<ChatMessageDto?> SendMessageAsync(SendMessageCommand request, CancellationToken cancellationToken = default);
     Task<List<ChatMessageDto>> GetChatMessagesAsync(GetChatMessagesQuery request, CancellationToken cancellationToken = default);
     Task<List<ChatDto>> GetChatsAsync(GetChatsQuery request, CancellationToken cancellationToken = default);
+    Task<bool> MarkChatAsReadAsync(Guid chatId, CancellationToken cancellationToken = default);
 }

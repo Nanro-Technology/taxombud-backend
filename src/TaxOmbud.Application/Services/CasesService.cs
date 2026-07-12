@@ -7,6 +7,7 @@ using TaxOmbud.Domain.Entities.Cases;
 using TaxOmbud.Domain.Entities.Complaints;
 using TaxOmbud.Domain.Entities.Communications;
 using TaxOmbud.Domain.Entities.Documents;
+using TaxOmbud.Domain.Entities.Identity;
 using TaxOmbud.Domain.Enums;
 using TaxOmbud.Common.Utilities;
 
@@ -21,6 +22,8 @@ public class CasesService : ICasesService
     private readonly IGenericRepository<CaseCommunicationLog> _communicationRepo;
     private readonly IGenericRepository<Document> _docRepo;
     private readonly IGenericRepository<CaseNote> _noteRepo;
+    private readonly IGenericRepository<CaseStatusHistory> _historyRepo;
+    private readonly IGenericRepository<User> _userRepo;
 
     public CasesService(
         IGenericRepository<Case> caseRepo,
@@ -29,7 +32,9 @@ public class CasesService : ICasesService
         IGenericRepository<CaseMilestone> milestoneRepo,
         IGenericRepository<CaseCommunicationLog> communicationRepo,
         IGenericRepository<Document> docRepo,
-        IGenericRepository<CaseNote> noteRepo)
+        IGenericRepository<CaseNote> noteRepo,
+        IGenericRepository<CaseStatusHistory> historyRepo,
+        IGenericRepository<User> userRepo)
     {
         _caseRepo = caseRepo;
         _complaintRepo = complaintRepo;
@@ -38,6 +43,8 @@ public class CasesService : ICasesService
         _communicationRepo = communicationRepo;
         _docRepo = docRepo;
         _noteRepo = noteRepo;
+        _historyRepo = historyRepo;
+        _userRepo = userRepo;
     }
 
     // ─── Queries ───────────────────────────────────────────────────────────────
@@ -49,7 +56,7 @@ public class CasesService : ICasesService
         {
             var query = _caseRepo.Query()
                 .Include(c => c.Complaint)
-                    .ThenInclude(co => co.Taxpayer)
+                    .ThenInclude(co => co.Taxpayer).ThenInclude(tp => tp.User)
                 .AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(request.Search))
@@ -72,7 +79,7 @@ public class CasesService : ICasesService
                     c.CaseNumber.Value,
                     c.ComplaintId,
                     c.Complaint.ReferenceNumber,
-                    c.Complaint.Taxpayer != null ? $"{c.Complaint.Taxpayer.FirstName} {c.Complaint.Taxpayer.LastName}" : "Unknown",
+                    c.Complaint.Taxpayer != null && c.Complaint.Taxpayer.User != null ? $"{c.Complaint.Taxpayer.User.FirstName} {c.Complaint.Taxpayer.User.LastName}" : "Unknown",
                     c.Subject,
                     c.Priority,
                     c.Status.ToString(),
@@ -102,7 +109,7 @@ public class CasesService : ICasesService
         {
             var query = _caseRepo.Query()
                 .Include(c => c.Complaint)
-                    .ThenInclude(co => co.Taxpayer)
+                    .ThenInclude(co => co.Taxpayer).ThenInclude(tp => tp.User)
                 .AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(request.Search))
@@ -124,7 +131,7 @@ public class CasesService : ICasesService
                     c.CaseNumber.Value,
                     c.ComplaintId,
                     c.Complaint.ReferenceNumber,
-                    c.Complaint.Taxpayer != null ? $"{c.Complaint.Taxpayer.FirstName} {c.Complaint.Taxpayer.LastName}" : "Unknown",
+                    c.Complaint.Taxpayer != null && c.Complaint.Taxpayer.User != null ? $"{c.Complaint.Taxpayer.User.FirstName} {c.Complaint.Taxpayer.User.LastName}" : "Unknown",
                     c.Subject,
                     c.Priority,
                     c.Status.ToString(),
@@ -155,7 +162,7 @@ public class CasesService : ICasesService
             var now = DateTimeOffset.UtcNow;
             var query = _caseRepo.Query()
                 .Include(c => c.Complaint)
-                    .ThenInclude(co => co.Taxpayer)
+                    .ThenInclude(co => co.Taxpayer).ThenInclude(tp => tp.User)
                 .Where(c => c.DueDate.HasValue && c.DueDate < now);
 
             var total = await query.CountAsync(cancellationToken);
@@ -168,7 +175,7 @@ public class CasesService : ICasesService
                     c.CaseNumber.Value,
                     c.ComplaintId,
                     c.Complaint.ReferenceNumber,
-                    c.Complaint.Taxpayer != null ? $"{c.Complaint.Taxpayer.FirstName} {c.Complaint.Taxpayer.LastName}" : "Unknown",
+                    c.Complaint.Taxpayer != null && c.Complaint.Taxpayer.User != null ? $"{c.Complaint.Taxpayer.User.FirstName} {c.Complaint.Taxpayer.User.LastName}" : "Unknown",
                     c.Subject,
                     c.Priority,
                     c.Status.ToString(),
@@ -197,7 +204,7 @@ public class CasesService : ICasesService
         {
             var query = _caseRepo.Query()
                 .Include(c => c.Complaint)
-                    .ThenInclude(co => co.Taxpayer)
+                    .ThenInclude(co => co.Taxpayer).ThenInclude(tp => tp.User)
                 .Where(c => c.CurrentStage == request.QueueName);
 
             var total = await query.CountAsync(cancellationToken);
@@ -213,7 +220,7 @@ public class CasesService : ICasesService
                     "",
                     c.Status.ToString(),
                     c.CurrentStage,
-                    c.Complaint.Taxpayer != null ? $"{c.Complaint.Taxpayer.FirstName} {c.Complaint.Taxpayer.LastName}" : "Unknown",
+                    c.Complaint.Taxpayer != null && c.Complaint.Taxpayer.User != null ? $"{c.Complaint.Taxpayer.User.FirstName} {c.Complaint.Taxpayer.User.LastName}" : "Unknown",
                     c.AssignedOfficer != null ? c.AssignedOfficer.User.FirstName + " " + c.AssignedOfficer.User.LastName : "Unassigned",
                     c.CreatedAt
                 ))
@@ -237,7 +244,7 @@ public class CasesService : ICasesService
         try
         {
             var c = await _caseRepo.Query()
-                .Include(x => x.Complaint).ThenInclude(co => co.Taxpayer)
+                .Include(x => x.Complaint).ThenInclude(co => co.Taxpayer).ThenInclude(tp => tp.User)
                 .Include(x => x.AssignedOfficer).ThenInclude(o => o!.User)
                 .Include(x => x.Department)
                 .Include(x => x.Findings)
@@ -270,7 +277,7 @@ public class CasesService : ICasesService
                 c.Outcome,
                 c.FindingsSummary,
                 new CaseComplaintDto(c.Complaint.Id, c.Complaint.ReferenceNumber,
-                    c.Complaint.Taxpayer is null ? null : new ComplaintTaxpayerDto(c.Complaint.Taxpayer.Id, $"{c.Complaint.Taxpayer.FirstName} {c.Complaint.Taxpayer.LastName}", c.Complaint.Taxpayer.Email.Value),
+                    c.Complaint.Taxpayer is null ? null : new ComplaintTaxpayerDto(c.Complaint.Taxpayer.Id, c.Complaint.Taxpayer.User != null ? $"{c.Complaint.Taxpayer.User.FirstName} {c.Complaint.Taxpayer.User.LastName}" : "Unknown", c.Complaint.Taxpayer.User?.Email ?? ""),
                     c.Complaint.TaxType, c.Complaint.TaxPeriod, c.Complaint.ComplaintCategory),
                 c.Findings.Select(f => new FindingDto(f.Id, f.Description, f.CreatedAt)),
                 c.Recommendations.Select(r => new RecommendationDto(r.Id, r.RecommendationText, r.ApprovedByUserId ?? Guid.Empty, r.CreatedAt)),
@@ -583,9 +590,25 @@ public class CasesService : ICasesService
                 return response;
             }
 
+            var previousStatus = caseEntity.Status;
             caseEntity.UpdateStatus(caseEntity.Status, request.TargetStage, Guid.Empty);
             await _caseRepo.UpdateAsync(caseEntity);
             await _caseRepo.SaveAsync();
+
+            // Write an immutable audit log entry for the transition.
+            var historyEntry = new CaseStatusHistory
+            {
+                Id = Guid.NewGuid(),
+                CaseId = caseEntity.Id,
+                OldStatus = previousStatus,
+                NewStatus = caseEntity.Status,
+                ChangedByUserId = Guid.Empty,
+                TransitionedAt = DateTimeOffset.UtcNow,
+                Reason = request.Reason,
+                CreatedAt = DateTime.UtcNow
+            };
+            await _historyRepo.AddAsync(historyEntry);
+            await _historyRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = string.Format(Constants.Messages.CaseUpdated);
@@ -733,6 +756,85 @@ public class CasesService : ICasesService
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
             response.Message = Constants.Messages.CaseDocUploadError;
+        }
+        return response;
+    }
+
+    public async Task<Response<PagedResult<CaseHistoryListDto>>> GetCaseHistoryAsync(GetCaseHistoryQuery request, CancellationToken cancellationToken = default)
+    {
+        var response = new Response<PagedResult<CaseHistoryListDto>>();
+        try
+        {
+            var query = _historyRepo.Query()
+                .Include(h => h.Case)
+                    .ThenInclude(c => c.Complaint)
+                .AsQueryable();
+
+            // Date range filters
+            if (!string.IsNullOrWhiteSpace(request.DateFrom) &&
+                DateTimeOffset.TryParse(request.DateFrom, out var dateFrom))
+                query = query.Where(h => h.TransitionedAt >= dateFrom);
+
+            if (!string.IsNullOrWhiteSpace(request.DateTo) &&
+                DateTimeOffset.TryParse(request.DateTo, out var dateTo))
+                query = query.Where(h => h.TransitionedAt <= dateTo);
+
+            // Text search: case number, subject, or complaint reference
+            if (!string.IsNullOrWhiteSpace(request.Search))
+            {
+                var q = request.Search.ToLower();
+                query = query.Where(h =>
+                    h.Case.CaseNumber.Value.Contains(q) ||
+                    h.Case.Subject.ToLower().Contains(q) ||
+                    h.Case.Complaint.ReferenceNumber.ToLower().Contains(q));
+            }
+
+            var total = await query.CountAsync(cancellationToken);
+
+            // Fetch paged history rows
+            var rows = await query
+                .OrderByDescending(h => h.TransitionedAt)
+                .Skip((request.Page - 1) * request.PageSize)
+                .Take(request.PageSize)
+                .ToListAsync(cancellationToken);
+
+            // Resolve operator names in a single extra query
+            var userIds = rows
+                .Where(h => h.ChangedByUserId != Guid.Empty)
+                .Select(h => h.ChangedByUserId)
+                .Distinct()
+                .ToList();
+
+            var users = userIds.Count > 0
+                ? await _userRepo.Query()
+                    .Where(u => userIds.Contains(u.Id))
+                    .Select(u => new { u.Id, Name = u.FirstName + " " + u.LastName })
+                    .ToDictionaryAsync(u => u.Id, u => u.Name, cancellationToken)
+                : new Dictionary<Guid, string>();
+
+            var items = rows.Select(h => new CaseHistoryListDto(
+                h.Id,
+                h.CaseId,
+                h.Case.CaseNumber.Value,
+                h.Case.Subject,
+                h.Case.Complaint.TaxType,
+                $"Transitioned: {h.OldStatus} → {h.NewStatus}",
+                h.NewStatus.ToString(),
+                h.TransitionedAt,
+                h.Reason,
+                h.ChangedByUserId != Guid.Empty && users.TryGetValue(h.ChangedByUserId, out var name)
+                    ? name
+                    : "System"
+            )).ToList();
+
+            response.StatusCode = StatusCodes.Status200OK;
+            response.Message = "Case history retrieved.";
+            response.Data = new PagedResult<CaseHistoryListDto>(items, total, request.Page, request.PageSize);
+        }
+        catch (Exception ex)
+        {
+            response.StatusCode = StatusCodes.Status500InternalServerError;
+            response.Message = ex.Message;
         }
         return response;
     }

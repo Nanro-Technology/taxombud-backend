@@ -6,6 +6,7 @@ using System.Text.Json;
 using TaxOmbud.API.Hubs;
 using TaxOmbud.Application.Chats.DTOs;
 using TaxOmbud.Application.Interfaces.Services;
+using TaxOmbud.Common.Responses;
 
 namespace TaxOmbud.Api.Controllers;
 
@@ -49,7 +50,15 @@ public class ChatsController : ControllerBase
     public async Task<IActionResult> GetChats(CancellationToken ct)
     {
         var result = await _chatsService.GetChatsAsync(new GetChatsQuery(), ct);
-        return Ok(result);
+        return Ok(new Response<List<ChatDto>> { StatusCode = 200, Message = "Success", Data = result });
+    }
+
+    /// <summary>Get list of currently online user IDs.</summary>
+    [HttpGet("presence")]
+    public IActionResult GetOnlineUsers()
+    {
+        var onlineUsers = ChatHub.GetOnlineUsers();
+        return Ok(new Response<List<Guid>> { StatusCode = 200, Message = "Success", Data = onlineUsers });
     }
 
     /// <summary>Get messages for a specific chat.</summary>
@@ -57,7 +66,7 @@ public class ChatsController : ControllerBase
     public async Task<IActionResult> GetMessages(Guid id, CancellationToken ct)
     {
         var result = await _chatsService.GetChatMessagesAsync(new GetChatMessagesQuery(id), ct);
-        return Ok(result);
+        return Ok(new Response<List<ChatMessageDto>> { StatusCode = 200, Message = "Success", Data = result });
     }
 
     /// <summary>Create a new chat.</summary>
@@ -65,7 +74,7 @@ public class ChatsController : ControllerBase
     public async Task<IActionResult> CreateChat([FromBody] CreateChatCommand command, CancellationToken ct)
     {
         var result = await _chatsService.CreateChatAsync(command, ct);
-        return Ok(result);
+        return Ok(new Response<Guid> { StatusCode = 200, Message = "Success", Data = result });
     }
 
     /// <summary>Send a message in a chat, with optional file attachment.</summary>
@@ -92,13 +101,13 @@ public class ChatsController : ControllerBase
         }
 
         var result = await _chatsService.SendMessageAsync(new SendMessageCommand(id, request.Content, attachmentUrl, attachmentFileName), ct);
-        if (result == null) return BadRequest("Failed to send message.");
+        if (result == null) return BadRequest(new Response<object> { StatusCode = 400, Message = "Failed to send message." });
 
         var participantIds = JsonSerializer.Deserialize<List<string>>(request.ParticipantIdsJson) ?? new List<string>();
         foreach (var pId in participantIds)
             await _hubContext.Clients.Group(pId).ReceiveMessage(result);
 
-        return Ok(result);
+        return Ok(new Response<ChatMessageDto> { StatusCode = 200, Message = "Success", Data = result });
     }
 
     /// <summary>Mark a message as read.</summary>
@@ -106,10 +115,10 @@ public class ChatsController : ControllerBase
     public async Task<IActionResult> MarkMessageAsRead(Guid messageId, [FromBody] MarkReadRequest request, CancellationToken ct)
     {
         var success = await _chatsService.MarkMessageAsReadAsync(new MarkMessageAsReadCommand(messageId), ct);
-        if (!success) return BadRequest();
+        if (!success) return BadRequest(new Response<object> { StatusCode = 400, Message = "Failed to mark message as read." });
         foreach (var pId in request.ParticipantIds)
             await _hubContext.Clients.Group(pId).MessageRead(messageId, request.UserId);
-        return Ok();
+        return Ok(new Response<object> { StatusCode = 200, Message = "Success" });
     }
 
     /// <summary>Pin or unpin a message.</summary>
@@ -117,7 +126,16 @@ public class ChatsController : ControllerBase
     public async Task<IActionResult> PinMessage(Guid messageId, [FromBody] PinMessageRequest request, CancellationToken ct)
     {
         var success = await _chatsService.PinMessageAsync(new PinMessageCommand(messageId, request.IsPinned), ct);
-        if (success) return Ok();
-        return BadRequest();
+        if (success) return Ok(new Response<object> { StatusCode = 200, Message = "Success" });
+        return BadRequest(new Response<object> { StatusCode = 400, Message = "Failed to pin message." });
+    }
+
+    /// <summary>Mark all messages in a chat as read.</summary>
+    [HttpPost("{id:guid}/read")]
+    public async Task<IActionResult> MarkChatAsRead(Guid id, CancellationToken ct)
+    {
+        var success = await _chatsService.MarkChatAsReadAsync(id, ct);
+        if (!success) return BadRequest(new Response<object> { StatusCode = 400, Message = "Failed to mark chat as read." });
+        return Ok(new Response<object> { StatusCode = 200, Message = "Success" });
     }
 }

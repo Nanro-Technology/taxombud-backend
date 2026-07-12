@@ -2440,6 +2440,53 @@ namespace TaxOmbud.Persistence.Migrations
                     b.ToTable("BenefitTypes");
                 });
 
+            modelBuilder.Entity("TaxOmbud.Domain.Entities.Hr.Competency", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("LastModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("LastModifiedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Competencies", (string)null);
+                });
+
             modelBuilder.Entity("TaxOmbud.Domain.Entities.Hr.DepartmentMovement", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2632,6 +2679,11 @@ namespace TaxOmbud.Persistence.Migrations
 
                     b.Property<int>("LedgerVersion")
                         .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uniqueidentifier");
@@ -2894,6 +2946,9 @@ namespace TaxOmbud.Persistence.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<string>("Reason")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTimeOffset>("StartDate")
                         .HasColumnType("datetimeoffset");
 
@@ -2994,6 +3049,9 @@ namespace TaxOmbud.Persistence.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("IsSalaryAdvance")
+                        .HasColumnType("bit");
+
                     b.Property<DateTime?>("LastModifiedAt")
                         .HasColumnType("datetime2");
 
@@ -3046,8 +3104,15 @@ namespace TaxOmbud.Persistence.Migrations
                     b.Property<Guid?>("CreatedByUserId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTimeOffset?>("DeletedAt")
                         .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
@@ -3060,6 +3125,12 @@ namespace TaxOmbud.Persistence.Migrations
 
                     b.Property<int>("Level")
                         .HasColumnType("int");
+
+                    b.Property<decimal>("MaxSalary")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("MinSalary")
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -3077,11 +3148,23 @@ namespace TaxOmbud.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("Adapter")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Country")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<Guid?>("CreatedByUserId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTimeOffset?>("DeletedAt")
                         .HasColumnType("datetimeoffset");
@@ -3099,8 +3182,17 @@ namespace TaxOmbud.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("Notes")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("ProviderCode")
                         .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PublicKey")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("SecretKey")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Status")
@@ -3109,6 +3201,9 @@ namespace TaxOmbud.Persistence.Migrations
 
                     b.Property<string>("Type")
                         .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("WebhookSecret")
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
@@ -3208,6 +3303,10 @@ namespace TaxOmbud.Persistence.Migrations
                     b.Property<Guid?>("CreatedByUserId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTimeOffset?>("DeletedAt")
                         .HasColumnType("datetimeoffset");
 
@@ -3259,8 +3358,15 @@ namespace TaxOmbud.Persistence.Migrations
                     b.Property<Guid?>("CreatedByUserId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTimeOffset?>("DeletedAt")
                         .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("EmployeesCount")
+                        .HasColumnType("int");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
@@ -3495,6 +3601,9 @@ namespace TaxOmbud.Persistence.Migrations
                     b.Property<Guid?>("LastModifiedByUserId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("Reference")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("ReferenceNumber")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
@@ -3515,6 +3624,53 @@ namespace TaxOmbud.Persistence.Migrations
                     b.HasIndex("RunId");
 
                     b.ToTable("Remittances", (string)null);
+                });
+
+            modelBuilder.Entity("TaxOmbud.Domain.Entities.Hr.ReviewTemplate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("LastModifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("LastModifiedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("QuestionCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ReviewTemplates", (string)null);
                 });
 
             modelBuilder.Entity("TaxOmbud.Domain.Entities.Hr.SalaryProfile", b =>
@@ -3815,6 +3971,12 @@ namespace TaxOmbud.Persistence.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("IsEmployee")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsEmployer")
+                        .HasColumnType("bit");
+
                     b.Property<DateTime?>("LastModifiedAt")
                         .HasColumnType("datetime2");
 
@@ -3880,6 +4042,9 @@ namespace TaxOmbud.Persistence.Migrations
 
                     b.Property<decimal>("RateOrAmount")
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("RateOrAmountStr")
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
@@ -3947,6 +4112,16 @@ namespace TaxOmbud.Persistence.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<DateTimeOffset?>("ApprovedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("AttemptNumber")
+                        .HasColumnType("int");
+
+                    b.Property<string>("BankDetail")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -3965,10 +4140,22 @@ namespace TaxOmbud.Persistence.Migrations
                     b.Property<Guid?>("LastModifiedByUserId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTimeOffset?>("PaidAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("ProviderRef")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<string>("Reference")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<string>("Type")
                         .IsRequired()
@@ -4328,6 +4515,10 @@ namespace TaxOmbud.Persistence.Migrations
                     b.Property<string>("AltPhone")
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("CaldavPassword")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
 
                     b.Property<bool>("CanSignIn")
                         .HasColumnType("bit");
@@ -6470,7 +6661,7 @@ namespace TaxOmbud.Persistence.Migrations
             modelBuilder.Entity("TaxOmbud.Domain.Entities.Hr.StatutoryRule", b =>
                 {
                     b.HasOne("TaxOmbud.Domain.Entities.Hr.StatutoryDeduction", "Deduction")
-                        .WithMany()
+                        .WithMany("StatutoryRules")
                         .HasForeignKey("DeductionId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -6788,6 +6979,11 @@ namespace TaxOmbud.Persistence.Migrations
                     b.Navigation("Movements");
 
                     b.Navigation("Notes");
+                });
+
+            modelBuilder.Entity("TaxOmbud.Domain.Entities.Hr.StatutoryDeduction", b =>
+                {
+                    b.Navigation("StatutoryRules");
                 });
 
             modelBuilder.Entity("TaxOmbud.Domain.Entities.Identity.Permission", b =>

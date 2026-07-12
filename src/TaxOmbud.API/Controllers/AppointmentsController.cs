@@ -17,10 +17,12 @@ namespace TaxOmbud.Api.Controllers;
 public class AppointmentsController : ControllerBase
 {
     private readonly IAppointmentsService _appointmentsService;
+    private readonly TaxOmbud.Application.Interfaces.Persistence.IApplicationDbContext _context;
 
-    public AppointmentsController(IAppointmentsService appointmentsService)
+    public AppointmentsController(IAppointmentsService appointmentsService, TaxOmbud.Application.Interfaces.Persistence.IApplicationDbContext context)
     {
         _appointmentsService = appointmentsService;
+        _context = context;
     }
 
     /// <summary>List appointments (optionally filtered by taxpayer, officer, or status).</summary>
@@ -108,5 +110,16 @@ public class AppointmentsController : ControllerBase
     {
         var result = await _appointmentsService.UpdateAppointmentStatusAsync(new UpdateAppointmentStatusCommand(id, request.Status), ct);
         return StatusCode(result.StatusCode, result);
+    }
+
+    /// <summary>Clear all appointments (Helper endpoint for testing).</summary>
+    [HttpDelete("clear-all")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> ClearAll(CancellationToken ct)
+    {
+        _context.Appointments.RemoveRange(_context.Appointments);
+        await _context.SaveChangesAsync(ct);
+        return Ok(new { StatusCode = 200, Message = "Cleared all appointments successfully." });
     }
 }

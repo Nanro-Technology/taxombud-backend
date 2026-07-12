@@ -48,7 +48,7 @@ public class ComplaintsService : IComplaintsService
         try
         {
             var query = _complaintRepo.Query()
-                .Include(c => c.Taxpayer)
+                .Include(c => c.Taxpayer).ThenInclude(tp => tp.User)
                 .Include(c => c.AssignedOfficer).ThenInclude(o => o!.User)
                 .AsQueryable();
 
@@ -73,7 +73,7 @@ public class ComplaintsService : IComplaintsService
                 .Select(c => new ComplaintSummaryDto(
                     c.Id, c.ReferenceNumber, c.Subject, c.TaxType, c.TaxPeriod, c.ComplaintCategory,
                     c.Status.ToString(), c.CurrentStage, c.Priority, c.TaxpayerId,
-                    c.Taxpayer != null ? $"{c.Taxpayer.FirstName} {c.Taxpayer.LastName}" : null,
+                    c.Taxpayer != null && c.Taxpayer.User != null ? $"{c.Taxpayer.User.FirstName} {c.Taxpayer.User.LastName}" : null,
                     c.AssignedOfficerId,
                     c.AssignedOfficer != null ? $"{c.AssignedOfficer.User.FirstName} {c.AssignedOfficer.User.LastName}" : null,
                     c.CreatedAt))
@@ -96,13 +96,25 @@ public class ComplaintsService : IComplaintsService
         var response = new Response<PagedResult<ComplaintSummaryDto>>();
         try
         {
+            var currentUserId = _currentUser.UserId;
+            if (currentUserId == null)
+            {
+                response.StatusCode = Microsoft.AspNetCore.Http.StatusCodes.Status401Unauthorized;
+                response.Message = "User is not authenticated.";
+                return response;
+            }
+
             var query = _complaintRepo.Query()
-                .Include(c => c.Taxpayer)
+                .Include(c => c.Taxpayer).ThenInclude(tp => tp.User)
                 .Include(c => c.AssignedOfficer).ThenInclude(o => o!.User)
+                .Where(c => c.Taxpayer.UserId == currentUserId.Value)
                 .AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(request.Search))
                 query = query.Where(c => c.ReferenceNumber.Contains(request.Search) || c.Subject.Contains(request.Search));
+
+            if (!string.IsNullOrWhiteSpace(request.Status))
+                query = query.Where(c => c.Status.ToString() == request.Status);
 
             var total = await query.CountAsync(cancellationToken);
             var items = await query.OrderByDescending(c => c.CreatedAt)
@@ -110,19 +122,19 @@ public class ComplaintsService : IComplaintsService
                 .Select(c => new ComplaintSummaryDto(
                     c.Id, c.ReferenceNumber, c.Subject, c.TaxType, c.TaxPeriod, c.ComplaintCategory,
                     c.Status.ToString(), c.CurrentStage, c.Priority, c.TaxpayerId,
-                    c.Taxpayer != null ? $"{c.Taxpayer.FirstName} {c.Taxpayer.LastName}" : null,
+                    c.Taxpayer != null && c.Taxpayer.User != null ? $"{c.Taxpayer.User.FirstName} {c.Taxpayer.User.LastName}" : null,
                     c.AssignedOfficerId,
                     c.AssignedOfficer != null ? $"{c.AssignedOfficer.User.FirstName} {c.AssignedOfficer.User.LastName}" : null,
                     c.CreatedAt))
                 .ToListAsync(cancellationToken);
 
-            response.StatusCode = StatusCodes.Status200OK;
+            response.StatusCode = Microsoft.AspNetCore.Http.StatusCodes.Status200OK;
             response.Message = Constants.Messages.ComplaintsRetrieved;
             response.Data = new PagedResult<ComplaintSummaryDto>(items, total, request.Page, request.PageSize);
         }
         catch (Exception)
         {
-            response.StatusCode = StatusCodes.Status500InternalServerError;
+            response.StatusCode = Microsoft.AspNetCore.Http.StatusCodes.Status500InternalServerError;
             response.Message = Constants.Messages.ComplaintRetrieveError;
         }
         return response;
@@ -134,7 +146,7 @@ public class ComplaintsService : IComplaintsService
         try
         {
             var c = await _complaintRepo.Query()
-                .Include(x => x.Taxpayer)
+                .Include(x => x.Taxpayer).ThenInclude(tp => tp.User)
                 .Include(x => x.AssignedOfficer).ThenInclude(o => o!.User)
                 .FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken);
 
@@ -158,7 +170,7 @@ public class ComplaintsService : IComplaintsService
         try
         {
             var c = await _complaintRepo.Query()
-                .Include(x => x.Taxpayer)
+                .Include(x => x.Taxpayer).ThenInclude(tp => tp.User)
                 .Include(x => x.AssignedOfficer).ThenInclude(o => o!.User)
                 .FirstOrDefaultAsync(x => x.ReferenceNumber == request.ReferenceNumber, cancellationToken);
 
@@ -555,7 +567,12 @@ public class ComplaintsService : IComplaintsService
         c.Id, c.ReferenceNumber, c.Subject, c.Description, c.TaxType, c.TaxPeriod, c.ComplaintCategory,
         c.TaxOfficeRef, c.TinNumber, c.Status.ToString(), c.CurrentStage, c.Priority,
         c.RequiresApprovalToClose, c.ClosedAt, c.ClosureReason, c.WithdrawalReason,
-        new TaxpayerSummary(c.Taxpayer.Id, $"{c.Taxpayer.FirstName} {c.Taxpayer.LastName}", c.Taxpayer.Email.Value, c.Taxpayer.Phone),
+        new TaxpayerSummary(
+            c.Taxpayer.Id,
+            c.Taxpayer.User != null ? $"{c.Taxpayer.User.FirstName} {c.Taxpayer.User.LastName}" : "Unknown",
+            c.Taxpayer.User?.Email,
+            c.Taxpayer.User?.Phone
+        ),
         c.AssignedOfficer is null ? null : new OfficerSummary(c.AssignedOfficer.Id, $"{c.AssignedOfficer.User.FirstName} {c.AssignedOfficer.User.LastName}", c.AssignedOfficer.User.Email),
         c.CreatedAt, c.LastModifiedAt
     );
