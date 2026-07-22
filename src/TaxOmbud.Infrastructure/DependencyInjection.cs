@@ -91,21 +91,40 @@ public static class DependencyInjection
         publicRsa.ImportFromPem(jwtSection.PublicKeyPem);
         var publicKey = new RsaSecurityKey(publicRsa);
 
-        services.AddAuthentication("Bearer")
-            .AddJwtBearer("Bearer", opts =>
+        services.AddAuthentication(options =>
+        {
+            options.DefaultAuthenticateScheme = Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme;
+            options.DefaultChallengeScheme = Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme;
+            options.DefaultScheme = Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme;
+        })
+        .AddJwtBearer(Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme, opts =>
+        {
+            opts.TokenValidationParameters = new TokenValidationParameters
             {
-                opts.TokenValidationParameters = new TokenValidationParameters
-                {
-                    ValidateIssuer = true,
-                    ValidIssuer = jwtSection.Issuer,
-                    ValidateAudience = true,
-                    ValidAudience = jwtSection.Audience,
-                    ValidateLifetime = true,
-                    IssuerSigningKey = publicKey,
-                    ValidAlgorithms = [SecurityAlgorithms.RsaSha256],
-                    ClockSkew = TimeSpan.FromSeconds(30)
-                };
-            });
+                ValidateIssuer = true,
+                ValidIssuer = jwtSection.Issuer,
+                ValidateAudience = true,
+                ValidAudience = jwtSection.Audience,
+                ValidateLifetime = true,
+                IssuerSigningKey = publicKey,
+                ValidAlgorithms = [SecurityAlgorithms.RsaSha256],
+                ClockSkew = TimeSpan.FromSeconds(30)
+            };
+        });
+
+        services.ConfigureApplicationCookie(options =>
+        {
+            options.Events.OnRedirectToLogin = ctx =>
+            {
+                ctx.Response.StatusCode = Microsoft.AspNetCore.Http.StatusCodes.Status401Unauthorized;
+                return Task.CompletedTask;
+            };
+            options.Events.OnRedirectToAccessDenied = ctx =>
+            {
+                ctx.Response.StatusCode = Microsoft.AspNetCore.Http.StatusCodes.Status403Forbidden;
+                return Task.CompletedTask;
+            };
+        });
 
         // ─── Authorization (permission-claim based — no hardcoded role strings) ──
         services.AddAuthorizationBuilder()
