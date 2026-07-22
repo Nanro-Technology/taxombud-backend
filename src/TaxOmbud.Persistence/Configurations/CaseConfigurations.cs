@@ -91,6 +91,11 @@ public class CaseConfiguration : IEntityTypeConfiguration<Case>
             .WithOne(sh => sh.Case)
             .HasForeignKey(sh => sh.CaseId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne(c => c.ActiveWorkflowInstance)
+            .WithMany()
+            .HasForeignKey(c => c.ActiveWorkflowInstanceId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }
 
