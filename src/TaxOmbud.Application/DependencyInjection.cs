@@ -37,6 +37,14 @@ public static class DependencyInjection
             }
         }
 
+        // Register Workflow Routing Strategies & Factory
+        services.AddScoped<TaxOmbud.Application.Workflows.Strategies.IRoutingStrategy, TaxOmbud.Application.Workflows.Strategies.RoundRobinStrategy>();
+        services.AddScoped<TaxOmbud.Application.Workflows.Strategies.IRoutingStrategy, TaxOmbud.Application.Workflows.Strategies.LeastWorkloadStrategy>();
+        services.AddScoped<TaxOmbud.Application.Workflows.Strategies.IRoutingStrategy, TaxOmbud.Application.Workflows.Strategies.LowestActiveCasesStrategy>();
+        services.AddScoped<TaxOmbud.Application.Workflows.Strategies.IRoutingStrategy, TaxOmbud.Application.Workflows.Strategies.FirstAvailableStrategy>();
+        services.AddScoped<TaxOmbud.Application.Workflows.Strategies.IRoutingStrategy, TaxOmbud.Application.Workflows.Strategies.RandomStrategy>();
+        services.AddScoped<TaxOmbud.Application.Workflows.Strategies.RoutingStrategyFactory>();
+
         return services;
     }
 }

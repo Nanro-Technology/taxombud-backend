@@ -50,6 +50,7 @@ public class DataSeeder
         await SeedKnowledgeCenterAsync();
         await SeedChatsAsync();
         await SeedSystemSettingsAsync();
+        await SeedWorkflowsAsync();
     }
 
     // ─── 1. Permissions ──────────────────────────────────────────────────────────
@@ -1063,5 +1064,70 @@ public class DataSeeder
 
         await _context.SaveChangesAsync();
         _logger.LogInformation("✓ Seeded default system/email settings");
+    }
+
+    private async Task SeedWorkflowsAsync()
+    {
+        if (!await _context.Workflows.AnyAsync())
+        {
+            var workflow = new TaxOmbud.Domain.Entities.Workflows.Workflow(
+                "Standard Tax Ombud Case Resolution Workflow",
+                "Default 4-level sequential case approval and resolution workflow",
+                "General",
+                isDefault: true
+            );
+
+            var officerRole = await _context.CustomRoles.FirstOrDefaultAsync(r => r.Name == RoleConstants.Officer);
+            var seniorRole = await _context.CustomRoles.FirstOrDefaultAsync(r => r.Name == RoleConstants.SeniorOfficer);
+            var managerRole = await _context.CustomRoles.FirstOrDefaultAsync(r => r.Name == RoleConstants.Manager);
+            var directorRole = await _context.CustomRoles.FirstOrDefaultAsync(r => r.Name == RoleConstants.Director);
+
+            var level1 = new TaxOmbud.Domain.Entities.Workflows.WorkflowLevel(
+                workflow.Id, 1, "Level 1 - Intake & Verification", "Initial case verification and document check",
+                Domain.Enums.AssignmentTargetType.Role, officerRole?.Id, null,
+                Domain.Enums.AssignmentMode.Automatic, Domain.Enums.AssignmentAlgorithm.RoundRobin
+            ) { SlaHours = 24, EscalationHours = 48, RequireComment = false };
+
+            var level2 = new TaxOmbud.Domain.Entities.Workflows.WorkflowLevel(
+                workflow.Id, 2, "Level 2 - Investigation & Finding", "Detailed tax dispute investigation and recommendation formulation",
+                Domain.Enums.AssignmentTargetType.Role, seniorRole?.Id, null,
+                Domain.Enums.AssignmentMode.Automatic, Domain.Enums.AssignmentAlgorithm.LeastWorkload
+            ) { SlaHours = 48, EscalationHours = 72, RequireComment = true };
+
+            var level3 = new TaxOmbud.Domain.Entities.Workflows.WorkflowLevel(
+                workflow.Id, 3, "Level 3 - Supervisor Review", "Legal compliance and quality review of case recommendations",
+                Domain.Enums.AssignmentTargetType.Role, managerRole?.Id, null,
+                Domain.Enums.AssignmentMode.Automatic, Domain.Enums.AssignmentAlgorithm.RoundRobin
+            ) { SlaHours = 48, EscalationHours = 72, RequireComment = true };
+
+            var level4 = new TaxOmbud.Domain.Entities.Workflows.WorkflowLevel(
+                workflow.Id, 4, "Level 4 - Executive Approval", "Final sign-off by Directorate Director / Ombud Executive",
+                Domain.Enums.AssignmentTargetType.Role, directorRole?.Id, null,
+                Domain.Enums.AssignmentMode.Automatic, Domain.Enums.AssignmentAlgorithm.FirstAvailable
+            ) { SlaHours = 24, EscalationHours = 48, RequireComment = true };
+
+            workflow.Levels.Add(level1);
+            workflow.Levels.Add(level2);
+            workflow.Levels.Add(level3);
+            workflow.Levels.Add(level4);
+
+            _context.Workflows.Add(workflow);
+            await _context.SaveChangesAsync();
+
+            // Create Version 1 snapshot
+            var snapshotJson = System.Text.Json.JsonSerializer.Serialize(workflow, new System.Text.Json.JsonSerializerOptions
+            {
+                ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles
+            });
+
+            var version = new TaxOmbud.Domain.Entities.Workflows.WorkflowVersion(workflow.Id, 1, snapshotJson);
+            var superAdminUser = await _userManager.FindByEmailAsync("admin@taxombud.gov.ng");
+            version.Publish(superAdminUser?.Id ?? Guid.Empty);
+
+            _context.WorkflowVersions.Add(version);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("✓ Seeded default 4-level Tax Ombud workflow template");
+        }
     }
 }
