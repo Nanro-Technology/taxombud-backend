@@ -1,0 +1,85 @@
+services:
+  taxombud-db:
+    image: mysql:8.0
+    container_name: taxombud-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-taxombud_db}
+      MYSQL_USER: ${MYSQL_USER:-taxombud_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - db-data:/var/lib/mysql
+    networks:
+      - taxombud-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  taxombud-cache:
+    image: redis:7-alpine
+    container_name: taxombud-cache
+    restart: always
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - taxombud-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      timeout: 5s
+      retries: 5
+
+  taxombud-api:
+    image: ${DOCKER_IMAGE:-taxombud-api:latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: taxombud-api
+    restart: always
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - DatabaseProvider=MySql
+      - ConnectionStrings__MySqlConnection=Server=taxombud-db;Port=3306;Database=${MYSQL_DATABASE:-taxombud_db};Uid=${MYSQL_USER:-taxombud_user};Pwd=${MYSQL_PASSWORD};
+      - ConnectionStrings__Redis=taxombud-cache:6379
+      - Jwt__SecretKey=${JWT_SECRET_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
+      - Encryption__RsaPrivateKeyPem=${RSA_PRIVATE_KEY_PEM}
+      - Encryption__RsaPublicKeyPem=${RSA_PUBLIC_KEY_PEM}
+      - Smtp__Host=${SMTP_HOST}
+      - Smtp__Port=${SMTP_PORT:-465}
+      - Smtp__UseSsl=${SMTP_USE_SSL:-true}
+      - Smtp__Username=${SMTP_USERNAME}
+      - Smtp__Password=${SMTP_PASSWORD}
+      - Smtp__FromAddress=${SMTP_FROM_ADDRESS}
+      - Smtp__FromName=${SMTP_FROM_NAME:-Tax Ombud System}
+      - Cors__AllowedOrigins__0=${CORS_ALLOWED_ORIGIN_0:-*}
+      - Cors__AllowedOrigins__1=${CORS_ALLOWED_ORIGIN_1:-http://localhost:5173}
+    ports:
+      - "${API_PORT:-5000}:5000"
+    volumes:
+      - ./logs:/app/logs
+      - ./uploads:/app/uploads
+    depends_on:
+      taxombud-db:
+        condition: service_healthy
+      taxombud-cache:
+        condition: service_healthy
+    networks:
+      - taxombud-network
+
+networks:
+  taxombud-network:
+    driver: bridge
+
+volumes:
+  db-data:
+    driver: local
+  redis-data:
+    driver: local
