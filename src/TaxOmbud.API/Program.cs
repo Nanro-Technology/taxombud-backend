@@ -131,18 +131,21 @@ try
     // ─── Auto-migrate & Seed on startup (Estate Management pattern) ───────────
     await app.SeedDatabaseAsync();
 
+    // ─── Reverse-proxy path prefix (Nginx proxies /api/* → this container) ─────
+    // This must come BEFORE all other middleware so routing works correctly.
+    app.UsePathBase("/api");
+    app.UseRouting();
+
     app.ConfigureCustomExceptionMiddleware();
     app.UseSerilogRequestLogging();
 
-    // if (app.Environment.IsDevelopment())
-    // {
-        app.UseSwagger();
-        app.UseSwaggerUI(c =>
-        {
-            c.SwaggerEndpoint("/swagger/v1/swagger.json", "Tax Ombud API v1");
-            c.RoutePrefix = string.Empty; // Swagger at root
-        });
-    //}
+    // ─── Swagger (available at /api/swagger/index.html via Nginx) ────────────
+    app.UseSwagger();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/api/swagger/v1/swagger.json", "Tax Ombud API v1");
+        c.RoutePrefix = "swagger";
+    });
 
     if (!app.Environment.IsDevelopment())
     {
@@ -158,6 +161,7 @@ try
     app.MapControllers();
     app.MapHub<TaxOmbud.API.Hubs.ChatHub>("/hubs/chat");
     app.MapHealthChecks("/health");
+    app.MapHealthChecks("/"); // also respond at root for Nginx upstream health checks
 
     Log.Information("Tax Ombud API started successfully.");
     await app.RunAsync();
