@@ -58,6 +58,19 @@ jobs:
         run: |
           echo "IMAGE_NAME=$(echo ${{ env.REGISTRY }}/${{ github.repository }}/taxombud-api | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
+      - name: Verify Secret Formats & Network
+        run: |
+          HOST="${{ secrets.VPS_HOST }}"
+          echo "Host character count: ${#HOST}"
+          if [[ "$HOST" =~ [[:space:]] ]]; then
+            echo "::error::VPS_HOST contains spaces or newlines!"
+          fi
+          if [[ "$HOST" =~ ^http ]]; then
+            echo "::error::VPS_HOST contains a protocol prefix (e.g. http/https/ssh)!"
+          fi
+          echo "Testing TCP connection to port 2222..."
+          nc -vz -w 5 "$HOST" 2222 || echo "TCP Connection failed!"
+
       - name: Copy Files to VPS via SCP
         uses: appleboy/scp-action@v0.1.7
         with:
