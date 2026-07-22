@@ -131,19 +131,16 @@ try
     // ─── Auto-migrate & Seed on startup (Estate Management pattern) ───────────
     await app.SeedDatabaseAsync();
 
-    // ─── Reverse-proxy path prefix (Nginx proxies /api/* → this container) ─────
-    // This must come BEFORE all other middleware so routing works correctly.
-    app.UsePathBase("/api");
-    app.UseRouting();
-
     app.ConfigureCustomExceptionMiddleware();
     app.UseSerilogRequestLogging();
 
-    // ─── Swagger (available at /api/swagger/index.html via Nginx) ────────────
+    // ─── Swagger (proxied by Nginx at /swagger/*) ────────────────────────────
+    // Controllers use [Route("api/v1/...")] so NO PathBase stripping is needed.
+    // Nginx forwards /api/* → container as-is, and /swagger/* → container as-is.
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
-        c.SwaggerEndpoint("/api/swagger/v1/swagger.json", "Tax Ombud API v1");
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Tax Ombud API v1");
         c.RoutePrefix = "swagger";
     });
 
