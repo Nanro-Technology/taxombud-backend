@@ -28,8 +28,6 @@ public static class DatabaseSeedingExtensions
             var dbProvider = context.Database.ProviderName;
             if (dbProvider != null && dbProvider.Contains("MySql"))
             {
-                logger.LogInformation("Ensuring MySQL database is created...");
-                await context.Database.EnsureCreatedAsync();
                 logger.LogInformation("Applying MySQL migrations...");
                 await context.Database.MigrateAsync();
                 try
