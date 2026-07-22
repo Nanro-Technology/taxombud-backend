@@ -10,6 +10,7 @@ namespace TaxOmbud.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/cases")]
+[Tags("Case Workflows")]
 [Authorize]
 public class CaseWorkflowController : ControllerBase
 {
