@@ -52,6 +52,15 @@ public interface IApplicationDbContext
     DbSet<CaseCommunicationLog> CaseCommunicationLogs { get; }
     DbSet<CaseTask> CaseTasks { get; }
 
+    // Workflow Engine
+    DbSet<TaxOmbud.Domain.Entities.Workflows.Workflow> Workflows { get; }
+    DbSet<TaxOmbud.Domain.Entities.Workflows.WorkflowVersion> WorkflowVersions { get; }
+    DbSet<TaxOmbud.Domain.Entities.Workflows.WorkflowLevel> WorkflowLevels { get; }
+    DbSet<TaxOmbud.Domain.Entities.Workflows.WorkflowInstance> WorkflowInstances { get; }
+    DbSet<TaxOmbud.Domain.Entities.Workflows.WorkflowInstanceLevel> WorkflowInstanceLevels { get; }
+    DbSet<TaxOmbud.Domain.Entities.Workflows.CaseApprovalTask> CaseApprovalTasks { get; }
+    DbSet<TaxOmbud.Domain.Entities.Workflows.CaseWorkflowAuditLog> CaseWorkflowAuditLogs { get; }
+
     // Documents
     DbSet<Document> Documents { get; }
     DbSet<DocumentVersion> DocumentVersions { get; }

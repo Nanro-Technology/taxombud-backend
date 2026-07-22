@@ -70,6 +70,15 @@ public class ApplicationDbContext : IdentityDbContext<User, IdentityRole<Guid>, 
     public DbSet<CaseCommunicationLog> CaseCommunicationLogs => Set<CaseCommunicationLog>();
     public DbSet<CaseTask> CaseTasks => Set<CaseTask>();
 
+    // ─── Workflow Engine ──────────────────────────────────────────────────────
+    public DbSet<TaxOmbud.Domain.Entities.Workflows.Workflow> Workflows => Set<TaxOmbud.Domain.Entities.Workflows.Workflow>();
+    public DbSet<TaxOmbud.Domain.Entities.Workflows.WorkflowVersion> WorkflowVersions => Set<TaxOmbud.Domain.Entities.Workflows.WorkflowVersion>();
+    public DbSet<TaxOmbud.Domain.Entities.Workflows.WorkflowLevel> WorkflowLevels => Set<TaxOmbud.Domain.Entities.Workflows.WorkflowLevel>();
+    public DbSet<TaxOmbud.Domain.Entities.Workflows.WorkflowInstance> WorkflowInstances => Set<TaxOmbud.Domain.Entities.Workflows.WorkflowInstance>();
+    public DbSet<TaxOmbud.Domain.Entities.Workflows.WorkflowInstanceLevel> WorkflowInstanceLevels => Set<TaxOmbud.Domain.Entities.Workflows.WorkflowInstanceLevel>();
+    public DbSet<TaxOmbud.Domain.Entities.Workflows.CaseApprovalTask> CaseApprovalTasks => Set<TaxOmbud.Domain.Entities.Workflows.CaseApprovalTask>();
+    public DbSet<TaxOmbud.Domain.Entities.Workflows.CaseWorkflowAuditLog> CaseWorkflowAuditLogs => Set<TaxOmbud.Domain.Entities.Workflows.CaseWorkflowAuditLog>();
+
     // ─── Documents ────────────────────────────────────────────────────────────
     public DbSet<Document> Documents => Set<Document>();
     public DbSet<DocumentVersion> DocumentVersions => Set<DocumentVersion>();

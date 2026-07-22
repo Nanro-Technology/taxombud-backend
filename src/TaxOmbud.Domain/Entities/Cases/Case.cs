@@ -6,6 +6,7 @@ using TaxOmbud.Domain.Entities.Identity;
 using TaxOmbud.Domain.Entities.Officers;
 using TaxOmbud.Domain.Enums;
 using TaxOmbud.Domain.Events.Cases;
+using TaxOmbud.Domain.Entities.Workflows;
 
 namespace TaxOmbud.Domain.Entities.Cases;
 
@@ -49,11 +50,15 @@ public class Case : BaseEntity, IHasDomainEvents
     public int? NpsScore { get; set; }
     public string? CsatComment { get; set; }
 
+    public Guid? ActiveWorkflowInstanceId { get; set; }
+    public WorkflowInstance? ActiveWorkflowInstance { get; set; }
+
     public ICollection<CaseFinding> Findings { get; set; } = new List<CaseFinding>();
     public ICollection<CaseRecommendation> Recommendations { get; set; } = new List<CaseRecommendation>();
     public ICollection<CaseMilestone> Milestones { get; set; } = new List<CaseMilestone>();
     public ICollection<CaseCommunicationLog> CommunicationLogs { get; set; } = new List<CaseCommunicationLog>();
     public ICollection<CaseStatusHistory> StatusHistory { get; set; } = new List<CaseStatusHistory>();
+    public ICollection<CaseWorkflowAuditLog> AuditLogs { get; set; } = new List<CaseWorkflowAuditLog>();
 
     // Constructor for EF Core
     protected Case() { }
