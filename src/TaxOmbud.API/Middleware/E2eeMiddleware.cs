@@ -34,7 +34,7 @@ public class E2eeMiddleware
 
         // Exclude Swagger, public key endpoint, health, and static files
         var path = context.Request.Path.Value ?? "";
-        if (path.StartsWith("/swagger") || path.Contains("/encryption/public-key") || path.Contains("/health"))
+        if (path.StartsWith("/swagger") || path.Contains("/encryption/public-key") || path.Contains("/health") || path.Contains("/system/settings/e2ee"))
         {
             await _next(context);
             return;
