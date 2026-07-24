@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using TaxOmbud.Application.Interfaces.InfrastructureService;
+using TaxOmbud.Common.Utilities;
 
 namespace TaxOmbud.Api.Services;
 
@@ -44,4 +45,8 @@ public class CurrentUserService : ICurrentUser
 
     public string? UserType => User?.FindFirstValue("user_type")
                             ?? User?.FindFirstValue("usertype");
+
+    public string? IpAddress => _httpContextAccessor.HttpContext.GetClientIpAddress();
+
+    public string? UserAgent => _httpContextAccessor.HttpContext?.Request?.Headers["User-Agent"].ToString();
 }

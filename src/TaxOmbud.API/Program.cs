@@ -1,4 +1,5 @@
 using Hangfire;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Serilog;
 using Serilog.Events;
@@ -6,6 +7,7 @@ using TaxOmbud.Api.Middleware;
 using TaxOmbud.Api.Services;
 using TaxOmbud.Application.Middlewares;
 using TaxOmbud.Application;
+using TaxOmbud.Common.Utilities;
 using TaxOmbud.Infrastructure;
 using TaxOmbud.Persistence.Data;
 using TaxOmbud.Persistence.Extensions;
@@ -38,6 +40,13 @@ try
     builder.Services.AddInfrastructure(builder.Configuration);
 
     // ─── API Services ─────────────────────────────────────────────────────────
+    builder.Services.Configure<ForwardedHeadersOptions>(options =>
+    {
+        options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+        options.KnownNetworks.Clear();
+        options.KnownProxies.Clear();
+    });
+
     builder.Services.AddHttpContextAccessor();
     builder.Services.AddScoped<TaxOmbud.Application.Interfaces.InfrastructureService.ICurrentUser, CurrentUserService>();
     builder.Services.AddSignalR();
@@ -131,8 +140,15 @@ try
     // ─── Auto-migrate & Seed on startup (Estate Management pattern) ───────────
     await app.SeedDatabaseAsync();
 
+    app.UseForwardedHeaders();
     app.ConfigureCustomExceptionMiddleware();
-    app.UseSerilogRequestLogging();
+    app.UseSerilogRequestLogging(options =>
+    {
+        options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
+        {
+            diagnosticContext.Set("ClientIP", httpContext.GetClientIpAddress() ?? "unknown");
+        };
+    });
 
     // ─── Swagger (proxied by Nginx at /swagger/*) ────────────────────────────
     // Controllers use [Route("api/v1/...")] so NO PathBase stripping is needed.

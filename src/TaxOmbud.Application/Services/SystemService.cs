@@ -89,6 +89,22 @@ public class SystemService : ISystemService
 
             var token = _tokenService.GenerateAccessToken(targetUser.Id, targetUser.Email ?? string.Empty, targetUser.UserType, roles, permissions);
 
+            var audit = new AuditLog
+            {
+                Id = Guid.NewGuid(),
+                UserId = targetUser.Id,
+                ImpersonatorUserId = adminUserId,
+                Action = "ImpersonationStart",
+                EntityType = "Users",
+                EntityId = targetUser.Id,
+                NewValues = $"Admin started impersonation of user {targetUser.Email}",
+                IPAddress = _currentUser.IpAddress,
+                UserAgent = _currentUser.UserAgent,
+                CreatedAt = DateTime.UtcNow
+            };
+            await _auditLogRepo.AddAsync(audit);
+            await _auditLogRepo.SaveAsync();
+
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Success";
             response.Data = new ImpersonationResponseDto(
@@ -119,6 +135,8 @@ public class SystemService : ISystemService
             EntityId = currentUserId,
             OldValues = $"User: {currentUserId}",
             NewValues = "Impersonation Session Terminated",
+            IPAddress = _currentUser.IpAddress,
+            UserAgent = _currentUser.UserAgent,
             CreatedAt = DateTime.UtcNow
         };
         await _auditLogRepo.AddAsync(audit);

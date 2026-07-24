@@ -323,7 +323,7 @@ public class AuthService : IAuthService
             // Generic invalid-credential message to prevent email enumeration
             if (user is null)
             {
-                ipAddress = _httpContextAccessor.HttpContext?.Connection?.RemoteIpAddress?.ToString();
+                ipAddress = _httpContextAccessor.HttpContext.GetClientIpAddress();
                 userAgent = _httpContextAccessor.HttpContext?.Request?.Headers["User-Agent"].ToString();
                 audit = new AuditLog
                 {
@@ -364,7 +364,7 @@ public class AuthService : IAuthService
             var signInResult = await _signInManager.CheckPasswordSignInAsync(user, request.Password, lockoutOnFailure: true);
             if (!signInResult.Succeeded)
             {
-                ipAddress = _httpContextAccessor.HttpContext?.Connection?.RemoteIpAddress?.ToString();
+                ipAddress = _httpContextAccessor.HttpContext.GetClientIpAddress();
                 userAgent = _httpContextAccessor.HttpContext?.Request?.Headers["User-Agent"].ToString();
                 audit = new AuditLog
                 {
@@ -419,7 +419,7 @@ public class AuthService : IAuthService
             await _refreshTokenRepo.AddAsync(rt);
             await _refreshTokenRepo.SaveAsync();
 
-            ipAddress = _httpContextAccessor.HttpContext?.Connection?.RemoteIpAddress?.ToString();
+            ipAddress = _httpContextAccessor.HttpContext.GetClientIpAddress();
             userAgent = _httpContextAccessor.HttpContext?.Request?.Headers["User-Agent"].ToString();
             audit = new AuditLog
             {
@@ -470,7 +470,7 @@ public class AuthService : IAuthService
 
             if (token is not null)
             {
-                var ipAddress = _httpContextAccessor.HttpContext?.Connection?.RemoteIpAddress?.ToString();
+                var ipAddress = _httpContextAccessor.HttpContext.GetClientIpAddress();
                 var userAgent = _httpContextAccessor.HttpContext?.Request?.Headers["User-Agent"].ToString();
                 var audit = new AuditLog
                 {
