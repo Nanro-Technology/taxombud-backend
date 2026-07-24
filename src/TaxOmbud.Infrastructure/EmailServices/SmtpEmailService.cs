@@ -64,40 +64,54 @@ public class SmtpEmailService : IEmailService
         return _options;
     }
 
+    private async Task SendWithConfigAsync(SmtpOptions opts, string to, string subject, string htmlBody, CancellationToken cancellationToken)
+    {
+        var message = new MimeMessage();
+        message.From.Add(new MailboxAddress(opts.FromName, opts.FromAddress));
+        message.To.Add(MailboxAddress.Parse(to));
+        message.Subject = subject;
+
+        var bodyBuilder = new BodyBuilder { HtmlBody = htmlBody };
+        message.Body = bodyBuilder.ToMessageBody();
+
+        using var client = new SmtpClient();
+
+        var socketOptions = opts.Port == 465
+            ? SecureSocketOptions.SslOnConnect
+            : opts.UseSsl
+                ? SecureSocketOptions.StartTls
+                : SecureSocketOptions.None;
+
+        await client.ConnectAsync(opts.Host, opts.Port, socketOptions, cancellationToken);
+        await client.AuthenticateAsync(opts.Username, opts.Password, cancellationToken);
+        await client.SendAsync(message, cancellationToken);
+        await client.DisconnectAsync(true, cancellationToken);
+    }
+
     public async Task SendAsync(string to, string subject, string htmlBody, CancellationToken cancellationToken = default)
     {
+        var effectiveOpts = await GetEffectiveOptionsAsync(cancellationToken);
         try
         {
-            var effectiveOpts = await GetEffectiveOptionsAsync(cancellationToken);
-
-            var message = new MimeMessage();
-            message.From.Add(new MailboxAddress(effectiveOpts.FromName, effectiveOpts.FromAddress));
-            message.To.Add(MailboxAddress.Parse(to));
-            message.Subject = subject;
-
-            var bodyBuilder = new BodyBuilder { HtmlBody = htmlBody };
-            message.Body = bodyBuilder.ToMessageBody();
-
-            using var client = new SmtpClient();
-
-            // Determine SecureSocketOptions based on port:
-            // Port 465 = implicit SSL (SslOnConnect), Port 587/25 = STARTTLS (StartTls / Auto)
-            var socketOptions = effectiveOpts.Port == 465
-                ? SecureSocketOptions.SslOnConnect
-                : effectiveOpts.UseSsl
-                    ? SecureSocketOptions.StartTls
-                    : SecureSocketOptions.None;
-
-            await client.ConnectAsync(effectiveOpts.Host, effectiveOpts.Port, socketOptions, cancellationToken);
-            await client.AuthenticateAsync(effectiveOpts.Username, effectiveOpts.Password, cancellationToken);
-            await client.SendAsync(message, cancellationToken);
-            await client.DisconnectAsync(true, cancellationToken);
-
+            await SendWithConfigAsync(effectiveOpts, to, subject, htmlBody, cancellationToken);
             _logger.LogInformation("Email sent successfully to {To} — subject: {Subject}", to, subject);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to send email to {To} — subject: {Subject}", to, subject);
+            _logger.LogWarning(ex, "Failed to send email using primary DB SMTP configuration. Attempting fallback to appsettings config...");
+            if (effectiveOpts.Username != _options.Username || effectiveOpts.Host != _options.Host || effectiveOpts.Password != _options.Password)
+            {
+                try
+                {
+                    await SendWithConfigAsync(_options, to, subject, htmlBody, cancellationToken);
+                    _logger.LogInformation("Email sent successfully to {To} via fallback appsettings config — subject: {Subject}", to, subject);
+                    return;
+                }
+                catch (Exception fallbackEx)
+                {
+                    _logger.LogError(fallbackEx, "Fallback SMTP send also failed for {To}", to);
+                }
+            }
             throw;
         }
     }
