@@ -20,6 +20,7 @@ public class SystemController : ControllerBase
     /// <summary>Get current E2EE status.</summary>
     [AllowAnonymous]
     [HttpGet("settings/e2ee")]
+    [HttpGet("settings/e2ee-status")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetE2eeStatus(CancellationToken ct)
     {
