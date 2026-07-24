@@ -53,6 +53,22 @@ services:
     networks:
       - taxombud-network
 
+  taxombud-phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: taxombud-phpmyadmin
+    restart: always
+    environment:
+      PMA_HOST: host.docker.internal
+      PMA_PORT: 3306
+      PMA_ARBITRARY: 1
+      UPLOAD_LIMIT: 64M
+    ports:
+      - "${PHPMYADMIN_PORT:-8081}:80"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - taxombud-network
+
 networks:
   taxombud-network:
     driver: bridge
