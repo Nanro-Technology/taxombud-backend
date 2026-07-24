@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using System.Security.Cryptography;
 using TaxOmbud.Application.Interfaces.InfrastructureService;
 using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Application.Interfaces.Services;
@@ -509,7 +510,7 @@ public class UsersService : IUsersService
         const string special = "!@#$%^&*";
 
         var bytes = new byte[8];
-        System.Security.Cryptography.RandomNumberGenerator.Fill(bytes);
+        RandomNumberGenerator.Fill(bytes);
 
         var u = upper[bytes[0] % upper.Length];
         var l = lower[bytes[1] % lower.Length];
