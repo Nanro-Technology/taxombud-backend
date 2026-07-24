@@ -146,8 +146,8 @@ public class AuthService : IAuthService
                     </div>
                   </div>
                   <div style="background:#114a31;padding:20px 32px;text-align:center;">
-                    <p style="color:#c9a227;font-style:italic;font-size:.9rem;font-weight:bold;margin:4px 0;">Pax Christi!!!</p>
-                    <p style="color:rgba(255,255,255,.6);font-size:.75rem;margin:4px 0;">Office of the Tax Ombud &middot; Federal Republic of Nigeria</p>
+                    <p style="color:#c9a227;font-size:.9rem;font-weight:bold;margin:4px 0;">Office of the Tax Ombud</p>
+                    <p style="color:rgba(255,255,255,.6);font-size:.75rem;margin:4px 0;">Federal Republic of Nigeria</p>
                   </div>
                 </div>
                 """;
@@ -267,8 +267,8 @@ public class AuthService : IAuthService
                     </div>
                   </div>
                   <div style="background:#114a31;padding:20px 32px;text-align:center;">
-                    <p style="color:#c9a227;font-style:italic;font-size:.9rem;font-weight:bold;margin:4px 0;">Pax Christi!!!</p>
-                    <p style="color:rgba(255,255,255,.6);font-size:.75rem;margin:4px 0;">Office of the Tax Ombud &middot; Federal Republic of Nigeria</p>
+                    <p style="color:#c9a227;font-size:.9rem;font-weight:bold;margin:4px 0;">Office of the Tax Ombud</p>
+                    <p style="color:rgba(255,255,255,.6);font-size:.75rem;margin:4px 0;">Federal Republic of Nigeria</p>
                   </div>
                 </div>
                 """;
@@ -447,7 +447,8 @@ public class AuthService : IAuthService
                 FullName: user.FullName,
                 UserType: user.UserType.ToString(),
                 Email: user.Email,
-                Roles: roles.AsReadOnly()
+                Roles: roles.AsReadOnly(),
+                MustChangePassword: user.MustChangePassword
             );
         }
         catch (Exception ex)
@@ -606,6 +607,13 @@ public class AuthService : IAuthService
                 return response;
             }
 
+            // Clear force-password-change flag now that user has set their own password
+            if (user.MustChangePassword)
+            {
+                user.MustChangePassword = false;
+                await _userManager.UpdateAsync(user);
+            }
+
             // Revoke all refresh tokens so all other sessions are terminated
             var tokens = await _refreshTokenRepo.FindAllAsync(t => t.UserId == user.Id);
             await _refreshTokenRepo.RemoveRangeAsync(tokens);
@@ -671,8 +679,8 @@ public class AuthService : IAuthService
                     <p style="font-size:.85rem;color:#666;">If you did not request a password reset, please ignore this email — your password will remain unchanged.</p>
                   </div>
                   <div style="background:#0a3d22;padding:20px 32px;text-align:center;">
-                    <p style="color:#c9a227;font-style:italic;font-size:.9rem;font-weight:700;margin:4px 0;">Pax Christi!!!</p>
-                    <p style="color:rgba(255,255,255,.55);font-size:.76rem;margin:4px 0;">Office of the Tax Ombud &middot; Federal Republic of Nigeria</p>
+                    <p style="color:#c9a227;font-size:.9rem;font-weight:700;margin:4px 0;">Office of the Tax Ombud</p>
+                    <p style="color:rgba(255,255,255,.55);font-size:.76rem;margin:4px 0;">Federal Republic of Nigeria</p>
                   </div>
                 </div>
                 """;

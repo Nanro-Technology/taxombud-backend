@@ -27,5 +27,6 @@ public record LoginResponse(
     string FullName,
     string UserType,
     string? Email,
-    IReadOnlyList<string> Roles
+    IReadOnlyList<string> Roles,
+    bool MustChangePassword = false
 );

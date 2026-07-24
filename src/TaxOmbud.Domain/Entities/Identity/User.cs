@@ -28,6 +28,7 @@ public class User : IdentityUser<Guid>, ISoftDelete
     public UserStatus Status { get; set; } = UserStatus.Active;
     public bool IsActive => Status == UserStatus.Active;
     public bool CanSignIn { get; set; } = true;
+    public bool MustChangePassword { get; set; } = false;
 
     // Email verification & reset tokens
     public bool EmailVerified { get; set; } = false;
