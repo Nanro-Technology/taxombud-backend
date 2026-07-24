@@ -32,17 +32,16 @@ public class E2eeMiddleware
             return;
         }
 
-        // Exclude Swagger, public key endpoint, and static files
+        // Exclude Swagger, public key endpoint, health, and static files
         var path = context.Request.Path.Value ?? "";
-        if (path.StartsWith("/swagger") || path.Contains("/encryption/public-key"))
+        if (path.StartsWith("/swagger") || path.Contains("/encryption/public-key") || path.Contains("/health"))
         {
             await _next(context);
             return;
         }
 
-        // We skip multipart/form-data for E2EE (file uploads) as requested
-        var isMultipart = context.Request.HasFormContentType;
-        if (isMultipart)
+        // Skip multipart/form-data (file uploads)
+        if (context.Request.HasFormContentType)
         {
             await _next(context);
             return;
@@ -50,65 +49,38 @@ public class E2eeMiddleware
 
         byte[]? aesSessionKey = null;
 
-        // 2. Decrypt Incoming Request Body
-        if (context.Request.ContentLength > 0 && context.Request.Method != HttpMethods.Get)
+        var keyHeader = context.Request.Headers["X-E2EE-Key"].ToString();
+        var ivHeader = context.Request.Headers["X-E2EE-IV"].ToString();
+        var tagHeader = context.Request.Headers["X-E2EE-Tag"].ToString();
+
+        // 2. Decrypt Incoming Request Body if E2EE headers are present
+        if (!string.IsNullOrEmpty(keyHeader))
         {
-            var keyHeader = context.Request.Headers["X-E2EE-Key"].ToString();
-            var ivHeader = context.Request.Headers["X-E2EE-IV"].ToString();
-            var tagHeader = context.Request.Headers["X-E2EE-Tag"].ToString();
-
-            if (string.IsNullOrEmpty(keyHeader) || string.IsNullOrEmpty(ivHeader) || string.IsNullOrEmpty(tagHeader))
-            {
-                context.Response.StatusCode = StatusCodes.Status400BadRequest;
-                await context.Response.WriteAsync("Missing E2EE headers.");
-                return;
-            }
-
             try
             {
                 aesSessionKey = encryptionService.DecryptRsa(Convert.FromBase64String(keyHeader));
-                var iv = Convert.FromBase64String(ivHeader);
-                var tag = Convert.FromBase64String(tagHeader);
 
-                using var reader = new StreamReader(context.Request.Body);
-                var encryptedBodyBase64 = await reader.ReadToEndAsync();
-                var encryptedBodyBytes = Convert.FromBase64String(encryptedBodyBase64);
-
-                var decryptedBytes = encryptionService.DecryptAesGcm(encryptedBodyBytes, aesSessionKey, iv, tag);
-                var decryptedJson = Encoding.UTF8.GetString(decryptedBytes);
-
-                var requestStream = new MemoryStream(Encoding.UTF8.GetBytes(decryptedJson));
-                context.Request.Body = requestStream;
-                context.Request.ContentType = "application/json"; // Restore content type
-            }
-            catch (Exception)
-            {
-                context.Response.StatusCode = StatusCodes.Status400BadRequest;
-                await context.Response.WriteAsync("Failed to decrypt request payload.");
-                return;
-            }
-        }
-        else
-        {
-            // For GET requests, client must still provide X-E2EE-Key to receive encrypted response
-            var keyHeader = context.Request.Headers["X-E2EE-Key"].ToString();
-            if (!string.IsNullOrEmpty(keyHeader))
-            {
-                try
+                if (context.Request.ContentLength > 0 && context.Request.Method != HttpMethods.Get && !string.IsNullOrEmpty(ivHeader) && !string.IsNullOrEmpty(tagHeader))
                 {
-                    aesSessionKey = encryptionService.DecryptRsa(Convert.FromBase64String(keyHeader));
-                }
-                catch
-                {
-                    context.Response.StatusCode = StatusCodes.Status400BadRequest;
-                    await context.Response.WriteAsync("Invalid X-E2EE-Key.");
-                    return;
+                    var iv = Convert.FromBase64String(ivHeader);
+                    var tag = Convert.FromBase64String(tagHeader);
+
+                    using var reader = new StreamReader(context.Request.Body);
+                    var encryptedBodyBase64 = await reader.ReadToEndAsync();
+                    var encryptedBodyBytes = Convert.FromBase64String(encryptedBodyBase64);
+
+                    var decryptedBytes = encryptionService.DecryptAesGcm(encryptedBodyBytes, aesSessionKey, iv, tag);
+                    var decryptedJson = Encoding.UTF8.GetString(decryptedBytes);
+
+                    var requestStream = new MemoryStream(Encoding.UTF8.GetBytes(decryptedJson));
+                    context.Request.Body = requestStream;
+                    context.Request.ContentType = "application/json";
                 }
             }
-            else
+            catch (Exception ex)
             {
                 context.Response.StatusCode = StatusCodes.Status400BadRequest;
-                await context.Response.WriteAsync("Missing X-E2EE-Key header for response encryption.");
+                await context.Response.WriteAsync($"Failed to process E2EE payload: {ex.Message}");
                 return;
             }
         }
@@ -124,8 +96,8 @@ public class E2eeMiddleware
 
             responseBody.Seek(0, SeekOrigin.Begin);
 
-            // 4. Encrypt Response Body if it is JSON
-            if (responseBody.Length > 0 && context.Response.ContentType?.Contains("application/json") == true && aesSessionKey != null)
+            // 4. Encrypt Response Body ONLY if aesSessionKey was established and response is JSON
+            if (aesSessionKey != null && responseBody.Length > 0 && context.Response.ContentType?.Contains("application/json") == true)
             {
                 var plainTextResponse = responseBody.ToArray();
                 
@@ -140,7 +112,6 @@ public class E2eeMiddleware
 
                 context.Response.Headers["X-E2EE-IV"] = Convert.ToBase64String(responseIv);
                 context.Response.Headers["X-E2EE-Tag"] = Convert.ToBase64String(responseTag);
-                // Even though original was application/json, the body is now a base64 string
                 context.Response.ContentType = "text/plain"; 
                 context.Response.ContentLength = encryptedResponseOutput.Length;
 
@@ -148,7 +119,6 @@ public class E2eeMiddleware
             }
             else
             {
-                // Just copy over non-JSON responses (like file downloads or empty responses)
                 await responseBody.CopyToAsync(originalBodyStream);
             }
         }
