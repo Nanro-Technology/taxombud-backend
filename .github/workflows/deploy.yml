@@ -61,6 +61,7 @@ jobs:
       - name: Verify Secret Formats & Network
         run: |
           HOST="${{ secrets.VPS_HOST }}"
+          PORT="${{ secrets.VPS_PORT || 22 }}"
           echo "Host character count: ${#HOST}"
           if [[ "$HOST" =~ [[:space:]] ]]; then
             echo "::error::VPS_HOST contains spaces or newlines!"
@@ -68,8 +69,8 @@ jobs:
           if [[ "$HOST" =~ ^http ]]; then
             echo "::error::VPS_HOST contains a protocol prefix (e.g. http/https/ssh)!"
           fi
-          echo "Testing TCP connection to port 2222..."
-          nc -vz -w 5 "$HOST" 2222 || echo "TCP Connection failed!"
+          echo "Testing TCP connection to SSH port $PORT..."
+          nc -vz -w 5 "$HOST" "$PORT" || echo "TCP Connection failed!"
 
       - name: Copy Files to VPS via SCP
         uses: appleboy/scp-action@v0.1.7
@@ -77,7 +78,7 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT || 2222 }}
+          port: ${{ secrets.VPS_PORT || 22 }}
           source: "docker-compose.yml,.env.example"
           target: ${{ env.DEPLOY_PATH }}
           overwrite: true
@@ -88,7 +89,7 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT || 2222 }}
+          port: ${{ secrets.VPS_PORT || 22 }}
           script: |
             cd ${{ env.DEPLOY_PATH }}
             
