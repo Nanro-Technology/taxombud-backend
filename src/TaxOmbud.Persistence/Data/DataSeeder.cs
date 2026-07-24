@@ -1025,9 +1025,9 @@ public class DataSeeder
             new { Key = "Smtp:Host", Value = "mail.ksmlagosmetro.com.ng", Description = "SMTP Server Hostname" },
             new { Key = "Smtp:Port", Value = "465", Description = "SMTP Server Port" },
             new { Key = "Smtp:UseSsl", Value = "true", Description = "SMTP Enable SSL/TLS (true/false)" },
-            new { Key = "Smtp:Username", Value = "emailsend@ksmlagosmetro.com.ng", Description = "SMTP Account Username" },
+            new { Key = "Smtp:Username", Value = "emailcheck@ksmlagosmetro.com.ng", Description = "SMTP Account Username" },
             new { Key = "Smtp:Password", Value = "Nanrotech@1", Description = "SMTP Account Password" },
-            new { Key = "Smtp:FromAddress", Value = "no-reply@ksmlagosmetro.com.ng", Description = "Sender Email Address" },
+            new { Key = "Smtp:FromAddress", Value = "emailcheck@ksmlagosmetro.com.ng", Description = "Sender Email Address" },
             new { Key = "Smtp:FromName", Value = "Tax Ombud System", Description = "Sender Display Name" },
             // E2EE is disabled — the frontend does not implement client-side encryption headers.
             // Enable only when a matching frontend E2EE implementation is in place.
