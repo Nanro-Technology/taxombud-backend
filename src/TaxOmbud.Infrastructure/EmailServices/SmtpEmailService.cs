@@ -44,15 +44,18 @@ public class SmtpEmailService : IEmailService
                 var from = settings.FirstOrDefault(s => s.Key == "Smtp:FromAddress")?.Value;
                 var name = settings.FirstOrDefault(s => s.Key == "Smtp:FromName")?.Value;
 
+                var effectiveUser = !string.IsNullOrWhiteSpace(user) ? user.Trim() : _options.Username;
+                var effectiveFrom = (!string.IsNullOrWhiteSpace(from) && !from.StartsWith("no-reply") && from.Contains("@")) ? from.Trim() : effectiveUser;
+
                 return new SmtpOptions
                 {
-                    Host = !string.IsNullOrWhiteSpace(host) ? host : _options.Host,
+                    Host = !string.IsNullOrWhiteSpace(host) ? host.Trim() : _options.Host,
                     Port = int.TryParse(portStr, out var p) ? p : _options.Port,
                     UseSsl = bool.TryParse(sslStr, out var s) ? s : _options.UseSsl,
-                    Username = !string.IsNullOrWhiteSpace(user) ? user : _options.Username,
+                    Username = effectiveUser,
                     Password = !string.IsNullOrWhiteSpace(pass) ? pass : _options.Password,
-                    FromAddress = !string.IsNullOrWhiteSpace(from) ? from : _options.FromAddress,
-                    FromName = !string.IsNullOrWhiteSpace(name) ? name : _options.FromName,
+                    FromAddress = effectiveFrom,
+                    FromName = !string.IsNullOrWhiteSpace(name) ? name.Trim() : _options.FromName,
                 };
             }
         }
@@ -67,7 +70,17 @@ public class SmtpEmailService : IEmailService
     private async Task SendWithConfigAsync(SmtpOptions opts, string to, string subject, string htmlBody, CancellationToken cancellationToken)
     {
         var message = new MimeMessage();
-        message.From.Add(new MailboxAddress(opts.FromName, opts.FromAddress));
+        
+        // cPanel Exim requires the From header to match a valid mailbox on the server.
+        // If FromAddress is missing, invalid, or "no-reply", use the authenticated Username.
+        var fromEmail = (!string.IsNullOrWhiteSpace(opts.FromAddress) && opts.FromAddress.Contains("@") && !opts.FromAddress.StartsWith("no-reply"))
+            ? opts.FromAddress.Trim()
+            : opts.Username.Trim();
+
+        var fromName = !string.IsNullOrWhiteSpace(opts.FromName) ? opts.FromName.Trim() : "Tax Ombud System";
+
+        message.From.Add(new MailboxAddress(fromName, fromEmail));
+        message.ReplyTo.Add(new MailboxAddress(fromName, fromEmail));
         message.To.Add(MailboxAddress.Parse(to));
         message.Subject = subject;
 
@@ -76,14 +89,15 @@ public class SmtpEmailService : IEmailService
 
         using var client = new SmtpClient();
 
+        // cPanel port 465 = SslOnConnect (implicit SSL). Port 587/25 = STARTTLS / Auto.
         var socketOptions = opts.Port == 465
             ? SecureSocketOptions.SslOnConnect
             : opts.UseSsl
                 ? SecureSocketOptions.StartTls
                 : SecureSocketOptions.None;
 
-        await client.ConnectAsync(opts.Host, opts.Port, socketOptions, cancellationToken);
-        await client.AuthenticateAsync(opts.Username, opts.Password, cancellationToken);
+        await client.ConnectAsync(opts.Host.Trim(), opts.Port, socketOptions, cancellationToken);
+        await client.AuthenticateAsync(opts.Username.Trim(), opts.Password, cancellationToken);
         await client.SendAsync(message, cancellationToken);
         await client.DisconnectAsync(true, cancellationToken);
     }
@@ -98,8 +112,9 @@ public class SmtpEmailService : IEmailService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to send email using primary DB SMTP configuration. Attempting fallback to appsettings config...");
-            if (effectiveOpts.Username != _options.Username || effectiveOpts.Host != _options.Host || effectiveOpts.Password != _options.Password)
+            _logger.LogWarning(ex, "Failed to send email using primary DB SMTP configuration ({User}). Attempting fallback to appsettings config ({FallbackUser})...", effectiveOpts.Username, _options.Username);
+            
+            if (effectiveOpts.Username != _options.Username || effectiveOpts.Host != _options.Host || effectiveOpts.Password != _options.Password || effectiveOpts.FromAddress != _options.FromAddress)
             {
                 try
                 {
