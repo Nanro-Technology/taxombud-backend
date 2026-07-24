@@ -127,14 +127,46 @@ public class AuthService : IAuthService
             user.SetEmailVerificationToken(verificationToken);
             await _userManager.UpdateAsync(user);
 
-            // Verification email disabled for local development
-            /*
-            await _emailService.SendAsync(
-                to: user.Email ?? string.Empty,
-                subject: "Verify your TaxOmbud account",
-                htmlBody: $"<p>Hello {user.FirstName},</p><p>Please verify your email using this token: <strong>{verificationToken}</strong></p><p>This token expires in 24 hours.</p>",
-                cancellationToken: cancellationToken);
-            */
+            var baseUrl = _configuration["AppBaseUrl"]?.TrimEnd('/') ?? "https://mediate.com.ng";
+            var verifyUrl = $"{baseUrl}/verify-email?email={Uri.EscapeDataString(user.Email ?? string.Empty)}&token={Uri.EscapeDataString(verificationToken)}";
+
+            var htmlBody = $"""
+                <div style="font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:600px;margin:0 auto;border:1px solid #e0e0e0;border-radius:8px;overflow:hidden;">
+                  <div style="background:#114a31;padding:28px 32px;text-align:center;border-bottom:4px solid #c9a227;">
+                    <h1 style="color:#ffffff;font-size:1.2rem;margin:0 0 4px;letter-spacing:.5px;text-transform:uppercase;">OFFICE OF THE TAX OMBUD</h1>
+                    <p style="color:rgba(255,255,255,.75);font-size:.85rem;margin:0;">Federal Republic of Nigeria</p>
+                  </div>
+                  <div style="padding:32px;background:#ffffff;color:#333333;font-size:.95rem;line-height:1.7;">
+                    <h2 style="color:#114a31;font-size:1.2rem;margin-top:0;">Welcome to Tax Ombud System</h2>
+                    <p>Hello <strong>{user.FirstName} {user.LastName}</strong>,</p>
+                    <p>Thank you for registering an account on the <strong>Tax Ombud Office Portal</strong>.</p>
+                    <p>Please click the button below to verify your email address and activate your account:</p>
+                    <div style="text-align:center;margin:32px 0;">
+                      <a href="{verifyUrl}" style="background:#114a31;color:#ffffff;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:bold;font-size:1rem;display:inline-block;">Verify Email Address</a>
+                    </div>
+                  </div>
+                  <div style="background:#114a31;padding:20px 32px;text-align:center;">
+                    <p style="color:#c9a227;font-style:italic;font-size:.9rem;font-weight:bold;margin:4px 0;">Pax Christi!!!</p>
+                    <p style="color:rgba(255,255,255,.6);font-size:.75rem;margin:4px 0;">Office of the Tax Ombud &middot; Federal Republic of Nigeria</p>
+                  </div>
+                </div>
+                """;
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _emailService.SendAsync(
+                        to: user.Email ?? string.Empty,
+                        subject: "Verify your Tax Ombud account",
+                        htmlBody: htmlBody,
+                        cancellationToken: CancellationToken.None);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to send verification email to {Email}", user.Email);
+                }
+            });
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = Constants.Messages.AuthTaxpayerRegistered;
@@ -212,6 +244,50 @@ public class AuthService : IAuthService
                 response.Message = errors;
                 return response;
             }
+
+            var baseUrl = _configuration["AppBaseUrl"]?.TrimEnd('/') ?? "https://mediate.com.ng";
+            var loginUrl = $"{baseUrl}/staff-login";
+
+            var staffHtmlBody = $"""
+                <div style="font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:600px;margin:0 auto;border:1px solid #e0e0e0;border-radius:8px;overflow:hidden;">
+                  <div style="background:#114a31;padding:28px 32px;text-align:center;border-bottom:4px solid #c9a227;">
+                    <h1 style="color:#ffffff;font-size:1.2rem;margin:0 0 4px;letter-spacing:.5px;text-transform:uppercase;">OFFICE OF THE TAX OMBUD</h1>
+                    <p style="color:rgba(255,255,255,.75);font-size:.85rem;margin:0;">Federal Republic of Nigeria</p>
+                  </div>
+                  <div style="padding:32px;background:#ffffff;color:#333333;font-size:.95rem;line-height:1.7;">
+                    <h2 style="color:#114a31;font-size:1.2rem;margin-top:0;">Staff Account Created</h2>
+                    <p>Hello <strong>{user.FirstName} {user.LastName}</strong>,</p>
+                    <p>Your staff account has been created on the <strong>Tax Ombud Office Portal</strong>.</p>
+                    <div style="background:#f8f9fa;border-left:4px solid #114a31;padding:16px 20px;margin:24px 0;border-radius:4px;">
+                      <p style="margin:0 0 8px;"><strong>Login Email:</strong> {user.Email}</p>
+                      <p style="margin:0;"><strong>Temporary Password:</strong> <code style="background:#e9ecef;padding:2px 8px;border-radius:4px;font-weight:bold;color:#114a31;">{request.Password}</code></p>
+                    </div>
+                    <div style="text-align:center;margin:32px 0;">
+                      <a href="{loginUrl}" style="background:#114a31;color:#ffffff;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:bold;font-size:1rem;display:inline-block;">Sign In to Portal</a>
+                    </div>
+                  </div>
+                  <div style="background:#114a31;padding:20px 32px;text-align:center;">
+                    <p style="color:#c9a227;font-style:italic;font-size:.9rem;font-weight:bold;margin:4px 0;">Pax Christi!!!</p>
+                    <p style="color:rgba(255,255,255,.6);font-size:.75rem;margin:4px 0;">Office of the Tax Ombud &middot; Federal Republic of Nigeria</p>
+                  </div>
+                </div>
+                """;
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _emailService.SendAsync(
+                        to: user.Email ?? string.Empty,
+                        subject: "Your Tax Ombud Staff Account Credentials",
+                        htmlBody: staffHtmlBody,
+                        cancellationToken: CancellationToken.None);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to send staff registration email to {Email}", user.Email);
+                }
+            });
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = Constants.Messages.Success;

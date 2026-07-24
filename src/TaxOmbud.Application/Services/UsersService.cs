@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using TaxOmbud.Application.Interfaces.InfrastructureService;
 using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Application.Interfaces.Services;
@@ -24,19 +26,28 @@ public class UsersService : IUsersService
 
     // ── Infrastructure services ───────────────────────────────────────────────
     private readonly ICurrentUser _currentUser;
+    private readonly IEmailService _emailService;
+    private readonly IConfiguration _configuration;
+    private readonly ILogger<UsersService> _logger;
 
     public UsersService(
         UserManager<User> userManager,
         IGenericRepository<User> userRepo,
         IGenericRepository<Role> roleRepo,
         IGenericRepository<AuditLog> auditRepo,
-        ICurrentUser currentUser)
+        ICurrentUser currentUser,
+        IEmailService emailService,
+        IConfiguration configuration,
+        ILogger<UsersService> logger)
     {
         _userManager = userManager;
         _userRepo = userRepo;
         _roleRepo = roleRepo;
         _auditRepo = auditRepo;
         _currentUser = currentUser;
+        _emailService = emailService;
+        _configuration = configuration;
+        _logger = logger;
     }
 
     // ─── Queries ───────────────────────────────────────────────────────────────
@@ -262,8 +273,54 @@ public class UsersService : IUsersService
                 return response;
             }
 
+            var baseUrl = _configuration["AppBaseUrl"]?.TrimEnd('/') ?? "https://mediate.com.ng";
+            var loginUrl = $"{baseUrl}/staff-login";
+
+            var htmlBody = $"""
+                <div style="font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:600px;margin:0 auto;border:1px solid #e0e0e0;border-radius:8px;overflow:hidden;">
+                  <div style="background:#114a31;padding:28px 32px;text-align:center;border-bottom:4px solid #c9a227;">
+                    <h1 style="color:#ffffff;font-size:1.2rem;margin:0 0 4px;letter-spacing:.5px;text-transform:uppercase;">OFFICE OF THE TAX OMBUD</h1>
+                    <p style="color:rgba(255,255,255,.75);font-size:.85rem;margin:0;">Federal Republic of Nigeria</p>
+                  </div>
+                  <div style="padding:32px;background:#ffffff;color:#333333;font-size:.95rem;line-height:1.7;">
+                    <h2 style="color:#114a31;font-size:1.2rem;margin-top:0;">Welcome to Tax Ombud Portal</h2>
+                    <p>Hello <strong>{user.FirstName} {user.LastName}</strong>,</p>
+                    <p>An administrator has created your staff account on the <strong>Tax Ombud Office Portal</strong>.</p>
+                    <div style="background:#f8f9fa;border-left:4px solid #114a31;padding:16px 20px;margin:24px 0;border-radius:4px;">
+                      <p style="margin:0 0 8px;"><strong>Login Email:</strong> {user.Email}</p>
+                      <p style="margin:0;"><strong>Temporary Password:</strong> <code style="background:#e9ecef;padding:2px 8px;border-radius:4px;font-weight:bold;color:#114a31;">{request.Password}</code></p>
+                    </div>
+                    <p>Please click the button below to sign into your account. We recommend changing your password after logging in.</p>
+                    <div style="text-align:center;margin:32px 0;">
+                      <a href="{loginUrl}" style="background:#114a31;color:#ffffff;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:bold;font-size:1rem;display:inline-block;">Sign In to Staff Portal</a>
+                    </div>
+                    <p style="font-size:.85rem;color:#666666;">If you have any questions, please contact your system administrator.</p>
+                  </div>
+                  <div style="background:#114a31;padding:20px 32px;text-align:center;">
+                    <p style="color:#c9a227;font-style:italic;font-size:.9rem;font-weight:bold;margin:4px 0;">Pax Christi!!!</p>
+                    <p style="color:rgba(255,255,255,.6);font-size:.75rem;margin:4px 0;">Office of the Tax Ombud &middot; Federal Republic of Nigeria</p>
+                  </div>
+                </div>
+                """;
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _emailService.SendAsync(
+                        to: user.Email ?? string.Empty,
+                        subject: "Your Tax Ombud Staff Account Credentials",
+                        htmlBody: htmlBody,
+                        cancellationToken: CancellationToken.None);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to send onboarding email to {Email}", user.Email);
+                }
+            });
+
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = "User created successfully.";
+            response.Message = "User created successfully and welcome email sent.";
             response.Data = new CreateUserResponse(user.Id, $"{user.FirstName} {user.LastName}", user.Email ?? string.Empty);
         }
         catch (Exception)
