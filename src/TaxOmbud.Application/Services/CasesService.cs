@@ -399,30 +399,13 @@ public class CasesService : ICasesService
             }
 
             var isGuid = Guid.TryParse(trackingNo, out var idGuid);
-            var lowerTrackingNo = trackingNo.ToLower();
 
-            // 1. Search Complaint table by ReferenceNumber or Guid Id
+            // Query Complaint repository cleanly (no unneeded includes or untranslatable functions)
             var complaint = await _complaintRepo.Query()
-                .Include(c => c.Taxpayer).ThenInclude(tp => tp!.User)
+                .AsNoTracking()
                 .FirstOrDefaultAsync(c => 
                     c.ReferenceNumber == trackingNo ||
-                    c.ReferenceNumber.ToLower() == lowerTrackingNo ||
                     (isGuid && c.Id == idGuid), cancellationToken);
-
-            // 2. Search Case table by CaseNumber if Complaint reference was not matched directly
-            if (complaint is null)
-            {
-                var caseEntity = await _caseRepo.Query()
-                    .Include(c => c.Complaint)
-                    .FirstOrDefaultAsync(c => 
-                        c.CaseNumber.Value == trackingNo || 
-                        c.CaseNumber.Value.ToLower() == trackingNo.ToLower(), cancellationToken);
-                
-                if (caseEntity != null)
-                {
-                    complaint = caseEntity.Complaint;
-                }
-            }
 
             if (complaint is null)
             {
