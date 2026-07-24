@@ -3,7 +3,8 @@ name: Build & Deploy Backend API
 on:
   push:
     branches:
-      - main # Triggers when pushing/merging into the main branch
+      - main
+      - dynamicwalkflow
 
 env:
   REGISTRY: ghcr.io
@@ -58,10 +59,11 @@ jobs:
         run: |
           echo "IMAGE_NAME=$(echo ${{ env.REGISTRY }}/${{ github.repository }}/taxombud-api | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
-      - name: Verify Secret Formats & Network
+      - name: Determine Open SSH Port & Verify Secret Formats
+        id: ssh-port
         run: |
           HOST="${{ secrets.VPS_HOST }}"
-          PORT="${{ secrets.VPS_PORT || 22 }}"
+          PORT="${{ secrets.VPS_PORT }}"
           echo "Host character count: ${#HOST}"
           if [[ "$HOST" =~ [[:space:]] ]]; then
             echo "::error::VPS_HOST contains spaces or newlines!"
@@ -69,19 +71,20 @@ jobs:
           if [[ "$HOST" =~ ^http ]]; then
             echo "::error::VPS_HOST contains a protocol prefix (e.g. http/https/ssh)!"
           fi
-          echo "Testing TCP connection to SSH port $PORT..."
-          nc -vz -w 5 "$HOST" "$PORT" || echo "TCP Connection failed!"
 
-      - name: Copy Files to VPS via SCP
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USERNAME }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT || 22 }}
-          source: "docker-compose.yml,.env.example"
-          target: ${{ env.DEPLOY_PATH }}
-          overwrite: true
+          if [ -n "$PORT" ]; then
+            echo "Using specified secret VPS_PORT: $PORT"
+            echo "PORT=$PORT" >> $GITHUB_OUTPUT
+          elif nc -z -w 5 "$HOST" 22 2>/dev/null; then
+            echo "Detected open SSH port 22"
+            echo "PORT=22" >> $GITHUB_OUTPUT
+          elif nc -z -w 5 "$HOST" 2222 2>/dev/null; then
+            echo "Detected open SSH port 2222"
+            echo "PORT=2222" >> $GITHUB_OUTPUT
+          else
+            echo "Defaulting SSH port to 22"
+            echo "PORT=22" >> $GITHUB_OUTPUT
+          fi
 
       - name: Deploy on VPS via SSH
         uses: appleboy/ssh-action@v1.0.3
@@ -89,8 +92,11 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT || 22 }}
+          port: ${{ steps.ssh-port.outputs.PORT }}
+          timeout: 60s
+          command_timeout: 10m
           script: |
+            mkdir -p ${{ env.DEPLOY_PATH }}
             cd ${{ env.DEPLOY_PATH }}
             
             # Create uploads and logs volumes directories if they don't exist
@@ -98,14 +104,15 @@ jobs:
             
             # Initialize .env file if it does not exist
             if [ ! -f .env ]; then
-              echo "No .env file found. Copying from .env.example..."
-              cp .env.example .env
-              # Replace DOCKER_IMAGE in .env with the lowercased image path
+              echo "No .env file found. Creating default .env..."
+              touch .env
+            fi
+
+            # Update DOCKER_IMAGE in .env to point to the latest built image
+            if grep -q "DOCKER_IMAGE=" .env; then
               sed -i 's|DOCKER_IMAGE=.*|DOCKER_IMAGE=${{ env.IMAGE_NAME }}:latest|g' .env
-              echo "WARNING: A new .env file was created from template. Please configure it with your secrets!"
             else
-              # Ensure the DOCKER_IMAGE env variable points to the correct latest image
-              sed -i 's|DOCKER_IMAGE=.*|DOCKER_IMAGE=${{ env.IMAGE_NAME }}:latest|g' .env
+              echo "DOCKER_IMAGE=${{ env.IMAGE_NAME }}:latest" >> .env
             fi
             
             # Authenticate VPS Docker daemon with GHCR using GITHUB_TOKEN
