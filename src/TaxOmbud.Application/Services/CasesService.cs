@@ -390,18 +390,49 @@ public class CasesService : ICasesService
         var response = new Response<TrackComplaintResponse>();
         try
         {
+            var trackingNo = request.TrackingNumber?.Trim();
+            if (string.IsNullOrWhiteSpace(trackingNo))
+            {
+                response.StatusCode = StatusCodes.Status400BadRequest;
+                response.Message = "Please enter a valid Complaint ID or Reference Number.";
+                return response;
+            }
+
+            var isGuid = Guid.TryParse(trackingNo, out var idGuid);
+            var lowerTrackingNo = trackingNo.ToLower();
+
+            // 1. Search Complaint table by ReferenceNumber or Guid Id
             var complaint = await _complaintRepo.Query()
-                .FirstOrDefaultAsync(c => c.ReferenceNumber == request.TrackingNumber, cancellationToken);
+                .Include(c => c.Taxpayer).ThenInclude(tp => tp!.User)
+                .FirstOrDefaultAsync(c => 
+                    c.ReferenceNumber == trackingNo ||
+                    c.ReferenceNumber.ToLower() == lowerTrackingNo ||
+                    (isGuid && c.Id == idGuid), cancellationToken);
+
+            // 2. Search Case table by CaseNumber if Complaint reference was not matched directly
+            if (complaint is null)
+            {
+                var caseEntity = await _caseRepo.Query()
+                    .Include(c => c.Complaint)
+                    .FirstOrDefaultAsync(c => 
+                        c.CaseNumber.Value == trackingNo || 
+                        c.CaseNumber.Value.ToLower() == trackingNo.ToLower(), cancellationToken);
+                
+                if (caseEntity != null)
+                {
+                    complaint = caseEntity.Complaint;
+                }
+            }
 
             if (complaint is null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
-                response.Message = Constants.Messages.ComplaintTrackNotFound;
+                response.Message = $"No complaint found matching ID '{trackingNo}'. Please verify your Complaint ID and try again.";
                 return response;
             }
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = Constants.Messages.ComplaintTracked;
+            response.Message = "Complaint found!";
             response.Data = new TrackComplaintResponse(
                 complaint.ReferenceNumber,
                 complaint.Status.ToString(),
@@ -418,6 +449,7 @@ public class CasesService : ICasesService
         }
         return response;
     }
+
 
     // ─── Commands ──────────────────────────────────────────────────────────────
 
