@@ -41,4 +41,13 @@ public class SystemMonitoringController : ControllerBase
         var result = await _monitoringService.RunDiagnosticHealthCheckAsync(ct);
         return StatusCode(result.StatusCode, result);
     }
+
+    /// <summary>Get granular endpoint-by-endpoint telemetry metrics for specified time window (1m, 5m, 15m, 1h, 24h).</summary>
+    [HttpGet("granular")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetGranularMetrics([FromQuery] string timeWindow = "15m", CancellationToken ct = default)
+    {
+        var result = await _monitoringService.GetGranularMonitoringMetricsAsync(new GetGranularMonitoringQuery(timeWindow), ct);
+        return StatusCode(result.StatusCode, result);
+    }
 }

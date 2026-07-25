@@ -167,6 +167,7 @@ try
     app.UseCors("TaxOmbudCors");
     app.UseRateLimiter();
     app.UseMiddleware<E2eeMiddleware>();
+    app.UseMiddleware<RequestTelemetryMiddleware>();
     app.UseAuthentication();
     app.UseAuthorization();
     app.UseHangfireDashboard();
