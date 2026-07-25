@@ -33,6 +33,7 @@ public class SystemMonitoringController : ControllerBase
     }
 
     /// <summary>Run active diagnostic health probes across database, SMTP, cache, and system services.</summary>
+    [HttpGet("health-check")]
     [HttpPost("health-check")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> RunDiagnostics(CancellationToken ct)
