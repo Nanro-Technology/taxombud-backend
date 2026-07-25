@@ -2,6 +2,8 @@ namespace TaxOmbud.Application.System.DTOs;
 
 public record GetSystemMonitoringQuery();
 
+public record GetGranularMonitoringQuery(string TimeWindow = "15m");
+
 public record SystemHealthMetricsDto(
     string Status,
     long UptimeSeconds,
@@ -48,6 +50,32 @@ public record TrafficMetricsDto(
     long AvgLatencyMs
 );
 
+public record EndpointMetricDto(
+    string Method,
+    string Path,
+    int TotalCalls,
+    int SuccessCalls,
+    int ClientErrors,
+    int ServerErrors,
+    long AvgLatencyMs,
+    long P95LatencyMs,
+    double SuccessRatePercent,
+    DateTime LastCalledAt,
+    string HealthStatus
+);
+
+public record RequestLogEntryDto(
+    string Id,
+    DateTime Timestamp,
+    string Method,
+    string Path,
+    int StatusCode,
+    long LatencyMs,
+    string ClientIp,
+    string UserAgent,
+    string User
+);
+
 public record SystemMonitoringDashboardDto(
     SystemHealthMetricsDto System,
     DatabaseMetricsDto Database,
@@ -56,4 +84,11 @@ public record SystemMonitoringDashboardDto(
     SecurityMonitoringDto Security,
     TrafficMetricsDto Traffic,
     DateTime CheckedAt
+);
+
+public record GranularMonitoringDashboardDto(
+    string TimeWindow,
+    SystemMonitoringDashboardDto Overview,
+    List<EndpointMetricDto> Endpoints,
+    List<RequestLogEntryDto> RecentRequests
 );
