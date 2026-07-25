@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using System.Security.Cryptography;
 using TaxOmbud.Application.Interfaces.InfrastructureService;
 using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Application.Interfaces.Services;
@@ -248,12 +249,21 @@ public class UsersService : IUsersService
                 return response;
             }
 
+            var generatedPassword = !string.IsNullOrWhiteSpace(request.Password)
+                ? request.Password
+                : GenerateTemporaryPassword();
+
             var user = User.Create(
                 request.FirstName,
                 request.LastName,
                 new Email(emailNormalized),
                 request.Phone,
                 UserType.StaffUser);
+
+            user.MustChangePassword = true;
+
+            if (request.RoleId.HasValue && request.RoleId.Value != Guid.Empty)
+                user.AssignRole(request.RoleId.Value);
 
             if (request.JobTitle is not null)
                 user.UpdateProfile(request.FirstName, request.LastName, request.Phone, request.JobTitle);
@@ -265,13 +275,15 @@ public class UsersService : IUsersService
                 user.SetDepartment(request.DepartmentId.Value);
 
             // UserManager handles password hashing, security stamp, lockout seeding
-            var result = await _userManager.CreateAsync(user, request.Password);
+            var result = await _userManager.CreateAsync(user, generatedPassword);
             if (!result.Succeeded)
             {
                 response.StatusCode = StatusCodes.Status400BadRequest;
                 response.Message = string.Join("; ", result.Errors.Select(e => e.Description));
                 return response;
             }
+
+            await _userRepo.SaveAsync();
 
             var baseUrl = _configuration["AppBaseUrl"]?.TrimEnd('/') ?? "https://mediate.com.ng";
             var loginUrl = $"{baseUrl}/staff-login";
@@ -288,17 +300,17 @@ public class UsersService : IUsersService
                     <p>An administrator has created your staff account on the <strong>Tax Ombud Office Portal</strong>.</p>
                     <div style="background:#f8f9fa;border-left:4px solid #114a31;padding:16px 20px;margin:24px 0;border-radius:4px;">
                       <p style="margin:0 0 8px;"><strong>Login Email:</strong> {user.Email}</p>
-                      <p style="margin:0;"><strong>Temporary Password:</strong> <code style="background:#e9ecef;padding:2px 8px;border-radius:4px;font-weight:bold;color:#114a31;">{request.Password}</code></p>
+                      <p style="margin:0;"><strong>Temporary Password:</strong> <code style="background:#e9ecef;padding:2px 8px;border-radius:4px;font-weight:bold;color:#114a31;">{generatedPassword}</code></p>
                     </div>
-                    <p>Please click the button below to sign into your account. We recommend changing your password after logging in.</p>
+                    <p>Please click the button below to sign into your account. You will be required to change your password upon your first sign-in.</p>
                     <div style="text-align:center;margin:32px 0;">
                       <a href="{loginUrl}" style="background:#114a31;color:#ffffff;padding:14px 32px;border-radius:6px;text-decoration:none;font-weight:bold;font-size:1rem;display:inline-block;">Sign In to Staff Portal</a>
                     </div>
                     <p style="font-size:.85rem;color:#666666;">If you have any questions, please contact your system administrator.</p>
                   </div>
                   <div style="background:#114a31;padding:20px 32px;text-align:center;">
-                    <p style="color:#c9a227;font-style:italic;font-size:.9rem;font-weight:bold;margin:4px 0;">Pax Christi!!!</p>
-                    <p style="color:rgba(255,255,255,.6);font-size:.75rem;margin:4px 0;">Office of the Tax Ombud &middot; Federal Republic of Nigeria</p>
+                    <p style="color:#c9a227;font-size:.9rem;font-weight:bold;margin:4px 0;">Office of the Tax Ombud</p>
+                    <p style="color:rgba(255,255,255,.6);font-size:.75rem;margin:4px 0;">Federal Republic of Nigeria</p>
                   </div>
                 </div>
                 """;
@@ -475,6 +487,7 @@ public class UsersService : IUsersService
             user.AssignRole(roleId == Guid.Empty ? null : roleId);
 
             await _userManager.UpdateAsync(user);
+            await _userRepo.SaveAsync();
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Role assigned successfully.";
@@ -488,6 +501,31 @@ public class UsersService : IUsersService
     }
 
     // ─── Private helpers ───────────────────────────────────────────────────────
+
+    private static string GenerateTemporaryPassword()
+    {
+        const string upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+        const string lower = "abcdefghijkmnpqrstuvwxyz";
+        const string digits = "23456789";
+        const string special = "!@#$%^&*";
+
+        var bytes = new byte[8];
+        RandomNumberGenerator.Fill(bytes);
+
+        var u = upper[bytes[0] % upper.Length];
+        var l = lower[bytes[1] % lower.Length];
+        var d = digits[bytes[2] % digits.Length];
+        var s = special[bytes[3] % special.Length];
+
+        var rest = new char[4];
+        const string all = upper + lower + digits + special;
+        for (int i = 0; i < 4; i++)
+        {
+            rest[i] = all[bytes[4 + i] % all.Length];
+        }
+
+        return $"TxObud#{u}{l}{d}{s}{new string(rest)}";
+    }
 
     private static UserDetailDto MapToDetailDto(User u) => new(
         u.Id,

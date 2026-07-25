@@ -390,18 +390,32 @@ public class CasesService : ICasesService
         var response = new Response<TrackComplaintResponse>();
         try
         {
+            var trackingNo = request.TrackingNumber?.Trim();
+            if (string.IsNullOrWhiteSpace(trackingNo))
+            {
+                response.StatusCode = StatusCodes.Status400BadRequest;
+                response.Message = "Please enter a valid Complaint ID or Reference Number.";
+                return response;
+            }
+
+            var isGuid = Guid.TryParse(trackingNo, out var idGuid);
+
+            // Query Complaint repository cleanly (no unneeded includes or untranslatable functions)
             var complaint = await _complaintRepo.Query()
-                .FirstOrDefaultAsync(c => c.ReferenceNumber == request.TrackingNumber, cancellationToken);
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => 
+                    c.ReferenceNumber == trackingNo ||
+                    (isGuid && c.Id == idGuid), cancellationToken);
 
             if (complaint is null)
             {
                 response.StatusCode = StatusCodes.Status404NotFound;
-                response.Message = Constants.Messages.ComplaintTrackNotFound;
+                response.Message = $"No complaint found matching ID '{trackingNo}'. Please verify your Complaint ID and try again.";
                 return response;
             }
 
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = Constants.Messages.ComplaintTracked;
+            response.Message = "Complaint found!";
             response.Data = new TrackComplaintResponse(
                 complaint.ReferenceNumber,
                 complaint.Status.ToString(),
@@ -418,6 +432,7 @@ public class CasesService : ICasesService
         }
         return response;
     }
+
 
     // ─── Commands ──────────────────────────────────────────────────────────────
 

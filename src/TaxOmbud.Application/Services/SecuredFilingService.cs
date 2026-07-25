@@ -411,6 +411,8 @@ public class SecuredFilingService : ISecuredFilingService
             OldValues = target,
             NewValues = details,
             UserId = _currentUser.UserId,
+            IPAddress = _currentUser.IpAddress,
+            UserAgent = _currentUser.UserAgent,
             CreatedAt = DateTime.UtcNow
         };
         await _context.AuditLogs.AddAsync(log, ct);
