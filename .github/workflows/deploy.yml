@@ -67,20 +67,8 @@ jobs:
           if [ -n "$PORT" ]; then
             echo "Using specified secret VPS_PORT: $PORT"
             echo "PORT=$PORT" >> $GITHUB_OUTPUT
-          elif nc -z -w 5 "$HOST" 22 2>/dev/null; then
-            echo "Detected open SSH port 22"
-            echo "PORT=22" >> $GITHUB_OUTPUT
-          elif nc -z -w 5 "$HOST" 2222 2>/dev/null; then
-            echo "Detected open SSH port 2222"
-            echo "PORT=2222" >> $GITHUB_OUTPUT
-          elif nc -z -w 5 "$HOST" 22022 2>/dev/null; then
-            echo "Detected open SSH port 22022"
-            echo "PORT=22022" >> $GITHUB_OUTPUT
-          elif nc -z -w 5 "$HOST" 1022 2>/dev/null; then
-            echo "Detected open SSH port 1022"
-            echo "PORT=1022" >> $GITHUB_OUTPUT
           else
-            echo "Defaulting SSH port to 22"
+            echo "Using default SSH port 22"
             echo "PORT=22" >> $GITHUB_OUTPUT
           fi
 
@@ -93,7 +81,7 @@ jobs:
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ steps.ssh-port.outputs.PORT }}
-          timeout: 120s
+          timeout: 60s
           command_timeout: 15m
           use_insecure_cipher: true
           script: |
@@ -136,7 +124,7 @@ jobs:
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ steps.ssh-port.outputs.PORT }}
-          timeout: 120s
+          timeout: 60s
           command_timeout: 15m
           use_insecure_cipher: true
           script: |
