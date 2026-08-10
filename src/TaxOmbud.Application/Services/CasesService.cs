@@ -32,6 +32,7 @@ public class CasesService : ICasesService
     private readonly IGenericRepository<CaseStatusHistory> _historyRepo;
     private readonly IGenericRepository<User> _userRepo;
     private readonly IGenericRepository<TaxpayerProfile> _taxpayerProfileRepo;
+    private readonly IGenericRepository<Account> _accountRepo;
     private readonly IEmailService _emailService;
     private readonly IConfiguration _configuration;
     private readonly ILogger<CasesService> _logger;
@@ -47,6 +48,7 @@ public class CasesService : ICasesService
         IGenericRepository<CaseStatusHistory> historyRepo,
         IGenericRepository<User> userRepo,
         IGenericRepository<TaxpayerProfile> taxpayerProfileRepo,
+        IGenericRepository<Account> accountRepo,
         IEmailService emailService,
         IConfiguration configuration,
         ILogger<CasesService> logger)
@@ -61,10 +63,12 @@ public class CasesService : ICasesService
         _historyRepo = historyRepo;
         _userRepo = userRepo;
         _taxpayerProfileRepo = taxpayerProfileRepo;
+        _accountRepo = accountRepo;
         _emailService = emailService;
         _configuration = configuration;
         _logger = logger;
     }
+
 
 
 
@@ -533,12 +537,30 @@ public class CasesService : ICasesService
             await _complaintRepo.AddAsync(complaint);
             await _complaintRepo.SaveAsync();
 
-            // Also create underlying Case entity linked to Complaint
+            // Resolve active default Account for Case workflow lane
+            var account = await _accountRepo.Query().FirstOrDefaultAsync(cancellationToken);
+            if (account == null)
+            {
+                account = new Account
+                {
+                    Id = Guid.NewGuid(),
+                    Name = "Headquarters Zonal Office",
+                    Email = "info@mediate.com.ng",
+                    Country = "Nigeria",
+                    Status = "active",
+                    IsWorkflowLane = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _accountRepo.AddAsync(account);
+                await _accountRepo.SaveAsync();
+            }
+
+            // Also create underlying Case entity linked to Complaint and Account
             var caseNumberStr = $"CASE-{DateTimeOffset.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString()[..6].ToUpper()}";
             var caseEntity = new Case(
                 complaint.Id,
                 subjectText,
-                Guid.Empty,
+                account.Id,
                 request.Priority ?? "Medium"
             );
             caseEntity.Open(ReferenceNumber.From(caseNumberStr));
@@ -546,6 +568,7 @@ public class CasesService : ICasesService
 
             await _caseRepo.AddAsync(caseEntity);
             await _caseRepo.SaveAsync();
+
 
 
             // Dispatch Lodgement Receipt Email to Taxpayer
