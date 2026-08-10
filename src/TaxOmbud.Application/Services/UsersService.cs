@@ -285,7 +285,7 @@ public class UsersService : IUsersService
 
             await _userRepo.SaveAsync();
 
-            var baseUrl = _configuration["AppBaseUrl"]?.TrimEnd('/') ?? "https://mediate.com.ng";
+            var baseUrl = Helper.GetAppBaseUrl(_configuration);
             var loginUrl = $"{baseUrl}/staff-login";
 
             var htmlBody = $"""
@@ -322,15 +322,30 @@ public class UsersService : IUsersService
                     subject: "Your Tax Ombud Staff Account Credentials",
                     htmlBody: htmlBody,
                     cancellationToken: cancellationToken);
+
+                // Send audit status copy to Initiator / Administrator
+                var initiatorEmail = _currentUser.Email;
+                if (!string.IsNullOrWhiteSpace(initiatorEmail) && initiatorEmail != user.Email)
+                {
+                    var initiatorHtml = $"""
+                        <div style="font-family:'Segoe UI',sans-serif;max-width:600px;margin:0 auto;border:1px solid #e0e0e0;border-radius:8px;padding:24px;">
+                          <h3 style="color:#114a31;margin-top:0;">Audit Notification: Staff Account Created</h3>
+                          <p>Hello <strong>{_currentUser.FullName ?? "Administrator"}</strong>,</p>
+                          <p>You have created a staff account for <strong>{user.FirstName} {user.LastName}</strong> ({user.Email}).</p>
+                          <p><strong>Status:</strong> Credentials email dispatched to recipient.</p>
+                        </div>
+                        """;
+                    await _emailService.SendAsync(initiatorEmail, $"[Audit Copy] Staff Account Created: {user.FirstName} {user.LastName}", initiatorHtml, cancellationToken);
+                }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to send onboarding email to {Email}", user.Email);
             }
 
-
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "User created successfully and welcome email sent.";
+
             response.Data = new CreateUserResponse(user.Id, $"{user.FirstName} {user.LastName}", user.Email ?? string.Empty);
         }
         catch (Exception)
@@ -360,6 +375,40 @@ public class UsersService : IUsersService
 
             await _userManager.UpdateAsync(user);
 
+            // Send notification to User and Initiator
+            if (!string.IsNullOrWhiteSpace(user.Email))
+            {
+                try
+                {
+                    var userNoticeHtml = $"""
+                        <div style="font-family:'Segoe UI',sans-serif;max-width:600px;margin:0 auto;border:1px solid #e0e0e0;border-radius:8px;padding:24px;">
+                          <h3 style="color:#114a31;margin-top:0;">Tax Ombud Account Update</h3>
+                          <p>Hello <strong>{user.FirstName} {user.LastName}</strong>,</p>
+                          <p>Your profile details have been updated by an administrator.</p>
+                        </div>
+                        """;
+                    await _emailService.SendAsync(user.Email, "Tax Ombud Account Updated", userNoticeHtml, cancellationToken);
+
+                    var initiatorEmail = _currentUser.Email;
+                    if (!string.IsNullOrWhiteSpace(initiatorEmail) && initiatorEmail != user.Email)
+                    {
+                        var initiatorHtml = $"""
+                            <div style="font-family:'Segoe UI',sans-serif;max-width:600px;margin:0 auto;border:1px solid #e0e0e0;border-radius:8px;padding:24px;">
+                              <h3 style="color:#114a31;margin-top:0;">Audit Notification: User Updated</h3>
+                              <p>Hello <strong>{_currentUser.FullName ?? "Administrator"}</strong>,</p>
+                              <p>You updated profile details for <strong>{user.FirstName} {user.LastName}</strong> ({user.Email}).</p>
+                              <p><strong>Status:</strong> Notification dispatched to user.</p>
+                            </div>
+                            """;
+                        await _emailService.SendAsync(initiatorEmail, $"[Audit Copy] User Updated: {user.FirstName} {user.LastName}", initiatorHtml, cancellationToken);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to send user update notifications for {Email}", user.Email);
+                }
+            }
+
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "User updated successfully.";
         }
@@ -370,6 +419,7 @@ public class UsersService : IUsersService
         }
         return response;
     }
+
 
     public async Task<Response<object?>> UpdateCurrentUserAsync(UpdateCurrentUserCommand request, CancellationToken cancellationToken = default)
     {
@@ -432,6 +482,41 @@ public class UsersService : IUsersService
 
             await _userManager.UpdateAsync(user);
 
+            // Dispatch notification to user and initiator
+            if (!string.IsNullOrWhiteSpace(user.Email))
+            {
+                try
+                {
+                    var statusText = request.Activate ? "ACTIVATED" : "DEACTIVATED";
+                    var userNoticeHtml = $"""
+                        <div style="font-family:'Segoe UI',sans-serif;max-width:600px;margin:0 auto;border:1px solid #e0e0e0;border-radius:8px;padding:24px;">
+                          <h3 style="color:#114a31;margin-top:0;">Tax Ombud Account Status Changed</h3>
+                          <p>Hello <strong>{user.FirstName} {user.LastName}</strong>,</p>
+                          <p>Your Tax Ombud staff account status has been updated to <strong>{statusText}</strong>.</p>
+                        </div>
+                        """;
+                    await _emailService.SendAsync(user.Email, $"Tax Ombud Account Status: {statusText}", userNoticeHtml, cancellationToken);
+
+                    var initiatorEmail = _currentUser.Email;
+                    if (!string.IsNullOrWhiteSpace(initiatorEmail) && initiatorEmail != user.Email)
+                    {
+                        var initiatorHtml = $"""
+                            <div style="font-family:'Segoe UI',sans-serif;max-width:600px;margin:0 auto;border:1px solid #e0e0e0;border-radius:8px;padding:24px;">
+                              <h3 style="color:#114a31;margin-top:0;">Audit Notification: User Status Changed</h3>
+                              <p>Hello <strong>{_currentUser.FullName ?? "Administrator"}</strong>,</p>
+                              <p>You changed account status for <strong>{user.FirstName} {user.LastName}</strong> ({user.Email}) to <strong>{statusText}</strong>.</p>
+                              <p><strong>Status:</strong> Notification dispatched to user.</p>
+                            </div>
+                            """;
+                        await _emailService.SendAsync(initiatorEmail, $"[Audit Copy] Account Status Changed: {user.FirstName} {user.LastName} ({statusText})", initiatorHtml, cancellationToken);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to send status update notification to {Email}", user.Email);
+                }
+            }
+
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "User status updated successfully.";
         }
@@ -471,10 +556,11 @@ public class UsersService : IUsersService
 
             // Validate the role exists before assigning
             var roleId = request.RoleIds.FirstOrDefault();
+            Role? roleObj = null;
             if (roleId != Guid.Empty)
             {
-                var roleExists = await _roleRepo.ExistsAsync(r => r.Id == roleId);
-                if (!roleExists)
+                roleObj = await _roleRepo.GetByIdAsync(roleId);
+                if (roleObj is null)
                 {
                     response.StatusCode = StatusCodes.Status400BadRequest;
                     response.Message = "The specified role does not exist.";
@@ -487,8 +573,44 @@ public class UsersService : IUsersService
             await _userManager.UpdateAsync(user);
             await _userRepo.SaveAsync();
 
+            // Send role update notifications
+            if (!string.IsNullOrWhiteSpace(user.Email))
+            {
+                try
+                {
+                    var roleName = roleObj?.Name ?? "No Role";
+                    var userNoticeHtml = $"""
+                        <div style="font-family:'Segoe UI',sans-serif;max-width:600px;margin:0 auto;border:1px solid #e0e0e0;border-radius:8px;padding:24px;">
+                          <h3 style="color:#114a31;margin-top:0;">Tax Ombud Role Assignment Updated</h3>
+                          <p>Hello <strong>{user.FirstName} {user.LastName}</strong>,</p>
+                          <p>Your staff role has been updated to <strong>{roleName}</strong>.</p>
+                        </div>
+                        """;
+                    await _emailService.SendAsync(user.Email, "Tax Ombud Role Updated", userNoticeHtml, cancellationToken);
+
+                    var initiatorEmail = _currentUser.Email;
+                    if (!string.IsNullOrWhiteSpace(initiatorEmail) && initiatorEmail != user.Email)
+                    {
+                        var initiatorHtml = $"""
+                            <div style="font-family:'Segoe UI',sans-serif;max-width:600px;margin:0 auto;border:1px solid #e0e0e0;border-radius:8px;padding:24px;">
+                              <h3 style="color:#114a31;margin-top:0;">Audit Notification: Role Assigned</h3>
+                              <p>Hello <strong>{_currentUser.FullName ?? "Administrator"}</strong>,</p>
+                              <p>You assigned role <strong>{roleName}</strong> to <strong>{user.FirstName} {user.LastName}</strong> ({user.Email}).</p>
+                              <p><strong>Status:</strong> Notification dispatched to user.</p>
+                            </div>
+                            """;
+                        await _emailService.SendAsync(initiatorEmail, $"[Audit Copy] Role Assigned: {user.FirstName} {user.LastName} ({roleName})", initiatorHtml, cancellationToken);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to send role assignment notification to {Email}", user.Email);
+                }
+            }
+
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Role assigned successfully.";
+
         }
         catch (Exception)
         {

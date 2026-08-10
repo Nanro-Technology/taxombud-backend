@@ -51,6 +51,18 @@ public static class Helper
     /// <summary>Clamps a page size value between 1 and the provided maximum.</summary>
     public static int ClampPageSize(int pageSize, int max = 100)
         => Math.Clamp(pageSize, 1, max);
+
+    /// <summary>Resolves the production App Base URL (https://mediate.com.ng) for email templates.</summary>
+    public static string GetAppBaseUrl(Microsoft.Extensions.Configuration.IConfiguration config)
+    {
+        var configUrl = config["AppBaseUrl"]?.TrimEnd('/');
+        if (string.IsNullOrWhiteSpace(configUrl) || configUrl.Contains("localhost") || configUrl.Contains("127.0.0.1"))
+        {
+            return "https://mediate.com.ng";
+        }
+        return configUrl;
+    }
+
 }
 
 public record Email

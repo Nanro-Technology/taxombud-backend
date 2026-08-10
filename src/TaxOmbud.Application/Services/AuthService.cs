@@ -127,8 +127,9 @@ public class AuthService : IAuthService
             user.SetEmailVerificationToken(verificationToken);
             await _userManager.UpdateAsync(user);
 
-            var baseUrl = _configuration["AppBaseUrl"]?.TrimEnd('/') ?? "https://mediate.com.ng";
+            var baseUrl = Helper.GetAppBaseUrl(_configuration);
             var verifyUrl = $"{baseUrl}/verify-email?email={Uri.EscapeDataString(user.Email ?? string.Empty)}&token={Uri.EscapeDataString(verificationToken)}";
+
 
             var htmlBody = $"""
                 <div style="font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:600px;margin:0 auto;border:1px solid #e0e0e0;border-radius:8px;overflow:hidden;">
@@ -245,8 +246,9 @@ public class AuthService : IAuthService
                 return response;
             }
 
-            var baseUrl = _configuration["AppBaseUrl"]?.TrimEnd('/') ?? "https://mediate.com.ng";
+            var baseUrl = Helper.GetAppBaseUrl(_configuration);
             var loginUrl = $"{baseUrl}/staff-login";
+
 
             var staffHtmlBody = $"""
                 <div style="font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:600px;margin:0 auto;border:1px solid #e0e0e0;border-radius:8px;overflow:hidden;">
@@ -657,8 +659,9 @@ public class AuthService : IAuthService
             await _userManager.UpdateAsync(user);
 
             // Build the reset link pointing to the frontend page
-            var baseUrl = _configuration["AppBaseUrl"]?.TrimEnd('/') ?? "http://localhost:5173";
+            var baseUrl = Helper.GetAppBaseUrl(_configuration);
             var resetLink = $"{baseUrl}/auth-new-password?email={Uri.EscapeDataString(user.Email ?? string.Empty)}&token={encodedToken}";
+
 
             var htmlBody = $"""
                 <div style="font-family:Georgia,serif;max-width:600px;margin:0 auto;">
