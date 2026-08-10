@@ -7,11 +7,10 @@ using TaxOmbud.Application.Workflows.Strategies;
 using TaxOmbud.Common.CustomException;
 using TaxOmbud.Domain.Entities.Workflows;
 using TaxOmbud.Domain.Enums;
-
-using TaxOmbud.Application.Interfaces.InfrastructureService;
 using Microsoft.Extensions.Logging;
 
 namespace TaxOmbud.Application.Workflows.Commands;
+
 
 public record ExecuteCaseApprovalCommand(
     Guid TaskId,
