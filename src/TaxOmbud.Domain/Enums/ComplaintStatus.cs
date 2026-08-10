@@ -2,11 +2,14 @@ namespace TaxOmbud.Domain.Enums;
 
 public enum ComplaintStatus
 {
-    Draft = 1,
-    Submitted = 2,
-    UnderReview = 3,
-    Escalated = 4,
-    Resolved = 5,
-    Closed = 6,
-    Withdrawn = 7
+    Submitted = 1,
+    Registered = 2,
+    UnderAssessment = 3,
+    Assigned = 4,
+    UnderInvestigation = 5,
+    DecisionIssued = 6,
+    Closed = 7,
+    Draft = 8,
+    Withdrawn = 9
 }
+

@@ -63,12 +63,18 @@ public class ApplicationDbContext : IdentityDbContext<User, IdentityRole<Guid>, 
     public DbSet<ComplaintNote> ComplaintNotes => Set<ComplaintNote>();
     public DbSet<ComplaintStatusHistory> ComplaintStatusHistory => Set<ComplaintStatusHistory>();
     public DbSet<ComplaintLink> ComplaintLinks => Set<ComplaintLink>();
+    public DbSet<CallCenterRecord> CallCenterRecords => Set<CallCenterRecord>();
     public DbSet<Case> Cases => Set<Case>();
     public DbSet<CaseNote> CaseNotes => Set<CaseNote>();
     public DbSet<CaseFinding> CaseFindings => Set<CaseFinding>();
     public DbSet<CaseMilestone> CaseMilestones => Set<CaseMilestone>();
     public DbSet<CaseCommunicationLog> CaseCommunicationLogs => Set<CaseCommunicationLog>();
     public DbSet<CaseTask> CaseTasks => Set<CaseTask>();
+    public DbSet<AdmissibilityAssessment> AdmissibilityAssessments => Set<AdmissibilityAssessment>();
+    public DbSet<MediationLog> MediationLogs => Set<MediationLog>();
+    public DbSet<QualityAssuranceReview> QualityAssuranceReviews => Set<QualityAssuranceReview>();
+    public DbSet<CaseDecision> CaseDecisions => Set<CaseDecision>();
+
 
     // ─── Workflow Engine ──────────────────────────────────────────────────────
     public DbSet<TaxOmbud.Domain.Entities.Workflows.Workflow> Workflows => Set<TaxOmbud.Domain.Entities.Workflows.Workflow>();

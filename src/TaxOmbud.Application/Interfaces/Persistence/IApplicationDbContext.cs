@@ -45,12 +45,18 @@ public interface IApplicationDbContext
     DbSet<ComplaintNote> ComplaintNotes { get; }
     DbSet<ComplaintStatusHistory> ComplaintStatusHistory { get; }
     DbSet<ComplaintLink> ComplaintLinks { get; }
+    DbSet<CallCenterRecord> CallCenterRecords { get; }
     DbSet<Case> Cases { get; }
     DbSet<CaseNote> CaseNotes { get; }
     DbSet<CaseFinding> CaseFindings { get; }
     DbSet<CaseMilestone> CaseMilestones { get; }
     DbSet<CaseCommunicationLog> CaseCommunicationLogs { get; }
     DbSet<CaseTask> CaseTasks { get; }
+    DbSet<AdmissibilityAssessment> AdmissibilityAssessments { get; }
+    DbSet<MediationLog> MediationLogs { get; }
+    DbSet<QualityAssuranceReview> QualityAssuranceReviews { get; }
+    DbSet<CaseDecision> CaseDecisions { get; }
+
 
     // Workflow Engine
     DbSet<TaxOmbud.Domain.Entities.Workflows.Workflow> Workflows { get; }

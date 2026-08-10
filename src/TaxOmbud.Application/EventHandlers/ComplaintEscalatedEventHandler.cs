@@ -24,8 +24,9 @@ public class ComplaintEscalatedEventHandler : INotificationHandler<ComplaintEsca
         {
             Id = Guid.NewGuid(),
             ComplaintId = notification.ComplaintId,
-            OldStatus = ComplaintStatus.UnderReview, // Escalation only occurs from UnderReview
-            NewStatus = ComplaintStatus.Escalated,
+            OldStatus = ComplaintStatus.UnderAssessment,
+            NewStatus = ComplaintStatus.UnderInvestigation,
+
             ChangedByUserId = notification.EscalatedByUserId,
             TransitionedAt = notification.OccurredAt,
             Reason = notification.Reason

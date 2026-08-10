@@ -2,9 +2,12 @@ namespace TaxOmbud.Domain.Enums;
 
 public enum CaseStatus
 {
-    Open = 1,
-    InProgress = 2,
-    PendingSarsResponse = 3,
-    UnderReview = 4,
-    Closed = 5
+    Submitted = 1,
+    Registered = 2,
+    UnderAssessment = 3,
+    Assigned = 4,
+    UnderInvestigation = 5,
+    DecisionIssued = 6,
+    Closed = 7
 }
+

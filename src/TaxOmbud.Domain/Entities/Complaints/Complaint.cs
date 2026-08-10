@@ -52,6 +52,7 @@ public class Complaint : BaseEntity, IHasDomainEvents
     public ICollection<ComplaintStatusHistory> StatusHistory { get; private set; } = new List<ComplaintStatusHistory>();
     public ICollection<ComplaintNote> Notes { get; private set; } = new List<ComplaintNote>();
     public ICollection<ComplaintLink> Links { get; private set; } = new List<ComplaintLink>();
+    public ICollection<CallCenterRecord> CallCenterRecords { get; private set; } = new List<CallCenterRecord>();
 
     // ─── EF Core constructor ──────────────────────────────────────────────────
     protected Complaint() { }
@@ -107,8 +108,8 @@ public class Complaint : BaseEntity, IHasDomainEvents
 
         if (Status == ComplaintStatus.Submitted)
         {
-            Status = ComplaintStatus.UnderReview;
-            CurrentStage = "b1";
+            Status = ComplaintStatus.Assigned;
+            CurrentStage = "4_assignment";
         }
 
         AddDomainEvent(new ComplaintStatusChangedEvent(Id, previous, Status, assignedByUserId, DateTimeOffset.UtcNow));
@@ -116,11 +117,9 @@ public class Complaint : BaseEntity, IHasDomainEvents
 
     public void Escalate(string reason, Guid escalatedByUserId)
     {
-        if (Status != ComplaintStatus.UnderReview)
-            throw new DomainException("Only complaints under review can be escalated.");
-
-        Status = ComplaintStatus.Escalated;
-        CurrentStage = "b2";
+        var previous = Status;
+        Status = ComplaintStatus.UnderInvestigation;
+        CurrentStage = "5_investigation";
 
         AddDomainEvent(new ComplaintEscalatedEvent(Id, reason, escalatedByUserId, DateTimeOffset.UtcNow));
     }
@@ -132,7 +131,7 @@ public class Complaint : BaseEntity, IHasDomainEvents
 
         var previous = Status;
         Status = ComplaintStatus.Closed;
-        CurrentStage = "closed";
+        CurrentStage = "10_closure";
         ClosedAt = DateTimeOffset.UtcNow;
         ClosureReason = reason;
 
@@ -144,8 +143,8 @@ public class Complaint : BaseEntity, IHasDomainEvents
         if (Status != ComplaintStatus.Closed)
             throw new DomainException("Only closed complaints can be reopened.");
 
-        Status = ComplaintStatus.UnderReview;
-        CurrentStage = "b1";
+        Status = ComplaintStatus.UnderAssessment;
+        CurrentStage = "3_assessment";
         ClosedAt = null;
         ClosureReason = null;
 
@@ -159,7 +158,7 @@ public class Complaint : BaseEntity, IHasDomainEvents
 
         var previous = Status;
         Status = ComplaintStatus.Withdrawn;
-        CurrentStage = "closed";
+        CurrentStage = "10_closure";
         ClosedAt = DateTimeOffset.UtcNow;
         WithdrawalReason = reason;
 
@@ -172,8 +171,8 @@ public class Complaint : BaseEntity, IHasDomainEvents
             throw new DomainException("Cannot resolve a closed or withdrawn complaint.");
 
         var previous = Status;
-        Status = ComplaintStatus.Resolved;
-        CurrentStage = "resolved";
+        Status = ComplaintStatus.DecisionIssued;
+        CurrentStage = "9_decision";
 
         AddDomainEvent(new ComplaintStatusChangedEvent(Id, previous, Status, resolvedByUserId, DateTimeOffset.UtcNow));
     }
