@@ -332,7 +332,8 @@ public class ReportsService : IReportsService
             TotalCases = totalCases,
             OpenCases = openCases,
             ClosedCases = closedCases,
-            EscalatedCases = statuses.FirstOrDefault(s => s.Status == CaseStatus.UnderReview)?.Count ?? 0,
+            EscalatedCases = statuses.FirstOrDefault(s => s.Status == CaseStatus.UnderAssessment)?.Count ?? 0,
+
             CasesByStatus = statuses.ToDictionary(k => k.Status.ToString(), v => v.Count),
             CasesByPriority = priorities.ToDictionary(k => k.Priority ?? "Unknown", v => v.Count),
             CasesByCategory = departments.ToDictionary(k => k.DepartmentId?.ToString() ?? "None", v => v.Count),

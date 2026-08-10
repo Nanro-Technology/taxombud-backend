@@ -126,7 +126,8 @@ public class SubmitCaseToWorkflowCommandHandler : IRequestHandler<SubmitCaseToWo
         }
 
         @case.ActiveWorkflowInstanceId = instance.Id;
-        @case.UpdateStatus(CaseStatus.InProgress, sortedLevels.First().Name, _currentUser.UserId ?? Guid.Empty);
+        @case.UpdateStatus(CaseStatus.Assigned, sortedLevels.First().Name, _currentUser.UserId ?? Guid.Empty);
+
 
         // 6. Log Audit Entry
         var audit = new CaseWorkflowAuditLog(

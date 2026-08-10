@@ -121,7 +121,7 @@ public class ExecuteCaseApprovalCommandHandler : IRequestHandler<ExecuteCaseAppr
                         }
                     }
 
-                    @case.UpdateStatus(CaseStatus.InProgress, nextLevel.Name, currentUserId);
+                    @case.UpdateStatus(CaseStatus.UnderInvestigation, nextLevel.Name, currentUserId);
                 }
                 break;
 
@@ -160,12 +160,12 @@ public class ExecuteCaseApprovalCommandHandler : IRequestHandler<ExecuteCaseAppr
                     }
                 }
 
-                @case.UpdateStatus(CaseStatus.InProgress, $"Returned to {returnLevel.Name}", currentUserId);
+                @case.UpdateStatus(CaseStatus.UnderInvestigation, $"Returned to {returnLevel.Name}", currentUserId);
                 break;
 
             case WorkflowAction.Escalate:
                 instance.Status = WorkflowStatus.Escalated;
-                @case.UpdateStatus(CaseStatus.InProgress, $"Escalated at {levelConfig.Name}", currentUserId);
+                @case.UpdateStatus(CaseStatus.UnderInvestigation, $"Escalated at {levelConfig.Name}", currentUserId);
                 break;
         }
 

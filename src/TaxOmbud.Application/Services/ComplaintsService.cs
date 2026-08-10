@@ -456,9 +456,11 @@ public class ComplaintsService : IComplaintsService
             switch (request.Status)
             {
                 case ComplaintStatus.Submitted: complaint.Submit(); break;
-                case ComplaintStatus.UnderReview: complaint.Reopen(userId); break;
-                case ComplaintStatus.Escalated: complaint.Escalate(request.Reason ?? "Status updated to Escalated.", userId); break;
-                case ComplaintStatus.Resolved: complaint.Resolve(userId); break;
+                case ComplaintStatus.Registered: complaint.Reopen(userId); break;
+                case ComplaintStatus.UnderAssessment: complaint.Reopen(userId); break;
+                case ComplaintStatus.Assigned: complaint.Assign(userId, userId); break;
+                case ComplaintStatus.UnderInvestigation: complaint.Escalate(request.Reason ?? "Status updated to UnderInvestigation.", userId); break;
+                case ComplaintStatus.DecisionIssued: complaint.Resolve(userId); break;
                 case ComplaintStatus.Closed: complaint.Close(request.Reason ?? "Status updated to Closed.", userId); break;
                 case ComplaintStatus.Withdrawn: complaint.Withdraw(request.Reason ?? "Status updated to Withdrawn.", userId); break;
                 default:
@@ -466,6 +468,7 @@ public class ComplaintsService : IComplaintsService
                     response.Message = $"Invalid or unsupported status transition to '{request.Status}'.";
                     return response;
             }
+
 
             await _complaintRepo.UpdateAsync(complaint);
             await _complaintRepo.SaveAsync();

@@ -28,8 +28,9 @@ public class Case : BaseEntity, IHasDomainEvents
     public string? Summary { get; set; }
     public string Priority { get; set; } = "medium"; // low, medium, high, urgent
     
-    public CaseStatus Status { get; private set; } = CaseStatus.Open;
-    public string CurrentStage { get; private set; } = "b1"; // input, verify, b1, b2, b3, b4, approval, closed
+    public CaseStatus Status { get; private set; } = CaseStatus.Submitted;
+    public string CurrentStage { get; private set; } = "1_submission";
+
 
     public Guid? AssignedOfficerId { get; private set; }
     public Officer? AssignedOfficer { get; private set; }
@@ -53,6 +54,11 @@ public class Case : BaseEntity, IHasDomainEvents
     public Guid? ActiveWorkflowInstanceId { get; set; }
     public WorkflowInstance? ActiveWorkflowInstance { get; set; }
 
+    public AdmissibilityAssessment? AdmissibilityAssessment { get; set; }
+    public ICollection<MediationLog> MediationLogs { get; set; } = new List<MediationLog>();
+    public ICollection<QualityAssuranceReview> QualityAssuranceReviews { get; set; } = new List<QualityAssuranceReview>();
+    public CaseDecision? Decision { get; set; }
+
     public ICollection<CaseFinding> Findings { get; set; } = new List<CaseFinding>();
     public ICollection<CaseRecommendation> Recommendations { get; set; } = new List<CaseRecommendation>();
     public ICollection<CaseMilestone> Milestones { get; set; } = new List<CaseMilestone>();
@@ -70,8 +76,8 @@ public class Case : BaseEntity, IHasDomainEvents
         Subject = subject;
         AccountId = accountId;
         Priority = priority;
-        Status = CaseStatus.Open;
-        CurrentStage = "b1";
+        Status = CaseStatus.Submitted;
+        CurrentStage = "1_submission";
         CreatedAt = DateTime.UtcNow;
     }
 
@@ -83,9 +89,16 @@ public class Case : BaseEntity, IHasDomainEvents
         }
 
         CaseNumber = caseNumber;
-        Status = CaseStatus.Open;
+        Status = CaseStatus.Registered;
+        CurrentStage = "2_registration";
         
         AddDomainEvent(new CaseOpenedEvent(Id, CaseNumber.Value, ComplaintId, DateTimeOffset.UtcNow));
+    }
+
+    public void MoveToAssessment()
+    {
+        Status = CaseStatus.UnderAssessment;
+        CurrentStage = "3_assessment";
     }
 
     public void Assign(Guid officerId, Guid assignedByUserId)
@@ -96,10 +109,23 @@ public class Case : BaseEntity, IHasDomainEvents
         }
 
         AssignedOfficerId = officerId;
-        Status = CaseStatus.InProgress;
-        CurrentStage = "b1";
+        Status = CaseStatus.Assigned;
+        CurrentStage = "4_assignment";
 
         AddDomainEvent(new CaseAssignedEvent(Id, officerId, assignedByUserId, DateTimeOffset.UtcNow));
+    }
+
+    public void StartInvestigation()
+    {
+        Status = CaseStatus.UnderInvestigation;
+        CurrentStage = "5_investigation";
+    }
+
+    public void IssueDecision(CaseDecision decision)
+    {
+        Decision = decision;
+        Status = CaseStatus.DecisionIssued;
+        CurrentStage = "9_decision";
     }
 
     public void UpdateStatus(CaseStatus newStatus, string stage, Guid changedByUserId)
@@ -121,7 +147,7 @@ public class Case : BaseEntity, IHasDomainEvents
         }
 
         Status = CaseStatus.Closed;
-        CurrentStage = "closed";
+        CurrentStage = "10_closure";
         ClosedAt = DateTimeOffset.UtcNow;
         Outcome = outcome;
         FindingsSummary = findingsSummary;
