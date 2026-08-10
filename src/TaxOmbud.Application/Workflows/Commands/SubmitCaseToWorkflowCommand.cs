@@ -124,12 +124,13 @@ public class SubmitCaseToWorkflowCommandHandler : IRequestHandler<SubmitCaseToWo
             _context.CaseApprovalTasks.Add(task);
             instance.ApprovalTasks.Add(task);
 
-            // Update Case assignment
-            @case.Assign(firstAssigneeId.Value, _currentUser.UserId ?? Guid.Empty);
+            // NOTE: Do NOT call case.Assign() here — AssignedOfficerId references the Officers
+            // table (respondent tax authority officers), NOT staff processing the workflow.
+            // Workflow assignees are tracked in WorkflowInstanceLevel + CaseApprovalTask only.
         }
 
         @case.ActiveWorkflowInstanceId = instance.Id;
-        @case.UpdateStatus(CaseStatus.Assigned, sortedLevels.First().Name, _currentUser.UserId ?? Guid.Empty);
+        @case.UpdateStatus(CaseStatus.Assigned, "2_in_progress", _currentUser.UserId ?? Guid.Empty);
 
 
         // 6. Log Audit Entry
