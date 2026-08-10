@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using TaxOmbud.Application.Cases.DTOs;
 using TaxOmbud.Application.Interfaces.Repositories;
@@ -588,11 +589,17 @@ public class CasesService : ICasesService
                     <p>Your tax complaint has been successfully submitted to the Tax Ombud Office portal.</p>
                     <div style="background:#f8f9fa;border-left:4px solid #114a31;padding:16px 20px;margin:24px 0;border-radius:4px;">
                       <p style="margin:0 0 8px;"><strong>Complaint Tracking Number:</strong> <code style="background:#e9ecef;padding:3px 8px;border-radius:4px;font-weight:bold;color:#114a31;font-size:1.05rem;">{refNumber}</code></p>
-                      <p style="margin:0 0 8px;"><strong>Subject:</strong> {subjectText}</p>
+                      <p style="margin:0 0 8px;"><strong>Subject:</strong> {Regex.Replace(subjectText ?? "", "<.*?>|&nbsp;", " ").Trim()}</p>
                       <p style="margin:0;"><strong>Date Lodged:</strong> {DateTimeOffset.UtcNow:dd MMMM yyyy, HH:mm UTC}</p>
                     </div>
-                    <p>You can track the status of your complaint at any time using your tracking number on our portal.</p>
+                    <p>You can track the live status of your complaint at any time by clicking the button below or using your tracking number on our portal:</p>
+                    <div style="text-align:center;margin:28px 0;">
+                      <a href="{baseUrl}/track-complaint?ref={refNumber}" target="_blank" style="background:#114a31;color:#ffffff;text-decoration:none;padding:12px 28px;border-radius:6px;font-weight:bold;display:inline-block;font-size:.95rem;box-shadow:0 2px 4px rgba(0,0,0,0.15);">
+                        Track Complaint Status →
+                      </a>
+                    </div>
                   </div>
+
                   <div style="background:#114a31;padding:20px 32px;text-align:center;">
                     <p style="color:#c9a227;font-size:.9rem;font-weight:bold;margin:4px 0;">Office of the Tax Ombud</p>
                     <p style="color:rgba(255,255,255,.6);font-size:.75rem;margin:4px 0;">Federal Republic of Nigeria</p>
