@@ -16,6 +16,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Http;
 
+using TaxOmbud.Domain.Entities.Taxpayers;
+
 namespace TaxOmbud.Application.Services;
 
 public class CasesService : ICasesService
@@ -29,6 +31,7 @@ public class CasesService : ICasesService
     private readonly IGenericRepository<CaseNote> _noteRepo;
     private readonly IGenericRepository<CaseStatusHistory> _historyRepo;
     private readonly IGenericRepository<User> _userRepo;
+    private readonly IGenericRepository<TaxpayerProfile> _taxpayerProfileRepo;
     private readonly IEmailService _emailService;
     private readonly IConfiguration _configuration;
     private readonly ILogger<CasesService> _logger;
@@ -43,6 +46,7 @@ public class CasesService : ICasesService
         IGenericRepository<CaseNote> noteRepo,
         IGenericRepository<CaseStatusHistory> historyRepo,
         IGenericRepository<User> userRepo,
+        IGenericRepository<TaxpayerProfile> taxpayerProfileRepo,
         IEmailService emailService,
         IConfiguration configuration,
         ILogger<CasesService> logger)
@@ -56,10 +60,12 @@ public class CasesService : ICasesService
         _noteRepo = noteRepo;
         _historyRepo = historyRepo;
         _userRepo = userRepo;
+        _taxpayerProfileRepo = taxpayerProfileRepo;
         _emailService = emailService;
         _configuration = configuration;
         _logger = logger;
     }
+
 
 
     // ─── Queries ───────────────────────────────────────────────────────────────
@@ -463,20 +469,60 @@ public class CasesService : ICasesService
                 return response;
             }
 
+            // 1. Ensure User & TaxpayerProfile exist for public submitter
+            var user = await _userRepo.Query().FirstOrDefaultAsync(u => u.Email == request.Email, cancellationToken);
+            if (user == null)
+            {
+                user = new User
+                {
+                    Id = Guid.NewGuid(),
+                    FirstName = string.IsNullOrWhiteSpace(request.FirstName) ? "Public" : request.FirstName,
+                    LastName = string.IsNullOrWhiteSpace(request.LastName) ? "Taxpayer" : request.LastName,
+                    Email = request.Email,
+                    UserName = request.Email,
+                    Phone = request.Phone,
+                    UserType = UserType.RegisteredTaxpayer,
+                    Status = UserStatus.Active,
+                    CanSignIn = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _userRepo.AddAsync(user);
+                await _userRepo.SaveAsync();
+            }
+
+
+            var taxpayerProfile = await _taxpayerProfileRepo.Query().FirstOrDefaultAsync(tp => tp.UserId == user.Id, cancellationToken);
+            if (taxpayerProfile == null)
+            {
+                taxpayerProfile = TaxpayerProfile.Create(user.Id, request.SubmitterType ?? "Personal");
+                taxpayerProfile.Nin = request.Nin;
+                taxpayerProfile.TinNumber = request.TaxId;
+                taxpayerProfile.CompanyName = request.OrgName;
+                taxpayerProfile.RcNumber = request.CacNumber;
+                taxpayerProfile.Country = request.CountryId;
+                taxpayerProfile.State = request.StateId;
+
+                await _taxpayerProfileRepo.AddAsync(taxpayerProfile);
+                await _taxpayerProfileRepo.SaveAsync();
+            }
+
             var refNumber = $"TOC-{DateTimeOffset.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString()[..6].ToUpper()}";
             var subjectText = !string.IsNullOrWhiteSpace(request.Subject)
                 ? request.Subject
                 : request.Description[..Math.Min(80, request.Description.Length)];
 
             var complaint = Complaint.Create(
-                Guid.Empty,
+                taxpayerProfile.Id,
                 request.ComplaintType ?? "Tax Dispute",
                 request.ServiceDomain ?? "N/A",
                 request.SubmitterType ?? "Personal",
                 subjectText,
                 request.Description,
-                refNumber
+                refNumber,
+                taxOfficeRef: request.OtoReason,
+                tinNumber: request.TaxId
             );
+
             complaint.Submit();
             complaint.UpdateStage("1_intake");
 
