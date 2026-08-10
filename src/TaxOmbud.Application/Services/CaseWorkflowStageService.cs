@@ -7,10 +7,13 @@ using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Domain.Entities.Cases;
 using TaxOmbud.Domain.Entities.Complaints;
 using TaxOmbud.Domain.Enums;
-using TaxOmbud.Domain.Common;
-
+using TaxOmbud.Domain.Entities.Identity;
+using TaxOmbud.Common.Utilities;
 using TaxOmbud.Application.Interfaces.InfrastructureService;
 using Microsoft.Extensions.Logging;
+
+
+
 
 namespace TaxOmbud.Application.Services;
 
@@ -88,6 +91,46 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
         }
     }
 
+    private async Task<Case?> EnsureCaseExistsAsync(Guid caseIdOrComplaintId, Guid userId)
+    {
+        var caseItem = await _context.Cases
+            .Include(c => c.AdmissibilityAssessment)
+            .Include(c => c.Decision)
+            .FirstOrDefaultAsync(c => c.Id == caseIdOrComplaintId || c.ComplaintId == caseIdOrComplaintId);
+
+        if (caseItem != null) return caseItem;
+
+        var complaint = await _context.Complaints.FirstOrDefaultAsync(c => c.Id == caseIdOrComplaintId);
+        if (complaint == null) return null;
+
+        var account = await _context.Accounts.FirstOrDefaultAsync();
+        if (account == null)
+        {
+            account = new Account
+            {
+                Id = Guid.NewGuid(),
+                Name = "Headquarters Zonal Office",
+                Email = "info@mediate.com.ng",
+                Country = "Nigeria",
+                Status = "active",
+                IsWorkflowLane = true,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.Accounts.Add(account);
+            await _context.SaveChangesAsync();
+        }
+
+        var caseNumberStr = $"CASE-{DateTimeOffset.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString()[..6].ToUpper()}";
+        caseItem = new Case(complaint.Id, complaint.Subject, account.Id, complaint.Priority.ToString());
+        caseItem.Open(ReferenceNumber.From(caseNumberStr));
+        caseItem.UpdateStatus(CaseStatus.Submitted, "1_intake", userId);
+
+        _context.Cases.Add(caseItem);
+        await _context.SaveChangesAsync();
+
+        return caseItem;
+    }
+
     public async Task<bool> RegisterComplaintAsync(Guid complaintId, Guid registeredBy)
     {
         var complaint = await _context.Complaints
@@ -96,7 +139,7 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
         if (complaint == null) return false;
 
         // Transition complaint & underlying case status to Registered
-        var existingCase = await _context.Cases.FirstOrDefaultAsync(c => c.ComplaintId == complaintId);
+        var existingCase = await EnsureCaseExistsAsync(complaintId, registeredBy);
         if (existingCase != null)
         {
             existingCase.UpdateStatus(CaseStatus.Registered, "2_registration", registeredBy);
@@ -121,10 +164,7 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
 
     public async Task<bool> AssessAdmissibilityAsync(Guid caseId, AdmissibilityAssessmentDto dto, Guid assessedBy)
     {
-        var caseItem = await _context.Cases
-            .Include(c => c.AdmissibilityAssessment)
-            .FirstOrDefaultAsync(c => c.Id == caseId || c.ComplaintId == caseId);
-
+        var caseItem = await EnsureCaseExistsAsync(caseId, assessedBy);
         if (caseItem == null) return false;
 
         if (caseItem.AdmissibilityAssessment == null)
@@ -135,6 +175,7 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
                 CaseId = caseItem.Id
             };
         }
+
 
         var assessment = caseItem.AdmissibilityAssessment;
         assessment.IsNotAnonymous = dto.IsNotAnonymous;
@@ -186,7 +227,7 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
 
     public async Task<bool> AssignCaseByCeAsync(Guid caseId, Guid officerId, Guid departmentId, Guid assignedBy)
     {
-        var caseItem = await _context.Cases.FirstOrDefaultAsync(c => c.Id == caseId || c.ComplaintId == caseId);
+        var caseItem = await EnsureCaseExistsAsync(caseId, assignedBy);
         if (caseItem == null) return false;
 
         caseItem.DepartmentId = departmentId;
@@ -214,7 +255,7 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
 
     public async Task<bool> LogMediationSessionAsync(Guid caseId, MediationLogDto dto, Guid loggedBy)
     {
-        var caseItem = await _context.Cases.FirstOrDefaultAsync(c => c.Id == caseId || c.ComplaintId == caseId);
+        var caseItem = await EnsureCaseExistsAsync(caseId, loggedBy);
         if (caseItem == null) return false;
 
         var log = new MediationLog
@@ -258,7 +299,7 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
 
     public async Task<bool> SubmitQaReviewAsync(Guid caseId, QualityAssuranceReviewDto dto, Guid reviewedBy)
     {
-        var caseItem = await _context.Cases.FirstOrDefaultAsync(c => c.Id == caseId || c.ComplaintId == caseId);
+        var caseItem = await EnsureCaseExistsAsync(caseId, reviewedBy);
         if (caseItem == null) return false;
 
         var qa = new QualityAssuranceReview
@@ -308,9 +349,7 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
 
     public async Task<bool> IssueCeDecisionAsync(Guid caseId, CaseDecisionDto dto, Guid issuedBy)
     {
-        var caseItem = await _context.Cases
-            .Include(c => c.Decision)
-            .FirstOrDefaultAsync(c => c.Id == caseId || c.ComplaintId == caseId);
+        var caseItem = await EnsureCaseExistsAsync(caseId, issuedBy);
 
         if (caseItem == null) return false;
 
@@ -354,7 +393,7 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
 
     public async Task<bool> CloseAndArchiveCaseAsync(Guid caseId, string outcome, string summary, Guid closedBy)
     {
-        var caseItem = await _context.Cases.FirstOrDefaultAsync(c => c.Id == caseId || c.ComplaintId == caseId);
+        var caseItem = await EnsureCaseExistsAsync(caseId, closedBy);
         if (caseItem == null) return false;
 
         caseItem.Close(outcome, summary, closedBy);
@@ -405,12 +444,7 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
 
     public async Task<WorkflowStageDetailsDto?> GetWorkflowStageDetailsAsync(Guid caseId)
     {
-        var caseItem = await _context.Cases
-            .Include(c => c.AdmissibilityAssessment)
-            .Include(c => c.MediationLogs)
-            .Include(c => c.QualityAssuranceReviews)
-            .Include(c => c.Decision)
-            .FirstOrDefaultAsync(c => c.Id == caseId || c.ComplaintId == caseId);
+        var caseItem = await EnsureCaseExistsAsync(caseId, Guid.Empty);
 
         if (caseItem == null) return null;
 
