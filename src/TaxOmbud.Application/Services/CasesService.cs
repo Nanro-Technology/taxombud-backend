@@ -11,6 +11,11 @@ using TaxOmbud.Domain.Entities.Identity;
 using TaxOmbud.Domain.Enums;
 using TaxOmbud.Common.Utilities;
 
+using TaxOmbud.Application.Interfaces.InfrastructureService;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Http;
+
 namespace TaxOmbud.Application.Services;
 
 public class CasesService : ICasesService
@@ -24,6 +29,9 @@ public class CasesService : ICasesService
     private readonly IGenericRepository<CaseNote> _noteRepo;
     private readonly IGenericRepository<CaseStatusHistory> _historyRepo;
     private readonly IGenericRepository<User> _userRepo;
+    private readonly IEmailService _emailService;
+    private readonly IConfiguration _configuration;
+    private readonly ILogger<CasesService> _logger;
 
     public CasesService(
         IGenericRepository<Case> caseRepo,
@@ -34,7 +42,10 @@ public class CasesService : ICasesService
         IGenericRepository<Document> docRepo,
         IGenericRepository<CaseNote> noteRepo,
         IGenericRepository<CaseStatusHistory> historyRepo,
-        IGenericRepository<User> userRepo)
+        IGenericRepository<User> userRepo,
+        IEmailService emailService,
+        IConfiguration configuration,
+        ILogger<CasesService> logger)
     {
         _caseRepo = caseRepo;
         _complaintRepo = complaintRepo;
@@ -45,7 +56,11 @@ public class CasesService : ICasesService
         _noteRepo = noteRepo;
         _historyRepo = historyRepo;
         _userRepo = userRepo;
+        _emailService = emailService;
+        _configuration = configuration;
+        _logger = logger;
     }
+
 
     // ─── Queries ───────────────────────────────────────────────────────────────
 
@@ -441,33 +456,115 @@ public class CasesService : ICasesService
         var response = new Response<SubmitPublicCaseResponse>();
         try
         {
+            if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Description))
+            {
+                response.StatusCode = StatusCodes.Status400BadRequest;
+                response.Message = "Email and complaint description are required.";
+                return response;
+            }
+
             var refNumber = $"TOC-{DateTimeOffset.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString()[..6].ToUpper()}";
+            var subjectText = !string.IsNullOrWhiteSpace(request.Subject)
+                ? request.Subject
+                : request.Description[..Math.Min(80, request.Description.Length)];
+
             var complaint = Complaint.Create(
                 Guid.Empty,
-                "General",
-                "N/A",
-                "Public",
-                request.Description[..Math.Min(100, request.Description.Length)],
+                request.ComplaintType ?? "Tax Dispute",
+                request.ServiceDomain ?? "N/A",
+                request.SubmitterType ?? "Personal",
+                subjectText,
                 request.Description,
                 refNumber
             );
             complaint.Submit();
-            complaint.UpdateStage("input");
+            complaint.UpdateStage("1_intake");
 
             await _complaintRepo.AddAsync(complaint);
             await _complaintRepo.SaveAsync();
 
+            // Also create underlying Case entity linked to Complaint
+            var caseNumberStr = $"CASE-{DateTimeOffset.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString()[..6].ToUpper()}";
+            var caseEntity = new Case(
+                complaint.Id,
+                subjectText,
+                Guid.Empty,
+                request.Priority ?? "Medium"
+            );
+            caseEntity.Open(ReferenceNumber.From(caseNumberStr));
+            caseEntity.UpdateStatus(CaseStatus.Submitted, "1_intake", Guid.Empty);
+
+            await _caseRepo.AddAsync(caseEntity);
+            await _caseRepo.SaveAsync();
+
+
+            // Dispatch Lodgement Receipt Email to Taxpayer
+            var baseUrl = Helper.GetAppBaseUrl(_configuration);
+            var fullName = $"{request.FirstName} {request.LastName}".Trim();
+            if (string.IsNullOrWhiteSpace(fullName)) fullName = "Valued Taxpayer";
+
+            var htmlBody = $"""
+                <div style="font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:600px;margin:0 auto;border:1px solid #e0e0e0;border-radius:8px;overflow:hidden;">
+                  <div style="background:#114a31;padding:24px 32px;text-align:center;border-bottom:4px solid #c9a227;">
+                    <h1 style="color:#ffffff;font-size:1.2rem;margin:0 0 4px;letter-spacing:.5px;text-transform:uppercase;">OFFICE OF THE TAX OMBUD</h1>
+                    <p style="color:rgba(255,255,255,.75);font-size:.85rem;margin:0;">Federal Republic of Nigeria</p>
+                  </div>
+                  <div style="padding:32px;background:#ffffff;color:#333333;font-size:.95rem;line-height:1.7;">
+                    <h2 style="color:#114a31;font-size:1.2rem;margin-top:0;">Complaint Lodgement Acknowledgement</h2>
+                    <p>Dear <strong>{fullName}</strong>,</p>
+                    <p>Your tax complaint has been successfully submitted to the Tax Ombud Office portal.</p>
+                    <div style="background:#f8f9fa;border-left:4px solid #114a31;padding:16px 20px;margin:24px 0;border-radius:4px;">
+                      <p style="margin:0 0 8px;"><strong>Complaint Tracking Number:</strong> <code style="background:#e9ecef;padding:3px 8px;border-radius:4px;font-weight:bold;color:#114a31;font-size:1.05rem;">{refNumber}</code></p>
+                      <p style="margin:0 0 8px;"><strong>Subject:</strong> {subjectText}</p>
+                      <p style="margin:0;"><strong>Date Lodged:</strong> {DateTimeOffset.UtcNow:dd MMMM yyyy, HH:mm UTC}</p>
+                    </div>
+                    <p>You can track the status of your complaint at any time using your tracking number on our portal.</p>
+                  </div>
+                  <div style="background:#114a31;padding:20px 32px;text-align:center;">
+                    <p style="color:#c9a227;font-size:.9rem;font-weight:bold;margin:4px 0;">Office of the Tax Ombud</p>
+                    <p style="color:rgba(255,255,255,.6);font-size:.75rem;margin:4px 0;">Federal Republic of Nigeria</p>
+                  </div>
+                </div>
+                """;
+
+            try
+            {
+                await _emailService.SendAsync(
+                    to: request.Email,
+                    subject: $"Complaint Lodgement Acknowledgement — Ref: {refNumber}",
+                    htmlBody: htmlBody,
+                    cancellationToken: cancellationToken);
+
+                // Send audit copy to Registry Intake Desk
+                var adminNotice = $"""
+                    <div style="font-family:'Segoe UI',sans-serif;max-width:600px;margin:0 auto;border:1px solid #e0e0e0;border-radius:8px;padding:24px;">
+                      <h3 style="color:#114a31;margin-top:0;">New Public Complaint Lodged</h3>
+                      <p><strong>Tracking Ref:</strong> {refNumber}</p>
+                      <p><strong>Complainant:</strong> {fullName} ({request.Email}, {request.Phone})</p>
+                      <p><strong>Mode:</strong> {request.SubmitterType}</p>
+                      <p><strong>Subject:</strong> {subjectText}</p>
+                    </div>
+                    """;
+                await _emailService.SendAsync("registry@mediate.com.ng", $"[New Complaint Intake] Ref: {refNumber}", adminNotice, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send lodgement email for complaint ref {RefNumber}", refNumber);
+            }
+
             response.StatusCode = StatusCodes.Status200OK;
-            response.Message = Constants.Messages.CaseCreated;
+            response.Message = "Complaint submitted successfully and lodgement receipt email dispatched.";
             response.Data = new SubmitPublicCaseResponse(complaint.Id, refNumber);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Failed to process public complaint submission");
             response.StatusCode = StatusCodes.Status500InternalServerError;
             response.Message = Constants.Messages.CaseSubmitError;
         }
         return response;
     }
+
 
     public async Task<Response<AddCaseNoteResponse>> AddCaseNoteAsync(AddCaseNoteCommand request, CancellationToken cancellationToken = default)
     {

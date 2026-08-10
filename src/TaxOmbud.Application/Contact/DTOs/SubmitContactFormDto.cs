@@ -10,5 +10,7 @@ public record SubmitContactFormCommand(
     string Name,
     string Email,
     string Subject,
-    string Message
+    string Message,
+    string? Phone = null
 ) ;
+
