@@ -51,13 +51,24 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Determine SSH Port
+      - name: Determine Open SSH Port & Verify Secret Formats
         id: ssh-port
         run: |
+          HOST="${{ secrets.VPS_HOST }}"
           PORT="${{ secrets.VPS_PORT }}"
+          echo "Host character count: ${#HOST}"
+          if [[ "$HOST" =~ [[:space:]] ]]; then
+            echo "::error::VPS_HOST contains spaces or newlines!"
+          fi
+          if [[ "$HOST" =~ ^http ]]; then
+            echo "::error::VPS_HOST contains a protocol prefix (e.g. http/https/ssh)!"
+          fi
+
           if [ -n "$PORT" ]; then
+            echo "Using specified secret VPS_PORT: $PORT"
             echo "PORT=$PORT" >> $GITHUB_OUTPUT
           else
+            echo "Using default SSH port 22"
             echo "PORT=22" >> $GITHUB_OUTPUT
           fi
 
@@ -70,33 +81,40 @@ jobs:
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ steps.ssh-port.outputs.PORT }}
-          timeout: 90s
+          timeout: 60s
           command_timeout: 15m
+          use_insecure_cipher: true
           script: |
             mkdir -p ${{ env.DEPLOY_PATH }}
             cd ${{ env.DEPLOY_PATH }}
 
+            # Create uploads and logs volumes directories if they don't exist
             mkdir -p logs uploads
 
+            # Initialize .env file if it does not exist
             if [ ! -f .env ]; then
+              echo "No .env file found. Creating default .env..."
               touch .env
             fi
 
+            # Update DOCKER_IMAGE in .env to point to the latest built image
             if grep -q "DOCKER_IMAGE=" .env; then
               sed -i 's|DOCKER_IMAGE=.*|DOCKER_IMAGE=${{ env.IMAGE_NAME }}:latest|g' .env
             else
               echo "DOCKER_IMAGE=${{ env.IMAGE_NAME }}:latest" >> .env
             fi
 
+            # Authenticate VPS Docker daemon with GHCR using GITHUB_TOKEN
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
 
+            # Pull latest image
             docker compose pull
-            docker compose up -d
-            docker image prune -f
 
-      - name: Wait before retry (avoid fail2ban)
-        if: steps.ssh_deploy_1.outcome == 'failure'
-        run: sleep 30
+            # Recreate containers with latest pulled images
+            docker compose up -d
+
+            # Clean up old dangling Docker images to save space
+            docker image prune -f
 
       - name: Retry Deploy on VPS via SSH (Fallback Attempt)
         if: steps.ssh_deploy_1.outcome == 'failure'
@@ -106,26 +124,38 @@ jobs:
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ steps.ssh-port.outputs.PORT }}
-          timeout: 90s
+          timeout: 60s
           command_timeout: 15m
+          use_insecure_cipher: true
           script: |
             mkdir -p ${{ env.DEPLOY_PATH }}
             cd ${{ env.DEPLOY_PATH }}
 
+            # Create uploads and logs volumes directories if they don't exist
             mkdir -p logs uploads
 
+            # Initialize .env file if it does not exist
             if [ ! -f .env ]; then
+              echo "No .env file found. Creating default .env..."
               touch .env
             fi
 
+            # Update DOCKER_IMAGE in .env to point to the latest built image
             if grep -q "DOCKER_IMAGE=" .env; then
               sed -i 's|DOCKER_IMAGE=.*|DOCKER_IMAGE=${{ env.IMAGE_NAME }}:latest|g' .env
             else
               echo "DOCKER_IMAGE=${{ env.IMAGE_NAME }}:latest" >> .env
             fi
 
+            # Authenticate VPS Docker daemon with GHCR using GITHUB_TOKEN
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
 
+            # Pull latest image
             docker compose pull
+
+            # Recreate containers with latest pulled images
             docker compose up -d
+
+            # Clean up old dangling Docker images to save space
             docker image prune -f
+
