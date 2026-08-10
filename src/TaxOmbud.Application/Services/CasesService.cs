@@ -473,6 +473,7 @@ public class CasesService : ICasesService
             var user = await _userRepo.Query().FirstOrDefaultAsync(u => u.Email == request.Email, cancellationToken);
             if (user == null)
             {
+                var defaultPass = $"TaxOmbudPass@{Guid.NewGuid().ToString()[..8]}!";
                 user = new User
                 {
                     Id = Guid.NewGuid(),
@@ -484,10 +485,13 @@ public class CasesService : ICasesService
                     UserType = UserType.RegisteredTaxpayer,
                     Status = UserStatus.Active,
                     CanSignIn = true,
+                    PasswordHash = new Microsoft.AspNetCore.Identity.PasswordHasher<User>().HashPassword(null!, defaultPass),
+                    SecurityStamp = Guid.NewGuid().ToString(),
                     CreatedAt = DateTime.UtcNow
                 };
                 await _userRepo.AddAsync(user);
                 await _userRepo.SaveAsync();
+
             }
 
 
