@@ -424,10 +424,21 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
 
     public async Task<Guid> LogCallCenterRecordAsync(CallCenterRecordDto dto, Guid loggedBy)
     {
+        var complaintId = dto.ComplaintId;
+        var complaintExists = await _context.Complaints.AnyAsync(c => c.Id == complaintId);
+        if (!complaintExists)
+        {
+            var caseItem = await _context.Cases.FirstOrDefaultAsync(c => c.Id == dto.ComplaintId || c.ComplaintId == dto.ComplaintId);
+            if (caseItem != null)
+            {
+                complaintId = caseItem.ComplaintId;
+            }
+        }
+
         var record = new CallCenterRecord
         {
             Id = Guid.NewGuid(),
-            ComplaintId = dto.ComplaintId,
+            ComplaintId = complaintId,
             CallerName = dto.CallerName,
             CallerPhoneNumber = dto.CallerPhoneNumber,
             HotlineLineUsed = dto.HotlineLineUsed,
