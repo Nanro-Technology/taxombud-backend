@@ -315,21 +315,19 @@ public class UsersService : IUsersService
                 </div>
                 """;
 
-            _ = Task.Run(async () =>
+            try
             {
-                try
-                {
-                    await _emailService.SendAsync(
-                        to: user.Email ?? string.Empty,
-                        subject: "Your Tax Ombud Staff Account Credentials",
-                        htmlBody: htmlBody,
-                        cancellationToken: CancellationToken.None);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Failed to send onboarding email to {Email}", user.Email);
-                }
-            });
+                await _emailService.SendAsync(
+                    to: user.Email ?? string.Empty,
+                    subject: "Your Tax Ombud Staff Account Credentials",
+                    htmlBody: htmlBody,
+                    cancellationToken: cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send onboarding email to {Email}", user.Email);
+            }
+
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "User created successfully and welcome email sent.";
