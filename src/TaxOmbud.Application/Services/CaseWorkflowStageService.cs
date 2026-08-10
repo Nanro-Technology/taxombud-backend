@@ -167,17 +167,18 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
         var caseItem = await EnsureCaseExistsAsync(caseId, assessedBy);
         if (caseItem == null) return false;
 
-        if (caseItem.AdmissibilityAssessment == null)
+        var assessment = caseItem.AdmissibilityAssessment;
+        if (assessment == null)
         {
-            caseItem.AdmissibilityAssessment = new AdmissibilityAssessment
+            assessment = new AdmissibilityAssessment
             {
                 Id = Guid.NewGuid(),
                 CaseId = caseItem.Id
             };
+            _context.AdmissibilityAssessments.Add(assessment);
+            caseItem.AdmissibilityAssessment = assessment;
         }
 
-
-        var assessment = caseItem.AdmissibilityAssessment;
         assessment.IsNotAnonymous = dto.IsNotAnonymous;
         assessment.IsNotInCourt = dto.IsNotInCourt;
         assessment.IsWithinMandate = dto.IsWithinMandate;
