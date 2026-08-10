@@ -31,7 +31,10 @@ public class SubmitCaseToWorkflowCommandHandler : IRequestHandler<SubmitCaseToWo
 
     public async Task<WorkflowInstanceDto> Handle(SubmitCaseToWorkflowCommand request, CancellationToken cancellationToken)
     {
-        var @case = await _context.Cases.FirstOrDefaultAsync(c => c.Id == request.CaseId, cancellationToken);
+        // Accept either the internal Case.Id or the public ComplaintId (sent by frontend)
+        var @case = await _context.Cases.FirstOrDefaultAsync(
+            c => c.Id == request.CaseId || c.ComplaintId == request.CaseId,
+            cancellationToken);
         if (@case == null)
         {
             throw new NotFoundException(nameof(Case), request.CaseId);
