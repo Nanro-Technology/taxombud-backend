@@ -277,7 +277,8 @@ public class CasesService : ICasesService
                 .Include(x => x.Recommendations)
                 .Include(x => x.Milestones)
                 .Include(x => x.StatusHistory)
-                .FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken);
+                .FirstOrDefaultAsync(x => x.Id == request.Id || x.ComplaintId == request.Id, cancellationToken);
+
 
             if (c is null)
             {

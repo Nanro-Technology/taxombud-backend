@@ -123,7 +123,7 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
     {
         var caseItem = await _context.Cases
             .Include(c => c.AdmissibilityAssessment)
-            .FirstOrDefaultAsync(c => c.Id == caseId);
+            .FirstOrDefaultAsync(c => c.Id == caseId || c.ComplaintId == caseId);
 
         if (caseItem == null) return false;
 
@@ -132,7 +132,7 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
             caseItem.AdmissibilityAssessment = new AdmissibilityAssessment
             {
                 Id = Guid.NewGuid(),
-                CaseId = caseId
+                CaseId = caseItem.Id
             };
         }
 
@@ -186,7 +186,7 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
 
     public async Task<bool> AssignCaseByCeAsync(Guid caseId, Guid officerId, Guid departmentId, Guid assignedBy)
     {
-        var caseItem = await _context.Cases.FirstOrDefaultAsync(c => c.Id == caseId);
+        var caseItem = await _context.Cases.FirstOrDefaultAsync(c => c.Id == caseId || c.ComplaintId == caseId);
         if (caseItem == null) return false;
 
         caseItem.DepartmentId = departmentId;
@@ -214,13 +214,13 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
 
     public async Task<bool> LogMediationSessionAsync(Guid caseId, MediationLogDto dto, Guid loggedBy)
     {
-        var caseItem = await _context.Cases.FirstOrDefaultAsync(c => c.Id == caseId);
+        var caseItem = await _context.Cases.FirstOrDefaultAsync(c => c.Id == caseId || c.ComplaintId == caseId);
         if (caseItem == null) return false;
 
         var log = new MediationLog
         {
             Id = Guid.NewGuid(),
-            CaseId = caseId,
+            CaseId = caseItem.Id,
             SessionDate = dto.SessionDate,
             Attendees = dto.Attendees,
             SummaryOfDiscussions = dto.SummaryOfDiscussions,
@@ -258,13 +258,13 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
 
     public async Task<bool> SubmitQaReviewAsync(Guid caseId, QualityAssuranceReviewDto dto, Guid reviewedBy)
     {
-        var caseItem = await _context.Cases.FirstOrDefaultAsync(c => c.Id == caseId);
+        var caseItem = await _context.Cases.FirstOrDefaultAsync(c => c.Id == caseId || c.ComplaintId == caseId);
         if (caseItem == null) return false;
 
         var qa = new QualityAssuranceReview
         {
             Id = Guid.NewGuid(),
-            CaseId = caseId,
+            CaseId = caseItem.Id,
             AccuracyVerified = dto.AccuracyVerified,
             ConsistencyVerified = dto.ConsistencyVerified,
             LegalComplianceVerified = dto.LegalComplianceVerified,
@@ -310,14 +310,14 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
     {
         var caseItem = await _context.Cases
             .Include(c => c.Decision)
-            .FirstOrDefaultAsync(c => c.Id == caseId);
+            .FirstOrDefaultAsync(c => c.Id == caseId || c.ComplaintId == caseId);
 
         if (caseItem == null) return false;
 
         var decision = new CaseDecision
         {
             Id = Guid.NewGuid(),
-            CaseId = caseId,
+            CaseId = caseItem.Id,
             DecisionSummary = dto.DecisionSummary,
             LegalBasisCitations = dto.LegalBasisCitations,
             RecommendationsApproved = dto.RecommendationsApproved,
@@ -354,7 +354,7 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
 
     public async Task<bool> CloseAndArchiveCaseAsync(Guid caseId, string outcome, string summary, Guid closedBy)
     {
-        var caseItem = await _context.Cases.FirstOrDefaultAsync(c => c.Id == caseId);
+        var caseItem = await _context.Cases.FirstOrDefaultAsync(c => c.Id == caseId || c.ComplaintId == caseId);
         if (caseItem == null) return false;
 
         caseItem.Close(outcome, summary, closedBy);
@@ -410,7 +410,7 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
             .Include(c => c.MediationLogs)
             .Include(c => c.QualityAssuranceReviews)
             .Include(c => c.Decision)
-            .FirstOrDefaultAsync(c => c.Id == caseId);
+            .FirstOrDefaultAsync(c => c.Id == caseId || c.ComplaintId == caseId);
 
         if (caseItem == null) return null;
 
