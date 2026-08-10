@@ -6,6 +6,7 @@ using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Common.CustomException;
 using TaxOmbud.Common.Responses;
 using TaxOmbud.Domain.Entities.Complaints;
+using TaxOmbud.Domain.Entities.Cases;
 using TaxOmbud.Domain.Entities.Documents;
 using TaxOmbud.Domain.Enums;
 using TaxOmbud.Common.Utilities;
@@ -15,6 +16,7 @@ namespace TaxOmbud.Application.Services;
 public class ComplaintsService : IComplaintsService
 {
     private readonly IGenericRepository<Complaint> _complaintRepo;
+    private readonly IGenericRepository<Case> _caseRepo;
     private readonly IGenericRepository<ComplaintNote> _noteRepo;
     private readonly IGenericRepository<ComplaintStatusHistory> _historyRepo;
     private readonly IGenericRepository<ComplaintLink> _linkRepo;
@@ -24,6 +26,7 @@ public class ComplaintsService : IComplaintsService
 
     public ComplaintsService(
         IGenericRepository<Complaint> complaintRepo,
+        IGenericRepository<Case> caseRepo,
         IGenericRepository<ComplaintNote> noteRepo,
         IGenericRepository<ComplaintStatusHistory> historyRepo,
         IGenericRepository<ComplaintLink> linkRepo,
@@ -32,6 +35,7 @@ public class ComplaintsService : IComplaintsService
         ICurrentUser currentUser)
     {
         _complaintRepo = complaintRepo;
+        _caseRepo = caseRepo;
         _noteRepo = noteRepo;
         _historyRepo = historyRepo;
         _linkRepo = linkRepo;
@@ -149,6 +153,19 @@ public class ComplaintsService : IComplaintsService
                 .Include(x => x.Taxpayer).ThenInclude(tp => tp.User)
                 .Include(x => x.AssignedOfficer).ThenInclude(o => o!.User)
                 .FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken);
+
+            if (c is null)
+            {
+                // Fallback: check if request.Id was passed as Case.Id or Case.ComplaintId
+                var caseItem = await _caseRepo.Query().FirstOrDefaultAsync(cs => cs.Id == request.Id || cs.ComplaintId == request.Id, cancellationToken);
+                if (caseItem != null)
+                {
+                    c = await _complaintRepo.Query()
+                        .Include(x => x.Taxpayer).ThenInclude(tp => tp.User)
+                        .Include(x => x.AssignedOfficer).ThenInclude(o => o!.User)
+                        .FirstOrDefaultAsync(x => x.Id == caseItem.ComplaintId, cancellationToken);
+                }
+            }
 
             if (c is null) { response.StatusCode = StatusCodes.Status404NotFound; response.Message = Constants.Messages.ComplaintNotFound; return response; }
 
