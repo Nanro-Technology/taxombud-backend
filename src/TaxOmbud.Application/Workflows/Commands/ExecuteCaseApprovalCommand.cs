@@ -126,7 +126,7 @@ public class ExecuteCaseApprovalCommandHandler : IRequestHandler<ExecuteCaseAppr
                                 nextLevel.TargetRoleId
                             );
                             _context.CaseApprovalTasks.Add(nextTask);
-                            @case.Assign(nextAssigneeId.Value, currentUserId);
+                            // NOTE: Do NOT call case.Assign() here — AssignedOfficerId points to Officers table
                         }
                     }
 
@@ -165,7 +165,7 @@ public class ExecuteCaseApprovalCommandHandler : IRequestHandler<ExecuteCaseAppr
                             returnLevel.TargetRoleId
                         );
                         _context.CaseApprovalTasks.Add(returnTask);
-                        @case.Assign(returnAssigneeId.Value, currentUserId);
+                        // NOTE: Do NOT call case.Assign() here — AssignedOfficerId points to Officers table
                     }
                 }
 
@@ -194,6 +194,13 @@ public class ExecuteCaseApprovalCommandHandler : IRequestHandler<ExecuteCaseAppr
             null
         );
         _context.CaseWorkflowAuditLogs.Add(audit);
+
+        // Sync linked Complaint status so UI steppers & headers reflect the updated status immediately
+        var complaint = await _context.Complaints.FirstOrDefaultAsync(c => c.Id == @case.ComplaintId, cancellationToken);
+        if (complaint != null)
+        {
+            complaint.UpdateStatus(@case.Status, @case.CurrentStage);
+        }
 
         await _context.SaveChangesAsync(cancellationToken);
 

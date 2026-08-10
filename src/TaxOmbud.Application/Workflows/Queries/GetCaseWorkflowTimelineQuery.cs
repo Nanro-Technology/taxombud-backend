@@ -18,10 +18,13 @@ public class GetCaseWorkflowTimelineQueryHandler : IRequestHandler<GetCaseWorkfl
 
     public async Task<List<CaseWorkflowAuditLogDto>> Handle(GetCaseWorkflowTimelineQuery request, CancellationToken cancellationToken)
     {
+        var caseItem = await _context.Cases.FirstOrDefaultAsync(c => c.Id == request.CaseId || c.ComplaintId == request.CaseId, cancellationToken);
+        var targetCaseId = caseItem?.Id ?? request.CaseId;
+
         var logs = await _context.CaseWorkflowAuditLogs
             .Include(l => l.PerformedByUser)
             .AsNoTracking()
-            .Where(l => l.CaseId == request.CaseId)
+            .Where(l => l.CaseId == targetCaseId || l.CaseId == request.CaseId)
             .OrderByDescending(l => l.Timestamp)
             .ToListAsync(cancellationToken);
 

@@ -177,6 +177,21 @@ public class Complaint : BaseEntity, IHasDomainEvents
         AddDomainEvent(new ComplaintStatusChangedEvent(Id, previous, Status, resolvedByUserId, DateTimeOffset.UtcNow));
     }
 
+    public void UpdateStatus(ComplaintStatus newStatus, string stage)
+    {
+        Status = newStatus;
+        CurrentStage = stage;
+    }
+
+    public void UpdateStatus(CaseStatus caseStatus, string stage)
+    {
+        if (Enum.TryParse<ComplaintStatus>(caseStatus.ToString(), true, out var mapped))
+        {
+            Status = mapped;
+        }
+        CurrentStage = stage;
+    }
+
     public void UpdatePriority(string priority) => Priority = priority;
     public void UpdateStage(string stage) => CurrentStage = stage;
     public void SetDepartment(Guid departmentId) => DepartmentId = departmentId;

@@ -132,6 +132,12 @@ public class SubmitCaseToWorkflowCommandHandler : IRequestHandler<SubmitCaseToWo
         @case.ActiveWorkflowInstanceId = instance.Id;
         @case.UpdateStatus(CaseStatus.Assigned, "2_in_progress", _currentUser.UserId ?? Guid.Empty);
 
+        var complaint = await _context.Complaints.FirstOrDefaultAsync(c => c.Id == @case.ComplaintId, cancellationToken);
+        if (complaint != null)
+        {
+            complaint.UpdateStatus(@case.Status, @case.CurrentStage);
+        }
+
 
         // 6. Log Audit Entry
         var audit = new CaseWorkflowAuditLog(
