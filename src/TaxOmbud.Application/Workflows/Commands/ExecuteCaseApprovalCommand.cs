@@ -8,6 +8,9 @@ using TaxOmbud.Common.CustomException;
 using TaxOmbud.Domain.Entities.Workflows;
 using TaxOmbud.Domain.Enums;
 
+using TaxOmbud.Application.Interfaces.InfrastructureService;
+using Microsoft.Extensions.Logging;
+
 namespace TaxOmbud.Application.Workflows.Commands;
 
 public record ExecuteCaseApprovalCommand(
@@ -23,16 +26,23 @@ public class ExecuteCaseApprovalCommandHandler : IRequestHandler<ExecuteCaseAppr
     private readonly IApplicationDbContext _context;
     private readonly RoutingStrategyFactory _strategyFactory;
     private readonly ICurrentUser _currentUser;
+    private readonly IEmailService _emailService;
+    private readonly ILogger<ExecuteCaseApprovalCommandHandler> _logger;
 
     public ExecuteCaseApprovalCommandHandler(
         IApplicationDbContext context,
         RoutingStrategyFactory strategyFactory,
-        ICurrentUser currentUser)
+        ICurrentUser currentUser,
+        IEmailService emailService,
+        ILogger<ExecuteCaseApprovalCommandHandler> logger)
     {
         _context = context;
         _strategyFactory = strategyFactory;
         _currentUser = currentUser;
+        _emailService = emailService;
+        _logger = logger;
     }
+
 
     public async Task<bool> Handle(ExecuteCaseApprovalCommand request, CancellationToken cancellationToken)
     {
@@ -187,6 +197,31 @@ public class ExecuteCaseApprovalCommandHandler : IRequestHandler<ExecuteCaseAppr
         _context.CaseWorkflowAuditLogs.Add(audit);
 
         await _context.SaveChangesAsync(cancellationToken);
+
+        // Dispatch audit notification copy to Initiator
+        try
+        {
+            var caseRef = @case.CaseNumber?.Value ?? @case.Id.ToString();
+            var initiatorEmail = _currentUser.Email;
+            if (!string.IsNullOrWhiteSpace(initiatorEmail))
+            {
+                var auditHtml = $"""
+                    <div style="font-family:'Segoe UI',sans-serif;max-width:600px;margin:0 auto;border:1px solid #e0e0e0;border-radius:8px;padding:24px;">
+                      <h3 style="color:#114a31;margin-top:0;">Audit Copy: Case Workflow Action Executed</h3>
+                      <p>Hello <strong>{_currentUser.FullName ?? "Officer"}</strong>,</p>
+                      <p>You executed workflow action <strong>{request.Action}</strong> at level <strong>{levelConfig.Name}</strong> for Case Reference <strong>{caseRef}</strong>.</p>
+                      <p><strong>Workflow Status:</strong> Transitioned from <em>{previousStatus}</em> to <em>{instance.Status}</em>.</p>
+                    </div>
+                    """;
+                await _emailService.SendAsync(initiatorEmail, $"[Audit Copy] Case {caseRef}: Workflow Action {request.Action}", auditHtml, cancellationToken);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send workflow action email notification copy for task {TaskId}", request.TaskId);
+        }
+
         return true;
+
     }
 }

@@ -9,20 +9,90 @@ using TaxOmbud.Domain.Entities.Complaints;
 using TaxOmbud.Domain.Enums;
 using TaxOmbud.Domain.Common;
 
+using TaxOmbud.Application.Interfaces.InfrastructureService;
+using Microsoft.Extensions.Logging;
+
 namespace TaxOmbud.Application.Services;
 
 public class CaseWorkflowStageService : ICaseWorkflowStageService
 {
     private readonly IApplicationDbContext _context;
+    private readonly IEmailService _emailService;
+    private readonly ILogger<CaseWorkflowStageService> _logger;
 
-    public CaseWorkflowStageService(IApplicationDbContext context)
+    public CaseWorkflowStageService(
+        IApplicationDbContext context,
+        IEmailService emailService,
+        ILogger<CaseWorkflowStageService> logger)
     {
         _context = context;
+        _emailService = emailService;
+        _logger = logger;
+    }
+
+    private async Task SendStageNotificationWithAuditCopyAsync(
+        string recipientEmail,
+        string recipientName,
+        string subject,
+        string bodyContent,
+        Guid initiatorUserId,
+        string stageName,
+        string caseRef)
+    {
+        try
+        {
+            var formattedBody = $"""
+                <div style="font-family:'Segoe UI',sans-serif;max-width:600px;margin:0 auto;border:1px solid #e0e0e0;border-radius:8px;overflow:hidden;">
+                  <div style="background:#114a31;padding:24px 32px;text-align:center;border-bottom:4px solid #c9a227;">
+                    <h1 style="color:#ffffff;font-size:1.1rem;margin:0;text-transform:uppercase;">OFFICE OF THE TAX OMBUD</h1>
+                    <p style="color:rgba(255,255,255,.75);font-size:.8rem;margin:4px 0 0;">Federal Republic of Nigeria</p>
+                  </div>
+                  <div style="padding:28px 32px;background:#ffffff;color:#333333;font-size:.95rem;line-height:1.7;">
+                    <h2 style="color:#114a31;font-size:1.15rem;margin-top:0;">{subject}</h2>
+                    <p>Hello <strong>{recipientName}</strong>,</p>
+                    {bodyContent}
+                    <div style="background:#f8f9fa;border-left:4px solid #114a31;padding:12px 16px;margin:20px 0;font-size:.9rem;">
+                      <p style="margin:0;"><strong>Case Reference:</strong> {caseRef}</p>
+                      <p style="margin:4px 0 0;"><strong>Pipeline Stage:</strong> {stageName}</p>
+                    </div>
+                  </div>
+                  <div style="background:#114a31;padding:16px 32px;text-align:center;">
+                    <p style="color:#c9a227;font-size:.85rem;font-weight:bold;margin:0;">Office of the Tax Ombud</p>
+                  </div>
+                </div>
+                """;
+
+            if (!string.IsNullOrWhiteSpace(recipientEmail))
+            {
+                await _emailService.SendAsync(recipientEmail, subject, formattedBody);
+            }
+
+            // Dispatch audit status copy to Initiator
+            var initiator = await _context.Users.FirstOrDefaultAsync(u => u.Id == initiatorUserId);
+            if (initiator != null && !string.IsNullOrWhiteSpace(initiator.Email) && initiator.Email != recipientEmail)
+            {
+                var auditHtml = $"""
+                    <div style="font-family:'Segoe UI',sans-serif;max-width:600px;margin:0 auto;border:1px solid #e0e0e0;border-radius:8px;padding:24px;">
+                      <h3 style="color:#114a31;margin-top:0;">Audit Copy: Workflow Stage Update</h3>
+                      <p>Hello <strong>{initiator.FirstName} {initiator.LastName}</strong>,</p>
+                      <p>You executed stage <strong>{stageName}</strong> for Case <strong>{caseRef}</strong>.</p>
+                      <p><strong>Notification Status:</strong> Email notification dispatched to target recipient ({recipientEmail}).</p>
+                    </div>
+                    """;
+                await _emailService.SendAsync(initiator.Email, $"[Audit Copy] Case {caseRef}: {stageName}", auditHtml);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send stage notification for case {CaseRef}", caseRef);
+        }
     }
 
     public async Task<bool> RegisterComplaintAsync(Guid complaintId, Guid registeredBy)
     {
-        var complaint = await _context.Complaints.FirstOrDefaultAsync(c => c.Id == complaintId);
+        var complaint = await _context.Complaints
+            .Include(c => c.Taxpayer).ThenInclude(tp => tp.User)
+            .FirstOrDefaultAsync(c => c.Id == complaintId);
         if (complaint == null) return false;
 
         // Transition complaint & underlying case status to Registered
@@ -33,8 +103,21 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
         }
 
         await _context.SaveChangesAsync();
+
+        var complainantEmail = complaint.Taxpayer?.User?.Email;
+        var complainantName = complaint.Taxpayer?.User != null ? $"{complaint.Taxpayer.User.FirstName} {complaint.Taxpayer.User.LastName}" : "Complainant";
+        await SendStageNotificationWithAuditCopyAsync(
+            complainantEmail ?? string.Empty,
+            complainantName,
+            "Complaint Formally Registered",
+            $"<p>Your complaint has been formally registered with the Tax Ombud Office.</p>",
+            registeredBy,
+            "2_registration",
+            complaint.ReferenceNumber);
+
         return true;
     }
+
 
     public async Task<bool> AssessAdmissibilityAsync(Guid caseId, AdmissibilityAssessmentDto dto, Guid assessedBy)
     {
@@ -75,6 +158,29 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
         }
 
         await _context.SaveChangesAsync();
+
+        var complainant = await _context.Complaints
+            .Include(c => c.Taxpayer).ThenInclude(tp => tp.User)
+            .FirstOrDefaultAsync(c => c.Id == caseItem.ComplaintId);
+
+        var cEmail = complainant?.Taxpayer?.User?.Email;
+        var cName = complainant?.Taxpayer?.User != null ? $"{complainant.Taxpayer.User.FirstName} {complainant.Taxpayer.User.LastName}" : "Complainant";
+        var caseRef = caseItem.CaseNumber?.Value ?? caseItem.Id.ToString();
+
+        var admissibilityStatus = dto.IsAdmissible ? "ADMISSIBLE" : "INADMISSIBLE";
+        var bodyMsg = dto.IsAdmissible
+            ? $"<p>Your case has passed statutory admissibility screening (Status: <strong>ADMISSIBLE</strong>) and is advancing to assignment and investigation.</p>"
+            : $"<p>Your case was evaluated as <strong>INADMISSIBLE</strong>. Reason: {dto.RejectionReason}</p>";
+
+        await SendStageNotificationWithAuditCopyAsync(
+            cEmail ?? string.Empty,
+            cName,
+            $"Case Admissibility Screened: {admissibilityStatus}",
+            bodyMsg,
+            assessedBy,
+            "3_assessment",
+            caseRef);
+
         return true;
     }
 
@@ -87,6 +193,22 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
         caseItem.Assign(officerId, assignedBy);
 
         await _context.SaveChangesAsync();
+
+        var assignedOfficer = await _context.Users.FirstOrDefaultAsync(u => u.Id == officerId);
+        var caseRef = caseItem.CaseNumber?.Value ?? caseItem.Id.ToString();
+
+        if (assignedOfficer != null && !string.IsNullOrWhiteSpace(assignedOfficer.Email))
+        {
+            await SendStageNotificationWithAuditCopyAsync(
+                assignedOfficer.Email,
+                $"{assignedOfficer.FirstName} {assignedOfficer.LastName}",
+                "Case Assigned to You",
+                $"<p>You have been assigned as the Case Officer for case <strong>{caseRef}</strong> by the Chief Executive.</p>",
+                assignedBy,
+                "4_assignment",
+                caseRef);
+        }
+
         return true;
     }
 
@@ -113,6 +235,24 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
         caseItem.StartInvestigation();
 
         await _context.SaveChangesAsync();
+
+        var complainant = await _context.Complaints
+            .Include(c => c.Taxpayer).ThenInclude(tp => tp.User)
+            .FirstOrDefaultAsync(c => c.Id == caseItem.ComplaintId);
+
+        var cEmail = complainant?.Taxpayer?.User?.Email;
+        var cName = complainant?.Taxpayer?.User != null ? $"{complainant.Taxpayer.User.FirstName} {complainant.Taxpayer.User.LastName}" : "Complainant";
+        var caseRef = caseItem.CaseNumber?.Value ?? caseItem.Id.ToString();
+
+        await SendStageNotificationWithAuditCopyAsync(
+            cEmail ?? string.Empty,
+            cName,
+            "Mediation Session Logged",
+            $"<p>A dispute resolution / mediation session has been recorded for your case. Status: {(dto.IsAmicablySettled ? "Amicably Settled" : "Ongoing Resolution")}.</p>",
+            loggedBy,
+            "6_mediation",
+            caseRef);
+
         return true;
     }
 
@@ -144,6 +284,25 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
         }
 
         await _context.SaveChangesAsync();
+
+        var caseRef = caseItem.CaseNumber?.Value ?? caseItem.Id.ToString();
+        var assignedOfficer = caseItem.AssignedOfficerId.HasValue
+            ? await _context.Users.FirstOrDefaultAsync(u => u.Id == caseItem.AssignedOfficerId.Value)
+            : null;
+
+        if (assignedOfficer != null && !string.IsNullOrWhiteSpace(assignedOfficer.Email))
+        {
+            var qaStatus = dto.IsApprovedForDecision ? "APPROVED" : "REVISION REQUIRED";
+            await SendStageNotificationWithAuditCopyAsync(
+                assignedOfficer.Email,
+                $"{assignedOfficer.FirstName} {assignedOfficer.LastName}",
+                $"Supervisory QA Review Gate: {qaStatus}",
+                $"<p>Supervisory Quality Assurance review for case <strong>{caseRef}</strong> has been marked as <strong>{qaStatus}</strong>.</p>",
+                reviewedBy,
+                "8_qa_review",
+                caseRef);
+        }
+
         return true;
     }
 
@@ -172,6 +331,24 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
         caseItem.IssueDecision(decision);
 
         await _context.SaveChangesAsync();
+
+        var complainant = await _context.Complaints
+            .Include(c => c.Taxpayer).ThenInclude(tp => tp.User)
+            .FirstOrDefaultAsync(c => c.Id == caseItem.ComplaintId);
+
+        var cEmail = complainant?.Taxpayer?.User?.Email;
+        var cName = complainant?.Taxpayer?.User != null ? $"{complainant.Taxpayer.User.FirstName} {complainant.Taxpayer.User.LastName}" : "Complainant";
+        var caseRef = caseItem.CaseNumber?.Value ?? caseItem.Id.ToString();
+
+        await SendStageNotificationWithAuditCopyAsync(
+            cEmail ?? string.Empty,
+            cName,
+            "Chief Executive Determination Issued",
+            $"<p>The Chief Executive of the Tax Ombud Office has formally issued the Final Determination Decision for case <strong>{caseRef}</strong>.</p><p><strong>Summary:</strong> {dto.DecisionSummary}</p>",
+            issuedBy,
+            "9_ce_decision",
+            caseRef);
+
         return true;
     }
 
@@ -183,8 +360,27 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
         caseItem.Close(outcome, summary, closedBy);
 
         await _context.SaveChangesAsync();
+
+        var complainant = await _context.Complaints
+            .Include(c => c.Taxpayer).ThenInclude(tp => tp.User)
+            .FirstOrDefaultAsync(c => c.Id == caseItem.ComplaintId);
+
+        var cEmail = complainant?.Taxpayer?.User?.Email;
+        var cName = complainant?.Taxpayer?.User != null ? $"{complainant.Taxpayer.User.FirstName} {complainant.Taxpayer.User.LastName}" : "Complainant";
+        var caseRef = caseItem.CaseNumber?.Value ?? caseItem.Id.ToString();
+
+        await SendStageNotificationWithAuditCopyAsync(
+            cEmail ?? string.Empty,
+            cName,
+            "Case Closed & Archived",
+            $"<p>Your case <strong>{caseRef}</strong> has been closed and securely archived in the Tax Ombud Vault.</p><p><strong>Outcome:</strong> {outcome}</p>",
+            closedBy,
+            "10_closure",
+            caseRef);
+
         return true;
     }
+
 
     public async Task<Guid> LogCallCenterRecordAsync(CallCenterRecordDto dto, Guid loggedBy)
     {
