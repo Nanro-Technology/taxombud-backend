@@ -41,4 +41,22 @@ public class WorkflowsController : ControllerBase
         var result = await _mediator.Send(new PublishWorkflowCommand(id));
         return Ok(new Response<WorkflowVersionDto> { StatusCode = 200, Message = "Workflow version published successfully", Data = result });
     }
+
+    [HttpPut("{id}")]
+    public async Task<ActionResult<Response<WorkflowDto>>> UpdateWorkflow(Guid id, [FromBody] UpdateWorkflowCommand command)
+    {
+        if (id != command.Id)
+        {
+            command = command with { Id = id };
+        }
+        var result = await _mediator.Send(command);
+        return Ok(new Response<WorkflowDto> { StatusCode = 200, Message = "Workflow updated successfully", Data = result });
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<ActionResult<Response<bool>>> DeleteWorkflow(Guid id)
+    {
+        var result = await _mediator.Send(new DeleteWorkflowCommand(id));
+        return Ok(new Response<bool> { StatusCode = 200, Message = "Workflow deleted successfully", Data = result });
+    }
 }
