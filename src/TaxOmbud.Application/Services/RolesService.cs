@@ -121,10 +121,7 @@ public class RolesService : IRolesService
     {
         var response = new Response<object?>();
 
-        var role = await _roleRepo.Query()
-            .Include(r => r.RolePermissions)
-            .FirstOrDefaultAsync(r => r.Id == request.RoleId, cancellationToken);
-
+        var role = await _roleRepo.GetByIdAsync(request.RoleId);
         if (role is null)
             return new Response<object?> { StatusCode = StatusCodes.Status404NotFound, Message = "Role not found." };
 
@@ -150,7 +147,7 @@ public class RolesService : IRolesService
             }
 
             // 2. Resolve distinct valid permission IDs
-            var distinctInputIds = request.PermissionIds.Distinct().ToList();
+            var distinctInputIds = request.PermissionIds.Where(id => id != Guid.Empty).Distinct().ToList();
             var validPermissionIds = await _permissionRepo.Query()
                 .Where(p => distinctInputIds.Contains(p.Id))
                 .Select(p => p.Id)
@@ -178,11 +175,9 @@ public class RolesService : IRolesService
 
             return new Response<object?> { StatusCode = StatusCodes.Status200OK, Message = "Role permissions updated successfully." };
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = Constants.Messages.ServerError;
-            return response;
+            return new Response<object?> { StatusCode = StatusCodes.Status500InternalServerError, Message = $"An error occurred updating role permissions: {ex.Message}" };
         }
     }
 
