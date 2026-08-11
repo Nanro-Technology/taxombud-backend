@@ -136,7 +136,7 @@ public class Case : BaseEntity, IHasDomainEvents
         }
 
         Status = newStatus;
-        CurrentStage = stage;
+        CurrentStage = string.IsNullOrEmpty(stage) ? "1_submission" : (stage.Length > 50 ? stage.Substring(0, 50) : stage);
     }
 
     public void Close(string outcome, string findingsSummary, Guid closedByUserId)

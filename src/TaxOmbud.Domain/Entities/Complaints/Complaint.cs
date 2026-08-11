@@ -180,7 +180,7 @@ public class Complaint : BaseEntity, IHasDomainEvents
     public void UpdateStatus(ComplaintStatus newStatus, string stage)
     {
         Status = newStatus;
-        CurrentStage = stage;
+        CurrentStage = string.IsNullOrEmpty(stage) ? "input" : (stage.Length > 50 ? stage.Substring(0, 50) : stage);
     }
 
     public void UpdateStatus(CaseStatus caseStatus, string stage)
@@ -189,11 +189,11 @@ public class Complaint : BaseEntity, IHasDomainEvents
         {
             Status = mapped;
         }
-        CurrentStage = stage;
+        CurrentStage = string.IsNullOrEmpty(stage) ? "input" : (stage.Length > 50 ? stage.Substring(0, 50) : stage);
     }
 
     public void UpdatePriority(string priority) => Priority = priority;
-    public void UpdateStage(string stage) => CurrentStage = stage;
+    public void UpdateStage(string stage) => CurrentStage = string.IsNullOrEmpty(stage) ? "input" : (stage.Length > 50 ? stage.Substring(0, 50) : stage);
     public void SetDepartment(Guid departmentId) => DepartmentId = departmentId;
 
     public void UpdateDetails(
