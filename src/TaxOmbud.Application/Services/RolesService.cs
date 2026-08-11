@@ -138,33 +138,38 @@ public class RolesService : IRolesService
                 return response;
             }
 
-            var distinctPermissionIds = request.PermissionIds.Distinct().ToList();
+            // 1. Clear all existing permission mappings for this role from the database
+            var existingRolePermissions = await _rolePermissionRepo.Query()
+                .Where(rp => rp.RoleId == request.RoleId)
+                .ToListAsync(cancellationToken);
 
-            // Validate all permission IDs before touching the database
-            var resolvedPermissions = new List<Permission>();
-            foreach (var permId in distinctPermissionIds)
+            if (existingRolePermissions.Any())
             {
-                var permission = await _permissionRepo.GetByIdAsync(permId);
-                if (permission is null)
-                    return new Response<object?> { StatusCode = StatusCodes.Status400BadRequest, Message = $"Permission with ID '{permId}' does not exist." };
-
-                resolvedPermissions.Add(permission);
-            }
-
-            // Replace the permission set atomically:
-            // 1. Remove existing permissions and save changes first to flush SQL DELETEs
-            if (role.RolePermissions.Any())
-            {
-                await _rolePermissionRepo.RemoveRangeAsync(role.RolePermissions);
+                await _rolePermissionRepo.RemoveRangeAsync(existingRolePermissions);
                 await _rolePermissionRepo.SaveAsync();
             }
 
-            // 2. Insert new distinct permission assignments
-            var newRolePermissions = resolvedPermissions.Select(p => new RolePermission
+            // 2. Resolve distinct valid permission IDs
+            var distinctInputIds = request.PermissionIds.Distinct().ToList();
+            var validPermissionIds = await _permissionRepo.Query()
+                .Where(p => distinctInputIds.Contains(p.Id))
+                .Select(p => p.Id)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+
+            if (!validPermissionIds.Any())
+            {
+                response.StatusCode = StatusCodes.Status400BadRequest;
+                response.Message = Constants.Messages.RoleRequiresPermissions;
+                return response;
+            }
+
+            // 3. Insert new unique RolePermission records
+            var newRolePermissions = validPermissionIds.Select(permId => new RolePermission
             {
                 Id = Guid.NewGuid(),
                 RoleId = request.RoleId,
-                PermissionId = p.Id,
+                PermissionId = permId,
                 CreatedAt = DateTime.UtcNow
             }).ToList();
 
