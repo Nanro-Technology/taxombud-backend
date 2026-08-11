@@ -24,12 +24,34 @@ public class GetPendingApprovalTasksQueryHandler : IRequestHandler<GetPendingApp
     {
         var currentUserId = _currentUser.UserId ?? Guid.Empty;
 
-        var tasks = await _context.CaseApprovalTasks
+        // Fetch current user with role details
+        var user = await _context.Users
+            .Include(u => u.Role)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == currentUserId, cancellationToken);
+
+        var userRoleId = user?.RoleId;
+        var userRoleName = user?.Role?.Name ?? string.Empty;
+        var isSuperAdmin = userRoleName.Contains("Super", StringComparison.OrdinalIgnoreCase) ||
+                           userRoleName.Contains("Admin", StringComparison.OrdinalIgnoreCase);
+
+        var query = _context.CaseApprovalTasks
             .Include(t => t.Case)
             .Include(t => t.AssignedUser)
             .Include(t => t.AssignedRole)
             .AsNoTracking()
-            .Where(t => t.AssignedUserId == currentUserId && t.TaskStatus == WorkflowLevelStatus.Pending)
+            .Where(t => t.TaskStatus == WorkflowLevelStatus.Pending);
+
+        if (!isSuperAdmin)
+        {
+            query = query.Where(t =>
+                (t.AssignedUserId != Guid.Empty && t.AssignedUserId == currentUserId) ||
+                (userRoleId.HasValue && t.AssignedRoleId.HasValue && t.AssignedRoleId.Value == userRoleId.Value) ||
+                (!string.IsNullOrEmpty(userRoleName) && t.AssignedRole != null && t.AssignedRole.Name == userRoleName)
+            );
+        }
+
+        var tasks = await query
             .OrderByDescending(t => t.CreatedAt)
             .ToListAsync(cancellationToken);
 
@@ -40,7 +62,7 @@ public class GetPendingApprovalTasksQueryHandler : IRequestHandler<GetPendingApp
             t.CaseId,
             t.Case?.Subject ?? "Case",
             t.AssignedUserId,
-            t.AssignedUser != null ? $"{t.AssignedUser.FirstName} {t.AssignedUser.LastName}" : "Assigned User",
+            t.AssignedUser != null ? $"{t.AssignedUser.FirstName} {t.AssignedUser.LastName}" : (t.AssignedRole != null ? t.AssignedRole.Name : "Assigned Officer"),
             t.AssignedRoleId,
             t.AssignedRole?.Name,
             t.Action,
