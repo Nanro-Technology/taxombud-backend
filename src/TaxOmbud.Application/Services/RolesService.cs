@@ -135,16 +135,10 @@ public class RolesService : IRolesService
                 return response;
             }
 
-            // 1. Clear all existing permission mappings for this role from the database
-            var existingRolePermissions = await _rolePermissionRepo.Query()
+            // 1. Execute immediate SQL delete to clear existing permission mappings directly from MySQL
+            await _rolePermissionRepo.Query()
                 .Where(rp => rp.RoleId == request.RoleId)
-                .ToListAsync(cancellationToken);
-
-            if (existingRolePermissions.Any())
-            {
-                await _rolePermissionRepo.RemoveRangeAsync(existingRolePermissions);
-                await _rolePermissionRepo.SaveAsync();
-            }
+                .ExecuteDeleteAsync(cancellationToken);
 
             // 2. Resolve distinct valid permission IDs
             var distinctInputIds = request.PermissionIds.Where(id => id != Guid.Empty).Distinct().ToList();
