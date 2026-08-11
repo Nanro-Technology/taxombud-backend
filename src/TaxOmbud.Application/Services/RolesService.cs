@@ -44,6 +44,8 @@ public class RolesService : IRolesService
                 return response;
             }
 
+            var distinctPermissionIds = request.PermissionIds.Distinct().ToList();
+
             // Validate: role name must be unique
             if (await _roleRepo.ExistsAsync(r => r.Name == request.Name))
             {
@@ -54,7 +56,7 @@ public class RolesService : IRolesService
 
             // Validate: all supplied permission IDs must exist
             var resolvedPermissions = new List<Permission>();
-            foreach (var permId in request.PermissionIds)
+            foreach (var permId in distinctPermissionIds)
             {
                 var permission = await _permissionRepo.GetByIdAsync(permId);
                 if (permission is null)
@@ -136,9 +138,11 @@ public class RolesService : IRolesService
                 return response;
             }
 
+            var distinctPermissionIds = request.PermissionIds.Distinct().ToList();
+
             // Validate all permission IDs before touching the database
             var resolvedPermissions = new List<Permission>();
-            foreach (var permId in request.PermissionIds)
+            foreach (var permId in distinctPermissionIds)
             {
                 var permission = await _permissionRepo.GetByIdAsync(permId);
                 if (permission is null)
@@ -147,16 +151,22 @@ public class RolesService : IRolesService
                 resolvedPermissions.Add(permission);
             }
 
-            // Replace the permission set atomically
-            await _rolePermissionRepo.RemoveRangeAsync(role.RolePermissions);
+            // Replace the permission set atomically:
+            // 1. Remove existing permissions and save changes first to flush SQL DELETEs
+            if (role.RolePermissions.Any())
+            {
+                await _rolePermissionRepo.RemoveRangeAsync(role.RolePermissions);
+                await _rolePermissionRepo.SaveAsync();
+            }
 
+            // 2. Insert new distinct permission assignments
             var newRolePermissions = resolvedPermissions.Select(p => new RolePermission
             {
                 Id = Guid.NewGuid(),
                 RoleId = request.RoleId,
                 PermissionId = p.Id,
                 CreatedAt = DateTime.UtcNow
-            });
+            }).ToList();
 
             await _rolePermissionRepo.AddRangeAsync(newRolePermissions);
             await _rolePermissionRepo.SaveAsync();

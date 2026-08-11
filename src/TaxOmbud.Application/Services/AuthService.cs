@@ -450,7 +450,8 @@ public class AuthService : IAuthService
                 UserType: user.UserType.ToString(),
                 Email: user.Email,
                 Roles: roles.AsReadOnly(),
-                MustChangePassword: user.MustChangePassword
+                MustChangePassword: user.MustChangePassword,
+                Permissions: permissions.AsReadOnly()
             );
         }
         catch (Exception ex)

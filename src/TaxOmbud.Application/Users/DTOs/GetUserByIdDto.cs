@@ -17,10 +17,11 @@ public record UserDetailDto(
     bool CanSignIn,
     /// <summary>The single assigned role (Estate Management pattern).</summary>
     RoleDetailDto? Role,
-    string UserType
+    string UserType,
+    IReadOnlyList<string>? Permissions = null
 );
 
 public record DepartmentDetailDto(Guid Id, string Name);
 
 /// <summary>Compact role DTO returned on user responses.</summary>
-public record RoleDetailDto(Guid Id, string Name, bool IsSystemRole);
+public record RoleDetailDto(Guid Id, string Name, bool IsSystemRole, IReadOnlyList<string>? Permissions = null);

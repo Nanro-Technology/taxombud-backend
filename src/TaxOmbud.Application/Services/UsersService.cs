@@ -117,6 +117,8 @@ public class UsersService : IUsersService
             var u = await _userRepo.Query()
                 .Include(x => x.Department)
                 .Include(x => x.Role)
+                    .ThenInclude(r => r!.RolePermissions)
+                        .ThenInclude(rp => rp.Permission)
                 .FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken);
 
             if (u is null)
@@ -154,6 +156,8 @@ public class UsersService : IUsersService
             var u = await _userRepo.Query()
                 .Include(x => x.Department)
                 .Include(x => x.Role)
+                    .ThenInclude(r => r!.RolePermissions)
+                        .ThenInclude(rp => rp.Permission)
                 .FirstOrDefaultAsync(x => x.Id == userId.Value, cancellationToken);
 
             if (u is null)
@@ -647,20 +651,30 @@ public class UsersService : IUsersService
         return $"TxObud#{u}{l}{d}{s}{new string(rest)}";
     }
 
-    private static UserDetailDto MapToDetailDto(User u) => new(
-        u.Id,
-        u.FirstName,
-        u.LastName,
-        $"{u.FirstName} {u.LastName}",
-        u.Email ?? string.Empty,
-        u.Phone,
-        u.AltPhone,
-        u.JobTitle,
-        u.EmploymentType,
-        u.Department == null ? null : new DepartmentDetailDto(u.Department.Id, u.Department.Name),
-        u.Status.ToString(),
-        u.CanSignIn,
-        u.Role == null ? null : new RoleDetailDto(u.Role.Id, u.Role.Name, u.Role.IsSystemRole),
-        u.UserType.ToString()
-    );
+    private static UserDetailDto MapToDetailDto(User u)
+    {
+        var perms = u.Role?.RolePermissions?
+            .Where(rp => rp.Permission != null)
+            .Select(rp => $"{rp.Permission.Module}:{rp.Permission.Action}")
+            .Distinct()
+            .ToList();
+
+        return new(
+            u.Id,
+            u.FirstName,
+            u.LastName,
+            $"{u.FirstName} {u.LastName}",
+            u.Email ?? string.Empty,
+            u.Phone,
+            u.AltPhone,
+            u.JobTitle,
+            u.EmploymentType,
+            u.Department == null ? null : new DepartmentDetailDto(u.Department.Id, u.Department.Name),
+            u.Status.ToString(),
+            u.CanSignIn,
+            u.Role == null ? null : new RoleDetailDto(u.Role.Id, u.Role.Name, u.Role.IsSystemRole, perms),
+            u.UserType.ToString(),
+            perms
+        );
+    }
 }
