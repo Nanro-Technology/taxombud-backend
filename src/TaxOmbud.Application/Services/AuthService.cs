@@ -351,8 +351,15 @@ public class AuthService : IAuthService
             // UserType guard — prevents a taxpayer from logging into the staff portal and vice-versa
             if (user.UserType != request.UserType)
             {
-                response.StatusCode = StatusCodes.Status401Unauthorized;
-                response.Message = Constants.Messages.InvalidCredentials;
+                response.StatusCode = StatusCodes.Status400BadRequest;
+                if (user.UserType == UserType.StaffUser)
+                {
+                    response.Message = "This email is registered to a Staff account. Please sign in via the Staff Portal.";
+                }
+                else
+                {
+                    response.Message = "This email is registered to a Taxpayer account. Please sign in via the Taxpayer Portal.";
+                }
                 return response;
             }
 
