@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TaxOmbud.Persistence.Data;
 
@@ -11,9 +12,11 @@ using TaxOmbud.Persistence.Data;
 namespace TaxOmbud.Persistence.Migrations.MySqlApplicationDb
 {
     [DbContext(typeof(MySqlApplicationDbContext))]
-    partial class MySqlApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260812175338_MakeAssignedUserOptionalForRolePoolTasks")]
+    partial class MakeAssignedUserOptionalForRolePoolTasks
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

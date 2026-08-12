@@ -32,8 +32,10 @@ public class GetPendingApprovalTasksQueryHandler : IRequestHandler<GetPendingApp
 
         var userRoleId = user?.RoleId;
         var userRoleName = user?.Role?.Name ?? string.Empty;
-        var isSuperAdmin = userRoleName.Contains("Super", StringComparison.OrdinalIgnoreCase) ||
-                           userRoleName.Contains("Admin", StringComparison.OrdinalIgnoreCase);
+
+        // Use exact role name matching against known constants to avoid partial-match false positives
+        var isSuperAdmin = userRoleName.Equals("Super Admin", StringComparison.OrdinalIgnoreCase)
+                        || userRoleName.Equals("Admin", StringComparison.OrdinalIgnoreCase);
 
         var query = _context.CaseApprovalTasks
             .Include(t => t.Case)
@@ -45,9 +47,10 @@ public class GetPendingApprovalTasksQueryHandler : IRequestHandler<GetPendingApp
         if (!isSuperAdmin)
         {
             query = query.Where(t =>
+                // Task directly assigned to this specific user
                 (t.AssignedUserId != Guid.Empty && t.AssignedUserId == currentUserId) ||
-                (userRoleId.HasValue && t.AssignedRoleId.HasValue && t.AssignedRoleId.Value == userRoleId.Value) ||
-                (!string.IsNullOrEmpty(userRoleName) && t.AssignedRole != null && t.AssignedRole.Name == userRoleName)
+                // Role-pool task — assigned to user's role (any member of that role can act)
+                (userRoleId.HasValue && t.AssignedRoleId.HasValue && t.AssignedRoleId.Value == userRoleId.Value)
             );
         }
 

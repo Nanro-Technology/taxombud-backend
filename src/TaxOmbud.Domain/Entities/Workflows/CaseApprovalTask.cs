@@ -17,7 +17,11 @@ public class CaseApprovalTask : BaseEntity
     public Case Case { get; set; } = null!;
 
     public Guid AssignedUserId { get; set; }
-    public User AssignedUser { get; set; } = null!;
+    /// <summary>
+    /// Navigation to the specifically assigned user.
+    /// Null for role-pool tasks (AssignedUserId == Guid.Empty) where any role member can claim the task.
+    /// </summary>
+    public User? AssignedUser { get; set; }
 
     public Guid? AssignedRoleId { get; set; }
     public Role? AssignedRole { get; set; }
