@@ -13,15 +13,18 @@ public class RolesService : IRolesService
     private readonly IGenericRepository<Role> _roleRepo;
     private readonly IGenericRepository<Permission> _permissionRepo;
     private readonly IGenericRepository<RolePermission> _rolePermissionRepo;
+    private readonly IGenericRepository<User> _userRepo;
 
     public RolesService(
         IGenericRepository<Role> roleRepo,
         IGenericRepository<Permission> permissionRepo,
-        IGenericRepository<RolePermission> rolePermissionRepo)
+        IGenericRepository<RolePermission> rolePermissionRepo,
+        IGenericRepository<User> userRepo)
     {
         _roleRepo = roleRepo;
         _permissionRepo = permissionRepo;
         _rolePermissionRepo = rolePermissionRepo;
+        _userRepo = userRepo;
     }
 
     // ─── Create Role ──────────────────────────────────────────────────────────
@@ -54,18 +57,16 @@ public class RolesService : IRolesService
                 return response;
             }
 
-            // Validate: all supplied permission IDs must exist
-            var resolvedPermissions = new List<Permission>();
-            foreach (var permId in distinctPermissionIds)
+            // Validate: all supplied permission IDs must exist via single batch query
+            var resolvedPermissions = await _permissionRepo.Query()
+                .Where(p => distinctPermissionIds.Contains(p.Id))
+                .ToListAsync(cancellationToken);
+
+            if (resolvedPermissions.Count != distinctPermissionIds.Count)
             {
-                var permission = await _permissionRepo.GetByIdAsync(permId);
-                if (permission is null)
-                {
-                    response.StatusCode = StatusCodes.Status400BadRequest;
-                    response.Message = $"Permission with ID '{permId}' does not exist.";
-                    return response;
-                }
-                resolvedPermissions.Add(permission);
+                response.StatusCode = StatusCodes.Status400BadRequest;
+                response.Message = "One or more permission IDs are invalid or do not exist.";
+                return response;
             }
 
             // Create the role
@@ -111,10 +112,144 @@ public class RolesService : IRolesService
         return response;
     }
 
+    // ─── Update Role (Dynamic Roles) ─────────────────────────────────────────
+    /// <summary>
+    /// Updates an existing role's name, description, or active status.
+    /// System roles cannot be renamed or deactivated.
+    /// </summary>
+    public async Task<Response<RoleDetailDto>> UpdateRoleAsync(UpdateRoleCommand request, CancellationToken cancellationToken = default)
+    {
+        var response = new Response<RoleDetailDto>();
+
+        try
+        {
+            var role = await _roleRepo.Query()
+                .Include(r => r.RolePermissions)
+                    .ThenInclude(rp => rp.Permission)
+                .FirstOrDefaultAsync(r => r.Id == request.RoleId, cancellationToken);
+
+            if (role is null)
+            {
+                response.StatusCode = StatusCodes.Status404NotFound;
+                response.Message = "Role not found.";
+                return response;
+            }
+
+            if (role.IsSystemRole)
+            {
+                if (role.Name != request.Name)
+                {
+                    response.StatusCode = StatusCodes.Status403Forbidden;
+                    response.Message = "System roles cannot be renamed.";
+                    return response;
+                }
+                if (!request.IsActive)
+                {
+                    response.StatusCode = StatusCodes.Status403Forbidden;
+                    response.Message = "System roles cannot be deactivated.";
+                    return response;
+                }
+            }
+
+            // Check unique name if updated
+            if (role.Name != request.Name && await _roleRepo.ExistsAsync(r => r.Name == request.Name))
+            {
+                response.StatusCode = StatusCodes.Status400BadRequest;
+                response.Message = "A role with this name already exists.";
+                return response;
+            }
+
+            role.Name = request.Name;
+            role.Description = request.Description;
+            role.IsActive = request.IsActive;
+
+            await _roleRepo.UpdateAsync(role);
+            await _roleRepo.SaveAsync();
+
+            var dto = new RoleDetailDto(
+                role.Id,
+                role.Name,
+                role.Description,
+                role.IsSystemRole,
+                role.IsActive,
+                role.RolePermissions.Select(rp => new PermissionDto(
+                    rp.Permission!.Id,
+                    rp.Permission.Module.ToString(),
+                    rp.Permission.Action.ToString()
+                ))
+            );
+
+            response.StatusCode = StatusCodes.Status200OK;
+            response.Message = Constants.Messages.Updated;
+            response.Data = dto;
+        }
+        catch (Exception)
+        {
+            response.StatusCode = StatusCodes.Status500InternalServerError;
+            response.Message = Constants.Messages.ServerError;
+        }
+
+        return response;
+    }
+
+    // ─── Delete Role (Dynamic Roles) ─────────────────────────────────────────
+    /// <summary>
+    /// Deletes a custom role. System roles and roles currently assigned to users cannot be deleted.
+    /// </summary>
+    public async Task<Response<bool>> DeleteRoleAsync(Guid roleId, CancellationToken cancellationToken = default)
+    {
+        var response = new Response<bool>();
+
+        try
+        {
+            var role = await _roleRepo.GetByIdAsync(roleId);
+            if (role is null)
+            {
+                response.StatusCode = StatusCodes.Status404NotFound;
+                response.Message = "Role not found.";
+                return response;
+            }
+
+            if (role.IsSystemRole)
+            {
+                response.StatusCode = StatusCodes.Status403Forbidden;
+                response.Message = "System roles cannot be deleted.";
+                return response;
+            }
+
+            bool isAssignedToUser = await _userRepo.ExistsAsync(u => u.RoleId == roleId);
+            if (isAssignedToUser)
+            {
+                response.StatusCode = StatusCodes.Status400BadRequest;
+                response.Message = "Role is currently assigned to one or more users and cannot be deleted.";
+                return response;
+            }
+
+            // Remove associated role permissions first
+            await _rolePermissionRepo.Query()
+                .Where(rp => rp.RoleId == roleId)
+                .ExecuteDeleteAsync(cancellationToken);
+
+            await _roleRepo.RemoveAsync(role);
+            await _roleRepo.SaveAsync();
+
+            response.StatusCode = StatusCodes.Status200OK;
+            response.Message = Constants.Messages.Deleted;
+            response.Data = true;
+        }
+        catch (Exception)
+        {
+            response.StatusCode = StatusCodes.Status500InternalServerError;
+            response.Message = Constants.Messages.ServerError;
+        }
+
+        return response;
+    }
+
     // ─── Update Role Permissions ──────────────────────────────────────────────
     /// <summary>
     /// Replaces the full set of permissions on an existing role.
-    /// System roles (SuperAdmin, Admin) can have permissions updated but cannot be deleted.
+    /// System roles (SuperAdmin) cannot have permissions modified.
     /// At least one permission must remain after the update.
     /// </summary>
     public async Task<Response<object?>> UpdateRolePermissionsAsync(UpdateRolePermissionsCommand request, CancellationToken cancellationToken = default)
@@ -124,6 +259,15 @@ public class RolesService : IRolesService
         var role = await _roleRepo.GetByIdAsync(request.RoleId);
         if (role is null)
             return new Response<object?> { StatusCode = StatusCodes.Status404NotFound, Message = "Role not found." };
+
+        if (role.IsSystemRole && role.Name == RoleConstants.SuperAdmin)
+        {
+            return new Response<object?>
+            {
+                StatusCode = StatusCodes.Status403Forbidden,
+                Message = "Super Admin permissions are managed by the system and cannot be modified."
+            };
+        }
 
         try
         {
@@ -135,7 +279,7 @@ public class RolesService : IRolesService
                 return response;
             }
 
-            // 1. Execute immediate SQL delete to clear existing permission mappings directly from MySQL
+            // 1. Execute immediate SQL delete to clear existing permission mappings
             await _rolePermissionRepo.Query()
                 .Where(rp => rp.RoleId == request.RoleId)
                 .ExecuteDeleteAsync(cancellationToken);
@@ -169,9 +313,9 @@ public class RolesService : IRolesService
 
             return new Response<object?> { StatusCode = StatusCodes.Status200OK, Message = "Role permissions updated successfully." };
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return new Response<object?> { StatusCode = StatusCodes.Status500InternalServerError, Message = $"An error occurred updating role permissions: {ex.Message}" };
+            return new Response<object?> { StatusCode = StatusCodes.Status500InternalServerError, Message = Constants.Messages.ServerError };
         }
     }
 

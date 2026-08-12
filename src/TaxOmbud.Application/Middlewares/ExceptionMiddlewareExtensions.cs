@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
@@ -22,11 +23,14 @@ public static class ExceptionMiddlewareExtensions
                 {
                     logger.LogError(contextFeature.Error, "Something went wrong");
                     await context.Response.WriteAsync(
-                        new Response<object>
-                        {
-                            StatusCode = StatusCodes.Status500InternalServerError,
-                            Message = "Internal Server Error.",
-                        }.ToString() ?? string.Empty
+                        JsonSerializer.Serialize(
+                            new Response<object>
+                            {
+                                StatusCode = StatusCodes.Status500InternalServerError,
+                                Message = "An unexpected error occurred. Please try again.",
+                            },
+                            new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }
+                        )
                     );
                 }
             });

@@ -1,9 +1,7 @@
-using System;
-using System.Collections.Generic;
 using Microsoft.AspNetCore.Identity;
+using TaxOmbud.Common.Utilities;
 using TaxOmbud.Domain.Common;
 using TaxOmbud.Domain.Enums;
-using TaxOmbud.Common.Utilities;
 
 namespace TaxOmbud.Domain.Entities.Identity;
 

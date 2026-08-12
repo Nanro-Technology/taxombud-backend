@@ -369,10 +369,15 @@ public class ComplaintsService : IComplaintsService
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = Constants.Messages.ComplaintAssigned;
         }
-        catch (Exception ex)
+        catch (DomainException ex)
         {
             response.StatusCode = StatusCodes.Status400BadRequest;
             response.Message = ex.Message;
+        }
+        catch (Exception)
+        {
+            response.StatusCode = StatusCodes.Status500InternalServerError;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -392,7 +397,8 @@ public class ComplaintsService : IComplaintsService
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = Constants.Messages.ComplaintEscalated;
         }
-        catch (Exception ex) { response.StatusCode = StatusCodes.Status400BadRequest; response.Message = ex.Message; }
+        catch (DomainException ex) { response.StatusCode = StatusCodes.Status400BadRequest; response.Message = ex.Message; }
+        catch (Exception) { response.StatusCode = StatusCodes.Status500InternalServerError; response.Message = Constants.Messages.ServerError; }
         return response;
     }
 
@@ -411,7 +417,8 @@ public class ComplaintsService : IComplaintsService
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = Constants.Messages.ComplaintClosed;
         }
-        catch (Exception ex) { response.StatusCode = StatusCodes.Status400BadRequest; response.Message = ex.Message; }
+        catch (DomainException ex) { response.StatusCode = StatusCodes.Status400BadRequest; response.Message = ex.Message; }
+        catch (Exception) { response.StatusCode = StatusCodes.Status500InternalServerError; response.Message = Constants.Messages.ServerError; }
         return response;
     }
 
@@ -430,7 +437,8 @@ public class ComplaintsService : IComplaintsService
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = Constants.Messages.ComplaintReopened;
         }
-        catch (Exception ex) { response.StatusCode = StatusCodes.Status400BadRequest; response.Message = ex.Message; }
+        catch (DomainException ex) { response.StatusCode = StatusCodes.Status400BadRequest; response.Message = ex.Message; }
+        catch (Exception) { response.StatusCode = StatusCodes.Status500InternalServerError; response.Message = Constants.Messages.ServerError; }
         return response;
     }
 

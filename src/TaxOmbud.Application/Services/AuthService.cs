@@ -9,7 +9,6 @@ using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Common.Responses;
 using TaxOmbud.Common.Utilities;
-using Microsoft.AspNetCore.Http;
 using TaxOmbud.Domain.Entities.Identity;
 using TaxOmbud.Domain.Entities.System;
 using TaxOmbud.Domain.Entities.Taxpayers;
@@ -175,8 +174,9 @@ public class AuthService : IAuthService
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Unexpected error in RegisterTaxpayerAsync");
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -297,8 +297,9 @@ public class AuthService : IAuthService
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Unexpected error in RegisterAsync");
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -456,8 +457,9 @@ public class AuthService : IAuthService
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Unexpected error in LoginAsync");
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -499,8 +501,9 @@ public class AuthService : IAuthService
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Unexpected error in LogoutAsync");
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -579,8 +582,9 @@ public class AuthService : IAuthService
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Unexpected error in RefreshTokenAsync");
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -627,8 +631,9 @@ public class AuthService : IAuthService
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Unexpected error in ChangePasswordAsync");
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -712,8 +717,9 @@ public class AuthService : IAuthService
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Unexpected error in ForgotPasswordAsync");
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -757,8 +763,9 @@ public class AuthService : IAuthService
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Unexpected error in ResetPasswordAsync");
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -811,8 +818,9 @@ public class AuthService : IAuthService
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Unexpected error in VerifyEmailAsync");
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -884,8 +892,9 @@ public class AuthService : IAuthService
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Unexpected error in SetupMfaAsync");
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -930,8 +939,9 @@ public class AuthService : IAuthService
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Unexpected error in VerifyMfaAsync");
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -979,8 +989,9 @@ public class AuthService : IAuthService
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Unexpected error in DisableMfaAsync");
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }

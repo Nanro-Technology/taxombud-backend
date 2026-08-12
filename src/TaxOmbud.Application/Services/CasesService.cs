@@ -1,23 +1,20 @@
-using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using System.Text.RegularExpressions;
 using TaxOmbud.Application.Cases.DTOs;
+using TaxOmbud.Application.Interfaces.InfrastructureService;
 using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Common.Responses;
+using TaxOmbud.Common.Utilities;
 using TaxOmbud.Domain.Entities.Cases;
 using TaxOmbud.Domain.Entities.Complaints;
-using TaxOmbud.Domain.Entities.Communications;
 using TaxOmbud.Domain.Entities.Documents;
 using TaxOmbud.Domain.Entities.Identity;
-using TaxOmbud.Domain.Enums;
-using TaxOmbud.Common.Utilities;
-
-using TaxOmbud.Application.Interfaces.InfrastructureService;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
-using Microsoft.AspNetCore.Http;
-
 using TaxOmbud.Domain.Entities.Taxpayers;
+using TaxOmbud.Domain.Enums;
 
 namespace TaxOmbud.Application.Services;
 
@@ -34,6 +31,7 @@ public class CasesService : ICasesService
     private readonly IGenericRepository<User> _userRepo;
     private readonly IGenericRepository<TaxpayerProfile> _taxpayerProfileRepo;
     private readonly IGenericRepository<Account> _accountRepo;
+    private readonly UserManager<User> _userManager;
     private readonly IEmailService _emailService;
     private readonly IConfiguration _configuration;
     private readonly ILogger<CasesService> _logger;
@@ -50,6 +48,7 @@ public class CasesService : ICasesService
         IGenericRepository<User> userRepo,
         IGenericRepository<TaxpayerProfile> taxpayerProfileRepo,
         IGenericRepository<Account> accountRepo,
+        UserManager<User> userManager,
         IEmailService emailService,
         IConfiguration configuration,
         ILogger<CasesService> logger)
@@ -65,6 +64,7 @@ public class CasesService : ICasesService
         _userRepo = userRepo;
         _taxpayerProfileRepo = taxpayerProfileRepo;
         _accountRepo = accountRepo;
+        _userManager = userManager;
         _emailService = emailService;
         _configuration = configuration;
         _logger = logger;
@@ -175,7 +175,7 @@ public class CasesService : ICasesService
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = Constants.Messages.CaseRetrieveError;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -218,7 +218,7 @@ public class CasesService : ICasesService
         catch (Exception ex)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -259,7 +259,7 @@ public class CasesService : ICasesService
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = Constants.Messages.CaseQueueError;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -315,7 +315,7 @@ public class CasesService : ICasesService
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = Constants.Messages.CaseGetError;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -361,7 +361,7 @@ public class CasesService : ICasesService
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = Constants.Messages.CaseMilestonesError;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -384,7 +384,7 @@ public class CasesService : ICasesService
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = Constants.Messages.CaseCommsError;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -455,7 +455,7 @@ public class CasesService : ICasesService
         catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = Constants.Messages.ComplaintTrackError;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -476,30 +476,24 @@ public class CasesService : ICasesService
             }
 
             // 1. Ensure User & TaxpayerProfile exist for public submitter
-            var user = await _userRepo.Query().FirstOrDefaultAsync(u => u.Email == request.Email, cancellationToken);
+            var emailNormalized = request.Email.Trim().ToLowerInvariant();
+            var user = await _userManager.FindByEmailAsync(emailNormalized);
             if (user == null)
             {
                 var defaultPass = $"TaxOmbudPass@{Guid.NewGuid().ToString()[..8]}!";
-                user = new User
+                var firstName = string.IsNullOrWhiteSpace(request.FirstName) ? "Public" : request.FirstName;
+                var lastName = string.IsNullOrWhiteSpace(request.LastName) ? "Taxpayer" : request.LastName;
+
+                user = User.Create(firstName, lastName, new Email(request.Email), phone: request.Phone, userType: UserType.RegisteredTaxpayer);
+
+                var createResult = await _userManager.CreateAsync(user, defaultPass);
+                if (!createResult.Succeeded)
                 {
-                    Id = Guid.NewGuid(),
-                    FirstName = string.IsNullOrWhiteSpace(request.FirstName) ? "Public" : request.FirstName,
-                    LastName = string.IsNullOrWhiteSpace(request.LastName) ? "Taxpayer" : request.LastName,
-                    Email = request.Email,
-                    UserName = request.Email,
-                    Phone = request.Phone,
-                    UserType = UserType.RegisteredTaxpayer,
-                    Status = UserStatus.Active,
-                    CanSignIn = true,
-                    PasswordHash = new Microsoft.AspNetCore.Identity.PasswordHasher<User>().HashPassword(null!, defaultPass),
-                    SecurityStamp = Guid.NewGuid().ToString(),
-                    CreatedAt = DateTime.UtcNow
-                };
-                await _userRepo.AddAsync(user);
-                await _userRepo.SaveAsync();
-
+                    response.StatusCode = StatusCodes.Status400BadRequest;
+                    response.Message = string.Join("; ", createResult.Errors.Select(e => e.Description));
+                    return response;
+                }
             }
-
 
             var taxpayerProfile = await _taxpayerProfileRepo.Query().FirstOrDefaultAsync(tp => tp.UserId == user.Id, cancellationToken);
             if (taxpayerProfile == null)
@@ -550,8 +544,7 @@ public class CasesService : ICasesService
                     Email = "info@mediate.com.ng",
                     Country = "Nigeria",
                     Status = "active",
-                    IsWorkflowLane = true,
-                    CreatedAt = DateTime.UtcNow
+                    IsWorkflowLane = true
                 };
                 await _accountRepo.AddAsync(account);
                 await _accountRepo.SaveAsync();

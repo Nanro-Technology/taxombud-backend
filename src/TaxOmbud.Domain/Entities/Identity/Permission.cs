@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using TaxOmbud.Domain.Common;
 
 namespace TaxOmbud.Domain.Entities.Identity;

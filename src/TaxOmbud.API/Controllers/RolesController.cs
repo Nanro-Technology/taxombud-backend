@@ -64,6 +64,31 @@ public class RolesController : ControllerBase
         return CreatedAtAction(nameof(GetRoleById), new { id = result.Data!.Id }, result);
     }
 
+    /// <summary>Update an existing role's name, description, and active status.</summary>
+    [HttpPut("{id:guid}")]
+    [ProducesResponseType(typeof(Response<RoleDetailDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateRole(Guid id, [FromBody] UpdateRoleRequest request, CancellationToken ct)
+    {
+        var command = new UpdateRoleCommand(id, request.Name, request.Description, request.IsActive);
+        var result = await _rolesService.UpdateRoleAsync(command, ct);
+        return StatusCode(result.StatusCode, result);
+    }
+
+    /// <summary>Delete a custom role.</summary>
+    [HttpDelete("{id:guid}")]
+    [ProducesResponseType(typeof(Response<bool>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteRole(Guid id, CancellationToken ct)
+    {
+        var result = await _rolesService.DeleteRoleAsync(id, ct);
+        return StatusCode(result.StatusCode, result);
+    }
+
     /// <summary>Sync permissions to a role.</summary>
     [HttpPut("{id:guid}/permissions")]
     [ProducesResponseType(StatusCodes.Status200OK)]

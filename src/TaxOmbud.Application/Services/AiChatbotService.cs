@@ -13,6 +13,7 @@ using TaxOmbud.Application.AiChatbot.DTOs;
 using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Common.Responses;
+using TaxOmbud.Common.Utilities;
 using TaxOmbud.Domain.Entities.Communications;
 using TaxOmbud.Domain.Entities.System;
 using TaxOmbud.Domain.Entities.Identity;
@@ -262,10 +263,10 @@ public class AiChatbotService : IAiChatbotService
             response.Data = new SubmitChatMessageResponse(session.Id, aiReply, citations);
             return response;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
             return response;
         }
     }
@@ -351,10 +352,10 @@ public class AiChatbotService : IAiChatbotService
             response.Message = "Sessions retrieved.";
             response.Data = new PagedResult<ChatbotSessionListDto>(items, total, page, pageSize);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -400,10 +401,10 @@ public class AiChatbotService : IAiChatbotService
                 messages
             );
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -453,10 +454,10 @@ public class AiChatbotService : IAiChatbotService
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Reply sent.";
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -481,10 +482,10 @@ public class AiChatbotService : IAiChatbotService
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = $"Status updated to {status}.";
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -500,10 +501,10 @@ public class AiChatbotService : IAiChatbotService
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Session deleted.";
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -524,10 +525,10 @@ public class AiChatbotService : IAiChatbotService
             response.Data = new ChatbotStatsDto(open, handoff, msgsToday, allMsgs);
             response.Message = "Stats calculated.";
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -542,10 +543,10 @@ public class AiChatbotService : IAiChatbotService
             response.Data = current;
             response.Message = "Settings loaded.";
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -578,10 +579,10 @@ public class AiChatbotService : IAiChatbotService
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Settings updated.";
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -600,10 +601,10 @@ public class AiChatbotService : IAiChatbotService
             response.Data = list.OrderByDescending(q => q.Hits).ToList();
             response.Message = "Unanswered questions loaded.";
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }

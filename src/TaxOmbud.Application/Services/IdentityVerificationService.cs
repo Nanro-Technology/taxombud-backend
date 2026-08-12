@@ -20,10 +20,10 @@ public class IdentityVerificationService : IIdentityVerificationService
             response.Message = "Identity verification completed.";
             response.Data = new IdentityVerificationResponse(isVerified, request.IdNumber, request.IdType, "John Doe", "1990-01-01", null);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = TaxOmbud.Common.Utilities.Constants.Messages.ServerError;
         }
         return response;
     }

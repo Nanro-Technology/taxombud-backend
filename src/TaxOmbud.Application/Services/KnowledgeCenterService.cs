@@ -10,6 +10,7 @@ using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Application.KnowledgeCenter.DTOs;
 using TaxOmbud.Common.Responses;
+using TaxOmbud.Common.Utilities;
 using TaxOmbud.Domain.Entities.Knowledge;
 
 namespace TaxOmbud.Application.Services;
@@ -49,10 +50,10 @@ public class KnowledgeCenterService : IKnowledgeCenterService
             response.Data = dtos;
             response.Message = "Categories retrieved successfully.";
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -79,10 +80,10 @@ public class KnowledgeCenterService : IKnowledgeCenterService
             response.Data = new CategoryDto(cat.Id, cat.Name, cat.Slug, cat.Description, 0);
             response.Message = "Category created successfully.";
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -116,10 +117,10 @@ public class KnowledgeCenterService : IKnowledgeCenterService
             response.Data = new CategoryDto(cat.Id, cat.Name, cat.Slug, cat.Description, cat.Topics.Count(t => !t.IsDeleted));
             response.Message = "Category updated successfully.";
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -143,10 +144,10 @@ public class KnowledgeCenterService : IKnowledgeCenterService
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Category deleted successfully.";
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -173,10 +174,10 @@ public class KnowledgeCenterService : IKnowledgeCenterService
             response.Data = dtos;
             response.Message = "Topics retrieved successfully.";
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -203,10 +204,10 @@ public class KnowledgeCenterService : IKnowledgeCenterService
             response.Data = new TopicDto(topic.Id, topic.CategoryId, topic.Title, topic.Body, request.Tags ?? new List<string>());
             response.Message = "Topic created successfully.";
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -236,10 +237,10 @@ public class KnowledgeCenterService : IKnowledgeCenterService
             response.Data = new TopicDto(topic.Id, topic.CategoryId, topic.Title, topic.Body, request.Tags ?? new List<string>());
             response.Message = "Topic updated successfully.";
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -263,10 +264,10 @@ public class KnowledgeCenterService : IKnowledgeCenterService
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Topic deleted successfully.";
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -293,10 +294,10 @@ public class KnowledgeCenterService : IKnowledgeCenterService
             response.Data = dtos;
             response.Message = "Topics searched successfully.";
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }

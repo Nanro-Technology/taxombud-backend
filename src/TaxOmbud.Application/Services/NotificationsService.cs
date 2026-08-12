@@ -4,6 +4,7 @@ using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Application.Notifications.DTOs;
 using TaxOmbud.Common.Responses;
+using TaxOmbud.Common.Utilities;
 using TaxOmbud.Domain.Entities.Notifications;
 
 namespace TaxOmbud.Application.Services;
@@ -43,10 +44,10 @@ public class NotificationsService : INotificationsService
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Notification deleted successfully.";
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -72,10 +73,10 @@ public class NotificationsService : INotificationsService
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Notification marked as read.";
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -107,10 +108,10 @@ public class NotificationsService : INotificationsService
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "All notifications marked as read.";
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -137,10 +138,10 @@ public class NotificationsService : INotificationsService
             response.Message = "Success";
             response.Data = new SentNotificationResponse(notification.Id, notification.Title, notification.CreatedAt);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -187,10 +188,10 @@ public class NotificationsService : INotificationsService
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Success";
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -230,10 +231,10 @@ public class NotificationsService : INotificationsService
             response.Message = "Success";
             response.Data = new MyNotificationsDto(items, total, unreadCount, request.Page, request.PageSize);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -260,10 +261,10 @@ public class NotificationsService : INotificationsService
             response.Message = "Success";
             response.Data = preferences;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -287,10 +288,10 @@ public class NotificationsService : INotificationsService
             response.Message = "Success";
             response.Data = count;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }

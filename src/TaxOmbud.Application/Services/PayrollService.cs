@@ -83,10 +83,10 @@ public class PayrollService : IPayrollService
             response.Message = "Success";
             response.Data = list;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -127,9 +127,9 @@ public class PayrollService : IPayrollService
 
             return new Response<Guid> { StatusCode = StatusCodes.Status200OK, Message = "Salary profile saved.", Data = profile.Id };
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return new Response<Guid> { StatusCode = StatusCodes.Status500InternalServerError, Message = ex.Message };
+            return new Response<Guid> { StatusCode = StatusCodes.Status500InternalServerError, Message = Constants.Messages.ServerError };
         }
     }
 
@@ -147,9 +147,9 @@ public class PayrollService : IPayrollService
 
             return new Response<bool> { StatusCode = StatusCodes.Status200OK, Message = "Salary profile deleted.", Data = true };
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return new Response<bool> { StatusCode = StatusCodes.Status500InternalServerError, Message = ex.Message };
+            return new Response<bool> { StatusCode = StatusCodes.Status500InternalServerError, Message = Constants.Messages.ServerError };
         }
     }
 
@@ -169,10 +169,10 @@ public class PayrollService : IPayrollService
             response.Message = "Success";
             response.Data = list;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -197,9 +197,9 @@ public class PayrollService : IPayrollService
 
             return new Response<Guid> { StatusCode = StatusCodes.Status200OK, Message = "Deduction type created.", Data = entity.Id };
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return new Response<Guid> { StatusCode = StatusCodes.Status500InternalServerError, Message = ex.Message };
+            return new Response<Guid> { StatusCode = StatusCodes.Status500InternalServerError, Message = Constants.Messages.ServerError };
         }
     }
 
@@ -225,9 +225,9 @@ public class PayrollService : IPayrollService
 
             return new Response<Guid> { StatusCode = StatusCodes.Status200OK, Message = "Calculation rule created.", Data = entity.Id };
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return new Response<Guid> { StatusCode = StatusCodes.Status500InternalServerError, Message = ex.Message };
+            return new Response<Guid> { StatusCode = StatusCodes.Status500InternalServerError, Message = Constants.Messages.ServerError };
         }
     }
 
@@ -244,9 +244,9 @@ public class PayrollService : IPayrollService
 
             return new Response<bool> { StatusCode = StatusCodes.Status200OK, Message = "Rule removed.", Data = true };
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return new Response<bool> { StatusCode = StatusCodes.Status500InternalServerError, Message = ex.Message };
+            return new Response<bool> { StatusCode = StatusCodes.Status500InternalServerError, Message = Constants.Messages.ServerError };
         }
     }
 
@@ -263,9 +263,9 @@ public class PayrollService : IPayrollService
 
             return new Response<bool> { StatusCode = StatusCodes.Status200OK, Message = $"Deduction status set to {entity.Status}.", Data = true };
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return new Response<bool> { StatusCode = StatusCodes.Status500InternalServerError, Message = ex.Message };
+            return new Response<bool> { StatusCode = StatusCodes.Status500InternalServerError, Message = Constants.Messages.ServerError };
         }
     }
 
@@ -279,9 +279,9 @@ public class PayrollService : IPayrollService
             var list = await _providerRepo.GetAllAsync();
             return new Response<List<PayoutProvider>> { StatusCode = StatusCodes.Status200OK, Message = "Success", Data = list.ToList() };
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return new Response<List<PayoutProvider>> { StatusCode = StatusCodes.Status500InternalServerError, Message = ex.Message };
+            return new Response<List<PayoutProvider>> { StatusCode = StatusCodes.Status500InternalServerError, Message = Constants.Messages.ServerError };
         }
     }
 
@@ -321,9 +321,9 @@ public class PayrollService : IPayrollService
 
             return new Response<Guid> { StatusCode = StatusCodes.Status200OK, Message = "Payout provider configured.", Data = entity.Id };
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return new Response<Guid> { StatusCode = StatusCodes.Status500InternalServerError, Message = ex.Message };
+            return new Response<Guid> { StatusCode = StatusCodes.Status500InternalServerError, Message = Constants.Messages.ServerError };
         }
     }
 
@@ -340,9 +340,9 @@ public class PayrollService : IPayrollService
 
             return new Response<bool> { StatusCode = StatusCodes.Status200OK, Message = $"Provider set to {entity.Status}.", Data = true };
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return new Response<bool> { StatusCode = StatusCodes.Status500InternalServerError, Message = ex.Message };
+            return new Response<bool> { StatusCode = StatusCodes.Status500InternalServerError, Message = Constants.Messages.ServerError };
         }
     }
 
@@ -360,9 +360,9 @@ public class PayrollService : IPayrollService
 
             return new Response<List<PayrollPeriod>> { StatusCode = StatusCodes.Status200OK, Message = "Success", Data = list };
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return new Response<List<PayrollPeriod>> { StatusCode = StatusCodes.Status500InternalServerError, Message = ex.Message };
+            return new Response<List<PayrollPeriod>> { StatusCode = StatusCodes.Status500InternalServerError, Message = Constants.Messages.ServerError };
         }
     }
 
@@ -386,9 +386,9 @@ public class PayrollService : IPayrollService
 
             return new Response<Guid> { StatusCode = StatusCodes.Status200OK, Message = "Payroll period created.", Data = entity.Id };
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return new Response<Guid> { StatusCode = StatusCodes.Status500InternalServerError, Message = ex.Message };
+            return new Response<Guid> { StatusCode = StatusCodes.Status500InternalServerError, Message = Constants.Messages.ServerError };
         }
     }
 
@@ -405,9 +405,9 @@ public class PayrollService : IPayrollService
 
             return new Response<bool> { StatusCode = StatusCodes.Status200OK, Message = $"Period status set to {entity.Status}.", Data = true };
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return new Response<bool> { StatusCode = StatusCodes.Status500InternalServerError, Message = ex.Message };
+            return new Response<bool> { StatusCode = StatusCodes.Status500InternalServerError, Message = Constants.Messages.ServerError };
         }
     }
 
@@ -471,9 +471,9 @@ public class PayrollService : IPayrollService
 
             return new Response<ValidationResultDto> { StatusCode = StatusCodes.Status200OK, Message = "Validation completed.", Data = result };
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return new Response<ValidationResultDto> { StatusCode = StatusCodes.Status500InternalServerError, Message = ex.Message };
+            return new Response<ValidationResultDto> { StatusCode = StatusCodes.Status500InternalServerError, Message = Constants.Messages.ServerError };
         }
     }
 
@@ -492,9 +492,9 @@ public class PayrollService : IPayrollService
 
             return new Response<List<PayrollRun>> { StatusCode = StatusCodes.Status200OK, Message = "Success", Data = list };
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return new Response<List<PayrollRun>> { StatusCode = StatusCodes.Status500InternalServerError, Message = ex.Message };
+            return new Response<List<PayrollRun>> { StatusCode = StatusCodes.Status500InternalServerError, Message = Constants.Messages.ServerError };
         }
     }
 
@@ -629,9 +629,9 @@ public class PayrollService : IPayrollService
 
             return new Response<Guid> { StatusCode = StatusCodes.Status200OK, Message = "Payroll run draft generated.", Data = run.Id };
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return new Response<Guid> { StatusCode = StatusCodes.Status500InternalServerError, Message = ex.Message };
+            return new Response<Guid> { StatusCode = StatusCodes.Status500InternalServerError, Message = Constants.Messages.ServerError };
         }
     }
 
@@ -649,9 +649,9 @@ public class PayrollService : IPayrollService
 
             return new Response<bool> { StatusCode = StatusCodes.Status200OK, Message = "Payroll run approved.", Data = true };
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return new Response<bool> { StatusCode = StatusCodes.Status500InternalServerError, Message = ex.Message };
+            return new Response<bool> { StatusCode = StatusCodes.Status500InternalServerError, Message = Constants.Messages.ServerError };
         }
     }
 
@@ -736,9 +736,9 @@ public class PayrollService : IPayrollService
 
             return new Response<bool> { StatusCode = StatusCodes.Status200OK, Message = "Payroll run posted and balances disbursed.", Data = true };
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return new Response<bool> { StatusCode = StatusCodes.Status500InternalServerError, Message = ex.Message };
+            return new Response<bool> { StatusCode = StatusCodes.Status500InternalServerError, Message = Constants.Messages.ServerError };
         }
     }
 
@@ -766,9 +766,9 @@ public class PayrollService : IPayrollService
 
             return new Response<bool> { StatusCode = StatusCodes.Status200OK, Message = "Payroll run draft deleted.", Data = true };
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return new Response<bool> { StatusCode = StatusCodes.Status500InternalServerError, Message = ex.Message };
+            return new Response<bool> { StatusCode = StatusCodes.Status500InternalServerError, Message = Constants.Messages.ServerError };
         }
     }
 
@@ -789,9 +789,9 @@ public class PayrollService : IPayrollService
             var config = JsonSerializer.Deserialize<SchedulerConfigDto>(setting.Value);
             return new Response<SchedulerConfigDto> { StatusCode = StatusCodes.Status200OK, Message = "Success", Data = config! };
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return new Response<SchedulerConfigDto> { StatusCode = StatusCodes.Status500InternalServerError, Message = ex.Message };
+            return new Response<SchedulerConfigDto> { StatusCode = StatusCodes.Status500InternalServerError, Message = Constants.Messages.ServerError };
         }
     }
 
@@ -816,9 +816,9 @@ public class PayrollService : IPayrollService
 
             return new Response<bool> { StatusCode = StatusCodes.Status200OK, Message = "Scheduler config saved.", Data = true };
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return new Response<bool> { StatusCode = StatusCodes.Status500InternalServerError, Message = ex.Message };
+            return new Response<bool> { StatusCode = StatusCodes.Status500InternalServerError, Message = Constants.Messages.ServerError };
         }
     }
 
@@ -839,9 +839,9 @@ public class PayrollService : IPayrollService
 
             return new Response<string> { StatusCode = res.StatusCode, Message = res.Message };
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return new Response<string> { StatusCode = StatusCodes.Status500InternalServerError, Message = ex.Message };
+            return new Response<string> { StatusCode = StatusCodes.Status500InternalServerError, Message = Constants.Messages.ServerError };
         }
     }
 
@@ -860,9 +860,9 @@ public class PayrollService : IPayrollService
 
             return new Response<List<Remittance>> { StatusCode = StatusCodes.Status200OK, Message = "Success", Data = list };
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return new Response<List<Remittance>> { StatusCode = StatusCodes.Status500InternalServerError, Message = ex.Message };
+            return new Response<List<Remittance>> { StatusCode = StatusCodes.Status500InternalServerError, Message = Constants.Messages.ServerError };
         }
     }
 
@@ -927,9 +927,9 @@ public class PayrollService : IPayrollService
 
             return new Response<bool> { StatusCode = StatusCodes.Status200OK, Message = "Remittance batch generated.", Data = true };
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return new Response<bool> { StatusCode = StatusCodes.Status500InternalServerError, Message = ex.Message };
+            return new Response<bool> { StatusCode = StatusCodes.Status500InternalServerError, Message = Constants.Messages.ServerError };
         }
     }
 
@@ -946,9 +946,9 @@ public class PayrollService : IPayrollService
 
             return new Response<bool> { StatusCode = StatusCodes.Status200OK, Message = $"Status updated to {status}.", Data = true };
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return new Response<bool> { StatusCode = StatusCodes.Status500InternalServerError, Message = ex.Message };
+            return new Response<bool> { StatusCode = StatusCodes.Status500InternalServerError, Message = Constants.Messages.ServerError };
         }
     }
 }

@@ -301,10 +301,10 @@ public class TaxpayersService : ITaxpayersService
             response.Message = "Taxpayer created successfully.";
             response.Data = new { Id = profile.Id };
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
