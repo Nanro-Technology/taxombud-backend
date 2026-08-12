@@ -60,5 +60,14 @@ public enum Modules
     Taxpayers = 17,
 
     [EnumMember(Value = "CRM")]
-    CRM = 18
+    CRM = 18,
+
+    [EnumMember(Value = "Workflows")]
+    Workflows = 19,
+
+    [EnumMember(Value = "KnowledgeCenter")]
+    KnowledgeCenter = 20,
+
+    [EnumMember(Value = "Tasks")]
+    Tasks = 21
 }
