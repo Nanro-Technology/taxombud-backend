@@ -115,19 +115,22 @@ public class ExecuteCaseApprovalCommandHandler : IRequestHandler<ExecuteCaseAppr
                         var strategy = _strategyFactory.GetStrategy(nextLevel.AssignmentAlgorithm);
                         var nextAssigneeId = await strategy.SelectAssigneeAsync(nextLevel.TargetRoleId, nextLevel.TargetUserId, cancellationToken);
 
-                        if (nextAssigneeId.HasValue)
-                        {
-                            nextInstanceLevel.AssignedUserId = nextAssigneeId;
-                            var nextTask = new CaseApprovalTask(
-                                instance.Id,
-                                nextInstanceLevel.Id,
-                                @case.Id,
-                                nextAssigneeId.Value,
-                                nextLevel.TargetRoleId
-                            );
-                            _context.CaseApprovalTasks.Add(nextTask);
-                            // NOTE: Do NOT call case.Assign() here — AssignedOfficerId points to Officers table
-                        }
+                        // Always set role on the instance level so role-based queue lookup works
+                        nextInstanceLevel.AssignedUserId = nextAssigneeId;
+                        nextInstanceLevel.AssignedRoleId = nextLevel.TargetRoleId;
+
+                        // Always create a task — even when no specific user found (role-pool task).
+                        // AssignedUserId = Guid.Empty signals a role-pool task; any member of
+                        // AssignedRoleId can see and claim it from the approval queue.
+                        var nextTask = new CaseApprovalTask(
+                            instance.Id,
+                            nextInstanceLevel.Id,
+                            @case.Id,
+                            nextAssigneeId ?? Guid.Empty,
+                            nextLevel.TargetRoleId
+                        );
+                        _context.CaseApprovalTasks.Add(nextTask);
+                        // NOTE: Do NOT call case.Assign() here — AssignedOfficerId points to Officers table
                     }
 
                     @case.UpdateStatus(CaseStatus.UnderInvestigation, nextLevel.Name, currentUserId);
@@ -152,21 +155,24 @@ public class ExecuteCaseApprovalCommandHandler : IRequestHandler<ExecuteCaseAppr
                 if (returnInstanceLevel != null)
                 {
                     returnInstanceLevel.Status = WorkflowLevelStatus.InProgress;
+
                     var strategy = _strategyFactory.GetStrategy(returnLevel.AssignmentAlgorithm);
                     var returnAssigneeId = await strategy.SelectAssigneeAsync(returnLevel.TargetRoleId, returnLevel.TargetUserId, cancellationToken);
 
-                    if (returnAssigneeId.HasValue)
-                    {
-                        var returnTask = new CaseApprovalTask(
-                            instance.Id,
-                            returnInstanceLevel.Id,
-                            @case.Id,
-                            returnAssigneeId.Value,
-                            returnLevel.TargetRoleId
-                        );
-                        _context.CaseApprovalTasks.Add(returnTask);
-                        // NOTE: Do NOT call case.Assign() here — AssignedOfficerId points to Officers table
-                    }
+                    // Always set role so the returned level is visible to role-based queue
+                    returnInstanceLevel.AssignedUserId = returnAssigneeId;
+                    returnInstanceLevel.AssignedRoleId = returnLevel.TargetRoleId;
+
+                    // Always create a task — even without a specific user (role-pool task)
+                    var returnTask = new CaseApprovalTask(
+                        instance.Id,
+                        returnInstanceLevel.Id,
+                        @case.Id,
+                        returnAssigneeId ?? Guid.Empty,
+                        returnLevel.TargetRoleId
+                    );
+                    _context.CaseApprovalTasks.Add(returnTask);
+                    // NOTE: Do NOT call case.Assign() here — AssignedOfficerId points to Officers table
                 }
 
                 @case.UpdateStatus(CaseStatus.UnderInvestigation, $"Returned to {returnLevel.Name}", currentUserId);

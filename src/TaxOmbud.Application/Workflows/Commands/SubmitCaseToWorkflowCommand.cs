@@ -111,14 +111,17 @@ public class SubmitCaseToWorkflowCommandHandler : IRequestHandler<SubmitCaseToWo
             _context.WorkflowInstanceLevels.Add(instanceLevel);
         }
 
-        // 5. Create Level 1 CaseApprovalTask if assignee resolved
-        if (firstInstanceLevel != null && firstAssigneeId.HasValue)
+        // 5. Create Level 1 CaseApprovalTask
+        // Always create — even if no specific user resolved (role-pool task).
+        // Guid.Empty as AssignedUserId signals a role-pool task visible to all
+        // users whose RoleId matches the level's TargetRoleId.
+        if (firstInstanceLevel != null)
         {
             var task = new CaseApprovalTask(
                 instance.Id,
                 firstInstanceLevel.Id,
                 @case.Id,
-                firstAssigneeId.Value,
+                firstAssigneeId ?? Guid.Empty,
                 firstInstanceLevel.AssignedRoleId
             );
             _context.CaseApprovalTasks.Add(task);

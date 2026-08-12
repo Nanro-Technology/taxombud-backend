@@ -126,6 +126,15 @@ public class CaseApprovalTaskConfiguration : IEntityTypeConfiguration<CaseApprov
             .WithMany()
             .HasForeignKey(t => t.WorkflowInstanceLevelId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // AssignedUser is optional — role-pool tasks use Guid.Empty as AssignedUserId
+        // to indicate the task is open to any member of AssignedRoleId.
+        // We do NOT configure a FK constraint here so Guid.Empty is accepted.
+        builder.HasOne(t => t.AssignedUser)
+            .WithMany()
+            .HasForeignKey(t => t.AssignedUserId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }
 
