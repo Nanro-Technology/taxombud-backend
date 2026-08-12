@@ -50,36 +50,65 @@ public class UpdateWorkflowCommandHandler : IRequestHandler<UpdateWorkflowComman
         workflow.CaseCategory = request.CaseCategory;
         workflow.IsDefault = request.IsDefault;
 
-        // Clear existing levels and rebuild
-        if (workflow.Levels.Any())
-        {
-            _context.WorkflowLevels.RemoveRange(workflow.Levels);
-            workflow.Levels.Clear();
-        }
-
+        // Upsert levels in-place to preserve primary keys and avoid foreign key constraint violations
         if (request.Levels != null && request.Levels.Any())
         {
-            foreach (var levelReq in request.Levels.OrderBy(l => l.LevelNumber))
+            var requestedLevels = request.Levels.OrderBy(l => l.LevelNumber).ToList();
+            var requestedLevelNumbers = requestedLevels.Select(l => l.LevelNumber).ToHashSet();
+
+            // 1. Remove levels that are no longer in the request (only if not referenced by workflow instances)
+            var levelsToRemove = workflow.Levels.Where(l => !requestedLevelNumbers.Contains(l.LevelNumber)).ToList();
+            foreach (var lvlToRemove in levelsToRemove)
             {
-                var level = new WorkflowLevel(
-                    workflow.Id,
-                    levelReq.LevelNumber,
-                    levelReq.Name,
-                    levelReq.Description,
-                    levelReq.TargetType,
-                    levelReq.TargetRoleId,
-                    levelReq.TargetUserId,
-                    levelReq.AssignmentMode,
-                    levelReq.AssignmentAlgorithm
-                )
+                var isReferenced = await _context.WorkflowInstanceLevels.AnyAsync(il => il.WorkflowLevelId == lvlToRemove.Id, cancellationToken);
+                if (!isReferenced)
                 {
-                    SlaHours = levelReq.SlaHours,
-                    EscalationHours = levelReq.EscalationHours,
-                    IsMandatory = levelReq.IsMandatory,
-                    RequireComment = levelReq.RequireComment,
-                    RequireAttachment = levelReq.RequireAttachment
-                };
-                workflow.Levels.Add(level);
+                    _context.WorkflowLevels.Remove(lvlToRemove);
+                    workflow.Levels.Remove(lvlToRemove);
+                }
+            }
+
+            // 2. Update existing levels in-place or add new levels
+            foreach (var levelReq in requestedLevels)
+            {
+                var existingLevel = workflow.Levels.FirstOrDefault(l => l.LevelNumber == levelReq.LevelNumber);
+                if (existingLevel != null)
+                {
+                    existingLevel.Name = levelReq.Name;
+                    existingLevel.Description = levelReq.Description;
+                    existingLevel.SlaHours = levelReq.SlaHours;
+                    existingLevel.EscalationHours = levelReq.EscalationHours;
+                    existingLevel.IsMandatory = levelReq.IsMandatory;
+                    existingLevel.RequireComment = levelReq.RequireComment;
+                    existingLevel.RequireAttachment = levelReq.RequireAttachment;
+                    existingLevel.TargetType = levelReq.TargetType;
+                    existingLevel.TargetRoleId = levelReq.TargetRoleId;
+                    existingLevel.TargetUserId = levelReq.TargetUserId;
+                    existingLevel.AssignmentMode = levelReq.AssignmentMode;
+                    existingLevel.AssignmentAlgorithm = levelReq.AssignmentAlgorithm;
+                }
+                else
+                {
+                    var newLevel = new WorkflowLevel(
+                        workflow.Id,
+                        levelReq.LevelNumber,
+                        levelReq.Name,
+                        levelReq.Description,
+                        levelReq.TargetType,
+                        levelReq.TargetRoleId,
+                        levelReq.TargetUserId,
+                        levelReq.AssignmentMode,
+                        levelReq.AssignmentAlgorithm
+                    )
+                    {
+                        SlaHours = levelReq.SlaHours,
+                        EscalationHours = levelReq.EscalationHours,
+                        IsMandatory = levelReq.IsMandatory,
+                        RequireComment = levelReq.RequireComment,
+                        RequireAttachment = levelReq.RequireAttachment
+                    };
+                    workflow.Levels.Add(newLevel);
+                }
             }
         }
 
