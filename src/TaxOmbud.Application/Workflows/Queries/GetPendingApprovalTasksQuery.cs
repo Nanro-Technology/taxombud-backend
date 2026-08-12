@@ -48,7 +48,7 @@ public class GetPendingApprovalTasksQueryHandler : IRequestHandler<GetPendingApp
         {
             query = query.Where(t =>
                 // Task directly assigned to this specific user
-                (t.AssignedUserId != Guid.Empty && t.AssignedUserId == currentUserId) ||
+                (t.AssignedUserId.HasValue && t.AssignedUserId.Value == currentUserId) ||
                 // Role-pool task — assigned to user's role (any member of that role can act)
                 (userRoleId.HasValue && t.AssignedRoleId.HasValue && t.AssignedRoleId.Value == userRoleId.Value)
             );
@@ -64,7 +64,7 @@ public class GetPendingApprovalTasksQueryHandler : IRequestHandler<GetPendingApp
             t.WorkflowInstanceLevelId,
             t.CaseId,
             t.Case?.Subject ?? "Case",
-            t.AssignedUserId,
+            t.AssignedUserId ?? Guid.Empty,
             t.AssignedUser != null ? $"{t.AssignedUser.FirstName} {t.AssignedUser.LastName}" : (t.AssignedRole != null ? t.AssignedRole.Name : "Assigned Officer"),
             t.AssignedRoleId,
             t.AssignedRole?.Name,

@@ -121,7 +121,7 @@ public class SubmitCaseToWorkflowCommandHandler : IRequestHandler<SubmitCaseToWo
                 instance.Id,
                 firstInstanceLevel.Id,
                 @case.Id,
-                firstAssigneeId ?? Guid.Empty,
+                firstAssigneeId,
                 firstInstanceLevel.AssignedRoleId
             );
             _context.CaseApprovalTasks.Add(task);
@@ -176,7 +176,7 @@ public class SubmitCaseToWorkflowCommandHandler : IRequestHandler<SubmitCaseToWo
                 t.WorkflowInstanceLevelId,
                 t.CaseId,
                 @case.Subject,
-                t.AssignedUserId,
+                t.AssignedUserId ?? Guid.Empty,
                 "Assigned Officer",
                 t.AssignedRoleId,
                 null,

@@ -31,8 +31,8 @@ public class LeastWorkloadStrategy : IRoutingStrategy
         // Group active tasks by user ID to find officer with lowest count
         var workloadCounts = await _context.CaseApprovalTasks
             .AsNoTracking()
-            .Where(t => candidateUserIds.Contains(t.AssignedUserId) && t.TaskStatus == WorkflowLevelStatus.Pending)
-            .GroupBy(t => t.AssignedUserId)
+            .Where(t => t.AssignedUserId.HasValue && candidateUserIds.Contains(t.AssignedUserId.Value) && t.TaskStatus == WorkflowLevelStatus.Pending)
+            .GroupBy(t => t.AssignedUserId!.Value)
             .Select(g => new { UserId = g.Key, Count = g.Count() })
             .ToDictionaryAsync(g => g.UserId, g => g.Count, cancellationToken);
 

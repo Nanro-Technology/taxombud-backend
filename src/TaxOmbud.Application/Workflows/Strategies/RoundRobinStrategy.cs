@@ -40,9 +40,9 @@ public class RoundRobinStrategy : IRoutingStrategy
         // Select the candidate who was assigned a task least recently
         var lastAssignedUser = await _context.CaseApprovalTasks
             .AsNoTracking()
-            .Where(t => candidateUserIds.Contains(t.AssignedUserId))
+            .Where(t => t.AssignedUserId.HasValue && candidateUserIds.Contains(t.AssignedUserId.Value))
             .OrderByDescending(t => t.CreatedAt)
-            .Select(t => t.AssignedUserId)
+            .Select(t => t.AssignedUserId ?? Guid.Empty)
             .FirstOrDefaultAsync(cancellationToken);
 
         if (lastAssignedUser == Guid.Empty)
