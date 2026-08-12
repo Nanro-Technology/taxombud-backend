@@ -16,10 +16,10 @@ public class CaseApprovalTask : BaseEntity
     public Guid CaseId { get; set; }
     public Case Case { get; set; } = null!;
 
-    public Guid AssignedUserId { get; set; }
+    public Guid? AssignedUserId { get; set; }
     /// <summary>
     /// Navigation to the specifically assigned user.
-    /// Null for role-pool tasks (AssignedUserId == Guid.Empty) where any role member can claim the task.
+    /// Null for role-pool tasks (AssignedUserId == null) where any role member can claim the task.
     /// </summary>
     public User? AssignedUser { get; set; }
 
@@ -35,7 +35,7 @@ public class CaseApprovalTask : BaseEntity
 
     protected CaseApprovalTask() { }
 
-    public CaseApprovalTask(Guid workflowInstanceId, Guid workflowInstanceLevelId, Guid caseId, Guid assignedUserId, Guid? assignedRoleId)
+    public CaseApprovalTask(Guid workflowInstanceId, Guid workflowInstanceLevelId, Guid caseId, Guid? assignedUserId, Guid? assignedRoleId)
     {
         Id = Guid.NewGuid();
         WorkflowInstanceId = workflowInstanceId;

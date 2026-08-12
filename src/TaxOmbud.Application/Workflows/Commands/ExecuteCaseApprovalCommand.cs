@@ -120,13 +120,13 @@ public class ExecuteCaseApprovalCommandHandler : IRequestHandler<ExecuteCaseAppr
                         nextInstanceLevel.AssignedRoleId = nextLevel.TargetRoleId;
 
                         // Always create a task — even when no specific user found (role-pool task).
-                        // AssignedUserId = Guid.Empty signals a role-pool task; any member of
+                        // AssignedUserId = null signals a role-pool task; any member of
                         // AssignedRoleId can see and claim it from the approval queue.
                         var nextTask = new CaseApprovalTask(
                             instance.Id,
                             nextInstanceLevel.Id,
                             @case.Id,
-                            nextAssigneeId ?? Guid.Empty,
+                            nextAssigneeId,
                             nextLevel.TargetRoleId
                         );
                         _context.CaseApprovalTasks.Add(nextTask);
@@ -168,7 +168,7 @@ public class ExecuteCaseApprovalCommandHandler : IRequestHandler<ExecuteCaseAppr
                         instance.Id,
                         returnInstanceLevel.Id,
                         @case.Id,
-                        returnAssigneeId ?? Guid.Empty,
+                        returnAssigneeId,
                         returnLevel.TargetRoleId
                     );
                     _context.CaseApprovalTasks.Add(returnTask);
