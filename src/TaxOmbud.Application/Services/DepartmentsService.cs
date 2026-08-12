@@ -3,6 +3,7 @@ using TaxOmbud.Application.Departments.DTOs;
 using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Common.Responses;
+using TaxOmbud.Common.Utilities;
 using TaxOmbud.Domain.Entities.Identity;
 
 namespace TaxOmbud.Application.Services;
@@ -58,10 +59,10 @@ public class DepartmentsService : IDepartmentsService
             response.Message = "Department created successfully.";
             response.Data = new CreateDepartmentResponse(department.Id, department.Name, department.RoutingMode, department.Description);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -104,10 +105,10 @@ public class DepartmentsService : IDepartmentsService
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Department updated successfully.";
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -139,10 +140,10 @@ public class DepartmentsService : IDepartmentsService
                 department.HeadUser != null ? new HeadUserDto(department.HeadUser.Id, department.HeadUser.FullName, department.HeadUser.Email ?? string.Empty) : null
             );
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -168,10 +169,10 @@ public class DepartmentsService : IDepartmentsService
             response.Message = "Departments retrieved successfully.";
             response.Data = departments;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }

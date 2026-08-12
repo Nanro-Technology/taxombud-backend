@@ -64,10 +64,10 @@ public class CommunicationsService : ICommunicationsService
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Success";
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -518,10 +518,10 @@ public class CommunicationsService : ICommunicationsService
             response.Message = "Success";
             response.Data = templates;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }

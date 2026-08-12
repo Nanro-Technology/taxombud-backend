@@ -4,6 +4,7 @@ using TaxOmbud.Application.Interfaces.InfrastructureService;
 using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Common.Responses;
+using TaxOmbud.Common.Utilities;
 using TaxOmbud.Domain.Entities.Documents;
 using TaxOmbud.Domain.Enums;
 
@@ -60,10 +61,10 @@ public class DocumentsService : IDocumentsService
             response.Message = "Success";
             response.Data = new AddedVersionResponse(version.Id, version.VersionNumber, version.FilePath);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -88,10 +89,10 @@ public class DocumentsService : IDocumentsService
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Success";
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -126,10 +127,10 @@ public class DocumentsService : IDocumentsService
             response.Message = "Success";
             response.Data = new CreatedDocumentResponse(doc.Id, doc.FileName, doc.FilePath, doc.ContentType, doc.FileSize);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -154,10 +155,10 @@ public class DocumentsService : IDocumentsService
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = "Success";
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -187,10 +188,10 @@ public class DocumentsService : IDocumentsService
                 doc.Versions.Select(v => new DocumentVersionDto(v.Id, v.VersionNumber, v.FilePath, v.CreatedAt))
             );
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -223,10 +224,10 @@ public class DocumentsService : IDocumentsService
             response.Message = "Success";
             response.Data = new PagedResult<DocumentListDto>(items.AsReadOnly(), total, request.Page, request.PageSize);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -254,10 +255,10 @@ public class DocumentsService : IDocumentsService
             response.Message = "Success";
             response.Data = versions;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -280,10 +281,10 @@ public class DocumentsService : IDocumentsService
             response.Message = "Success";
             response.Data = new DocumentDownloadUrlDto(url);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }

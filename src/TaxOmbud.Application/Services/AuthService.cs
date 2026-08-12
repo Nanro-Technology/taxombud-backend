@@ -9,7 +9,6 @@ using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Common.Responses;
 using TaxOmbud.Common.Utilities;
-using Microsoft.AspNetCore.Http;
 using TaxOmbud.Domain.Entities.Identity;
 using TaxOmbud.Domain.Entities.System;
 using TaxOmbud.Domain.Entities.Taxpayers;
@@ -175,8 +174,9 @@ public class AuthService : IAuthService
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Unexpected error in RegisterTaxpayerAsync");
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -297,8 +297,9 @@ public class AuthService : IAuthService
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Unexpected error in RegisterAsync");
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -350,8 +351,15 @@ public class AuthService : IAuthService
             // UserType guard — prevents a taxpayer from logging into the staff portal and vice-versa
             if (user.UserType != request.UserType)
             {
-                response.StatusCode = StatusCodes.Status401Unauthorized;
-                response.Message = Constants.Messages.InvalidCredentials;
+                response.StatusCode = StatusCodes.Status400BadRequest;
+                if (user.UserType == UserType.StaffUser)
+                {
+                    response.Message = "This email is registered to a Staff account. Please sign in via the Staff Portal.";
+                }
+                else
+                {
+                    response.Message = "This email is registered to a Taxpayer account. Please sign in via the Taxpayer Portal.";
+                }
                 return response;
             }
 
@@ -456,8 +464,9 @@ public class AuthService : IAuthService
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Unexpected error in LoginAsync");
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -499,8 +508,9 @@ public class AuthService : IAuthService
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Unexpected error in LogoutAsync");
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -579,8 +589,9 @@ public class AuthService : IAuthService
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Unexpected error in RefreshTokenAsync");
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -627,8 +638,9 @@ public class AuthService : IAuthService
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Unexpected error in ChangePasswordAsync");
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -712,8 +724,9 @@ public class AuthService : IAuthService
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Unexpected error in ForgotPasswordAsync");
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -757,8 +770,9 @@ public class AuthService : IAuthService
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Unexpected error in ResetPasswordAsync");
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -811,8 +825,9 @@ public class AuthService : IAuthService
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Unexpected error in VerifyEmailAsync");
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -884,8 +899,9 @@ public class AuthService : IAuthService
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Unexpected error in SetupMfaAsync");
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -930,8 +946,9 @@ public class AuthService : IAuthService
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Unexpected error in VerifyMfaAsync");
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -979,8 +996,9 @@ public class AuthService : IAuthService
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Unexpected error in DisableMfaAsync");
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }

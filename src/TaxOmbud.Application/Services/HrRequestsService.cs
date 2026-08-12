@@ -3,6 +3,7 @@ using TaxOmbud.Application.HrRequests.DTOs;
 using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Common.Responses;
+using TaxOmbud.Common.Utilities;
 using TaxOmbud.Application.Interfaces.InfrastructureService;
 using TaxOmbud.Domain.Entities.Hr;
 
@@ -50,10 +51,10 @@ public class HrRequestsService : IHrRequestsService
             response.Message = "Success";
             response.Data = true;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -82,10 +83,10 @@ public class HrRequestsService : IHrRequestsService
             response.Message = "Success";
             response.Data = entity.Id;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -117,10 +118,10 @@ public class HrRequestsService : IHrRequestsService
             response.Message = "Success";
             response.Data = entity.Id;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -137,10 +138,10 @@ public class HrRequestsService : IHrRequestsService
             response.Message = "Success";
             response.Data = list;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -158,10 +159,10 @@ public class HrRequestsService : IHrRequestsService
             response.Message = "Success";
             response.Data = list;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }
@@ -181,10 +182,10 @@ public class HrRequestsService : IHrRequestsService
             response.Message = "Success";
             response.Data = list;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = ex.Message;
+            response.Message = Constants.Messages.ServerError;
         }
         return response;
     }

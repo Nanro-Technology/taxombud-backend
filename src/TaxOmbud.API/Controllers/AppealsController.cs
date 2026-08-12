@@ -8,6 +8,7 @@ namespace TaxOmbud.Api.Controllers;
 /// <summary>
 /// Allows taxpayers to appeal decisions on closed cases, and officers to review appeal cases.
 /// </summary>
+[ApiController]
 [Authorize]
 [Route("api/v1/appeals")]
 public class AppealsController : ControllerBase
