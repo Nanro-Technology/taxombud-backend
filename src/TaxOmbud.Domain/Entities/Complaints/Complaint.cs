@@ -67,7 +67,8 @@ public class Complaint : BaseEntity, IHasDomainEvents
         string description,
         string referenceNumber,
         string? taxOfficeRef = null,
-        string? tinNumber = null)
+        string? tinNumber = null,
+        string? whyOtoHandle = null)
     {
         return new Complaint
         {
@@ -79,8 +80,9 @@ public class Complaint : BaseEntity, IHasDomainEvents
             Subject = subject,
             Description = description,
             ReferenceNumber = referenceNumber,
-            TaxOfficeRef = taxOfficeRef,
-            TinNumber = tinNumber,
+            TaxOfficeRef = taxOfficeRef != null && taxOfficeRef.Length > 100 ? taxOfficeRef[..100] : taxOfficeRef,
+            TinNumber = tinNumber != null && tinNumber.Length > 50 ? tinNumber[..50] : tinNumber,
+            WhyOtoHandle = whyOtoHandle != null && whyOtoHandle.Length > 2000 ? whyOtoHandle[..2000] : whyOtoHandle,
             Status = ComplaintStatus.Draft,
             CurrentStage = "input"
         };

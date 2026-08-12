@@ -523,8 +523,9 @@ public class CasesService : ICasesService
                 subjectText,
                 request.Description,
                 refNumber,
-                taxOfficeRef: request.OtoReason,
-                tinNumber: request.TaxId
+                taxOfficeRef: null,
+                tinNumber: request.TaxId,
+                whyOtoHandle: request.OtoReason
             );
 
             complaint.Submit();
