@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using TaxOmbud.Application.Interfaces.InfrastructureService;
 using TaxOmbud.Application.Interfaces.Persistence;
+using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Application.Workflows.DTOs;
 using TaxOmbud.Application.Workflows.Strategies;
 using TaxOmbud.Common.CustomException;
@@ -26,6 +27,7 @@ public class ExecuteCaseApprovalCommandHandler : IRequestHandler<ExecuteCaseAppr
     private readonly RoutingStrategyFactory _strategyFactory;
     private readonly ICurrentUser _currentUser;
     private readonly IEmailService _emailService;
+    private readonly ICaseWorkflowStageService _workflowStageService;
     private readonly ILogger<ExecuteCaseApprovalCommandHandler> _logger;
 
     public ExecuteCaseApprovalCommandHandler(
@@ -33,12 +35,14 @@ public class ExecuteCaseApprovalCommandHandler : IRequestHandler<ExecuteCaseAppr
         RoutingStrategyFactory strategyFactory,
         ICurrentUser currentUser,
         IEmailService emailService,
+        ICaseWorkflowStageService workflowStageService,
         ILogger<ExecuteCaseApprovalCommandHandler> logger)
     {
         _context = context;
         _strategyFactory = strategyFactory;
         _currentUser = currentUser;
         _emailService = emailService;
+        _workflowStageService = workflowStageService;
         _logger = logger;
     }
 
@@ -99,6 +103,8 @@ public class ExecuteCaseApprovalCommandHandler : IRequestHandler<ExecuteCaseAppr
                     // Final Approval Reached -> Complete Workflow & Case
                     instance.Complete(WorkflowStatus.Approved);
                     @case.Close("Approved", request.Comment ?? "Approved via workflow engine", currentUserId);
+                    // Flag for post-save closure notifications
+                    _pendingClosureOutcome = "Approved";
                 }
                 else
                 {
@@ -140,6 +146,8 @@ public class ExecuteCaseApprovalCommandHandler : IRequestHandler<ExecuteCaseAppr
             case WorkflowAction.Reject:
                 instance.Complete(WorkflowStatus.Rejected);
                 @case.Close("Rejected", request.Comment ?? "Rejected via workflow engine", currentUserId);
+                // Flag for post-save closure notifications
+                _pendingClosureOutcome = "Rejected";
                 break;
 
             case WorkflowAction.ReturnForCorrection:
@@ -210,30 +218,46 @@ public class ExecuteCaseApprovalCommandHandler : IRequestHandler<ExecuteCaseAppr
 
         await _context.SaveChangesAsync(cancellationToken);
 
-        // Dispatch audit notification copy to Initiator
-        try
+        // If this action caused a case closure, dispatch multi-recipient closure notifications
+        if (!string.IsNullOrEmpty(_pendingClosureOutcome))
         {
-            var caseRef = @case.CaseNumber?.Value ?? @case.Id.ToString();
-            var initiatorEmail = _currentUser.Email;
-            if (!string.IsNullOrWhiteSpace(initiatorEmail))
-            {
-                var auditHtml = $"""
-                    <div style="font-family:'Segoe UI',sans-serif;max-width:600px;margin:0 auto;border:1px solid #e0e0e0;border-radius:8px;padding:24px;">
-                      <h3 style="color:#114a31;margin-top:0;">Audit Copy: Case Workflow Action Executed</h3>
-                      <p>Hello <strong>{_currentUser.FullName ?? "Officer"}</strong>,</p>
-                      <p>You executed workflow action <strong>{request.Action}</strong> at level <strong>{levelConfig.Name}</strong> for Case Reference <strong>{caseRef}</strong>.</p>
-                      <p><strong>Workflow Status:</strong> Transitioned from <em>{previousStatus}</em> to <em>{instance.Status}</em>.</p>
-                    </div>
-                    """;
-                await _emailService.SendAsync(initiatorEmail, $"[Audit Copy] Case {caseRef}: Workflow Action {request.Action}", auditHtml, cancellationToken);
-            }
+            await _workflowStageService.SendCaseClosureNotificationsAsync(
+                @case.Id,
+                instance.Id,
+                _pendingClosureOutcome,
+                request.Comment,
+                cancellationToken);
         }
-        catch (Exception ex)
+        else
         {
-            _logger.LogError(ex, "Failed to send workflow action email notification copy for task {TaskId}", request.TaskId);
+            // For non-closure actions, send the standard audit copy to the acting officer
+            try
+            {
+                var caseRef = @case.CaseNumber?.Value ?? @case.Id.ToString();
+                var initiatorEmail = _currentUser.Email;
+                if (!string.IsNullOrWhiteSpace(initiatorEmail))
+                {
+                    var auditHtml = $"""
+                        <div style="font-family:'Segoe UI',sans-serif;max-width:600px;margin:0 auto;border:1px solid #e0e0e0;border-radius:8px;padding:24px;">
+                          <h3 style="color:#114a31;margin-top:0;">Audit Copy: Case Workflow Action Executed</h3>
+                          <p>Hello <strong>{_currentUser.FullName ?? "Officer"}</strong>,</p>
+                          <p>You executed workflow action <strong>{request.Action}</strong> at level <strong>{levelConfig.Name}</strong> for Case Reference <strong>{caseRef}</strong>.</p>
+                          <p><strong>Workflow Status:</strong> Transitioned from <em>{previousStatus}</em> to <em>{instance.Status}</em>.</p>
+                        </div>
+                        """;
+                    await _emailService.SendAsync(initiatorEmail, $"[Audit Copy] Case {caseRef}: Workflow Action {request.Action}", auditHtml, cancellationToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send workflow action audit-copy email for task {TaskId}", request.TaskId);
+            }
         }
 
         return true;
 
     }
+
+    // Transient flag used within a single Handle() call to signal a closure outcome for post-save notifications
+    private string? _pendingClosureOutcome;
 }

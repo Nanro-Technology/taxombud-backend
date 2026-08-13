@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace TaxOmbud.Application.Interfaces.Services;
@@ -80,4 +81,18 @@ public interface ICaseWorkflowStageService
     Task<bool> CloseAndArchiveCaseAsync(Guid caseId, string outcome, string summary, Guid closedBy);
     Task<Guid> LogCallCenterRecordAsync(CallCenterRecordDto dto, Guid loggedBy);
     Task<WorkflowStageDetailsDto?> GetWorkflowStageDetailsAsync(Guid caseId);
+
+    /// <summary>
+    /// Sends case-closure email notifications to all relevant parties:
+    /// 1. The complaint lodger (taxpayer user who filed the complaint).
+    /// 2. Every officer who acted on an approval task during the workflow.
+    /// 3. For corporate complaints (TaxpayerType != Individual), the same lodger email
+    ///    is used but the subject and body prominently reference the organisation name (Option C).
+    /// </summary>
+    Task SendCaseClosureNotificationsAsync(
+        Guid caseId,
+        Guid workflowInstanceId,
+        string outcome,
+        string? finalComment,
+        CancellationToken cancellationToken = default);
 }
