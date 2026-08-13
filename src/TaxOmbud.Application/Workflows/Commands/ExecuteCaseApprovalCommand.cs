@@ -68,6 +68,11 @@ public class ExecuteCaseApprovalCommandHandler : IRequestHandler<ExecuteCaseAppr
             throw new DomainException("This approval task has already been executed.");
         }
 
+        if (task.Case != null && task.Case.Status == CaseStatus.Closed)
+        {
+            throw new DomainException("This case is already closed. Workflow approval actions cannot be executed on closed cases.");
+        }
+
         var levelConfig = task.WorkflowInstanceLevel.WorkflowLevel;
 
         // Validation rules
