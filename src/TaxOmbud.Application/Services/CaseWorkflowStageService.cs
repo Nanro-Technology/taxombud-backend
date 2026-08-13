@@ -192,29 +192,91 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
         assessment.AssessedByUserId = assessedBy;
         assessment.AssessedAt = DateTimeOffset.UtcNow;
 
+        var complainant = await _context.Complaints
+            .Include(c => c.Taxpayer).ThenInclude(tp => tp.User)
+            .FirstOrDefaultAsync(c => c.Id == caseItem.ComplaintId);
+
         if (dto.IsAdmissible)
         {
             caseItem.UpdateStatus(CaseStatus.UnderAssessment, "3_assessment", assessedBy);
+            complainant?.UpdateStatus(CaseStatus.UnderAssessment, "3_assessment");
         }
         else
         {
             caseItem.Close("Inadmissible - Rejected at Assessment", dto.RejectionReason ?? "Screening failed admissibility criteria.", assessedBy);
+            complainant?.Close(dto.RejectionReason ?? "Inadmissible - Rejected at Assessment", assessedBy);
+
+            // Cancel active workflow instance and skip pending approval tasks
+            if (caseItem.ActiveWorkflowInstanceId.HasValue)
+            {
+                var instance = await _context.WorkflowInstances
+                    .Include(i => i.ApprovalTasks)
+                    .FirstOrDefaultAsync(i => i.Id == caseItem.ActiveWorkflowInstanceId.Value);
+
+                if (instance != null)
+                {
+                    instance.Complete(WorkflowStatus.Rejected);
+                    foreach (var t in instance.ApprovalTasks.Where(t => t.TaskStatus == WorkflowLevelStatus.Pending))
+                    {
+                        t.TaskStatus = WorkflowLevelStatus.Skipped;
+                        t.Comment = "Cancelled: Case failed admissibility screening.";
+                        t.PerformedAt = DateTimeOffset.UtcNow;
+                    }
+                }
+            }
         }
 
         await _context.SaveChangesAsync();
-
-        var complainant = await _context.Complaints
-            .Include(c => c.Taxpayer).ThenInclude(tp => tp.User)
-            .FirstOrDefaultAsync(c => c.Id == caseItem.ComplaintId);
 
         var cEmail = complainant?.Taxpayer?.User?.Email;
         var cName = complainant?.Taxpayer?.User != null ? $"{complainant.Taxpayer.User.FirstName} {complainant.Taxpayer.User.LastName}" : "Complainant";
         var caseRef = caseItem.CaseNumber?.Value ?? caseItem.Id.ToString();
 
         var admissibilityStatus = dto.IsAdmissible ? "ADMISSIBLE" : "INADMISSIBLE";
+
+        var reasonText = !string.IsNullOrWhiteSpace(dto.RejectionReason)
+            ? dto.RejectionReason
+            : !string.IsNullOrWhiteSpace(dto.ScreeningNotes)
+                ? dto.ScreeningNotes
+                : null;
+
+        // Build list of specific failed criteria
+        var failedCriteria = new List<string>();
+        if (!dto.IsNotAnonymous) failedCriteria.Add("Complaint submitted anonymously");
+        if (!dto.IsNotInCourt) failedCriteria.Add("Matter is currently before a court or tribunal");
+        if (!dto.IsWithinMandate) failedCriteria.Add("Subject matter falls outside Tax Ombud statutory mandate");
+        if (!dto.HasSupportingDocuments) failedCriteria.Add("Insufficient supporting documentation provided");
+        if (!dto.HasExhaustedInternalProcedures) failedCriteria.Add("Internal tax authority dispute procedures have not been exhausted");
+
+        if (string.IsNullOrWhiteSpace(reasonText))
+        {
+            reasonText = failedCriteria.Any()
+                ? string.Join("; ", failedCriteria)
+                : "Did not meet statutory admissibility requirements.";
+        }
+
+        var failedCriteriaHtml = failedCriteria.Any()
+            ? $"""
+              <div style="margin-top:10px;font-size:.88rem;color:#7f1d1d;">
+                <strong>Specific Unmet Criteria:</strong>
+                <ul style="margin:4px 0 0 18px;padding:0;">
+                  {string.Join("", failedCriteria.Select(c => $"<li>{c}</li>"))}
+                </ul>
+              </div>
+              """
+            : string.Empty;
+
         var bodyMsg = dto.IsAdmissible
-            ? $"<p>Your case has passed statutory admissibility screening (Status: <strong>ADMISSIBLE</strong>) and is advancing to assignment and investigation.</p>"
-            : $"<p>Your case was evaluated as <strong>INADMISSIBLE</strong>. Reason: {dto.RejectionReason}</p>";
+            ? $"<p>Your case has passed statutory admissibility screening (Status: <strong style=\"color:#114a31;\">ADMISSIBLE</strong>) and is advancing to assignment and investigation.</p>"
+            : $"""
+              <p>Your case was evaluated as <strong style="color:#c0392b;">INADMISSIBLE</strong> and cannot be admitted for investigation at this time.</p>
+              <div style="background:#fef2f2;border-left:4px solid #dc2626;padding:14px 18px;margin:16px 0;border-radius:4px;">
+                <strong style="color:#991b1b;display:block;margin-bottom:4px;">Reason for Inadmissibility:</strong>
+                <span style="color:#1f2937;">{reasonText}</span>
+                {failedCriteriaHtml}
+              </div>
+              <p style="font-size:.85rem;color:#4b5563;">If you believe this determination was made in error or if you have new supporting evidence, you may contact the Office of the Tax Ombud for further guidance.</p>
+              """;
 
         await SendStageNotificationWithAuditCopyAsync(
             cEmail ?? string.Empty,
@@ -401,11 +463,32 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
 
         caseItem.Close(outcome, summary, closedBy);
 
-        await _context.SaveChangesAsync();
-
         var complainant = await _context.Complaints
             .Include(c => c.Taxpayer).ThenInclude(tp => tp.User)
             .FirstOrDefaultAsync(c => c.Id == caseItem.ComplaintId);
+
+        complainant?.Close(outcome, closedBy);
+
+        // Cancel active workflow instance and skip pending approval tasks
+        if (caseItem.ActiveWorkflowInstanceId.HasValue)
+        {
+            var instance = await _context.WorkflowInstances
+                .Include(i => i.ApprovalTasks)
+                .FirstOrDefaultAsync(i => i.Id == caseItem.ActiveWorkflowInstanceId.Value);
+
+            if (instance != null)
+            {
+                instance.Complete(WorkflowStatus.Cancelled);
+                foreach (var t in instance.ApprovalTasks.Where(t => t.TaskStatus == WorkflowLevelStatus.Pending))
+                {
+                    t.TaskStatus = WorkflowLevelStatus.Skipped;
+                    t.Comment = "Cancelled: Case closed and archived.";
+                    t.PerformedAt = DateTimeOffset.UtcNow;
+                }
+            }
+        }
+
+        await _context.SaveChangesAsync();
 
         var cEmail = complainant?.Taxpayer?.User?.Email;
         var cName = complainant?.Taxpayer?.User != null ? $"{complainant.Taxpayer.User.FirstName} {complainant.Taxpayer.User.LastName}" : "Complainant";
