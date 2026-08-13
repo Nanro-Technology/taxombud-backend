@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using TaxOmbud.Application.Interfaces.Persistence;
@@ -520,5 +522,141 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
             },
             CallRecords = callRecords
         };
+    }
+
+    // ─── Case Closure Notifications ────────────────────────────────────────────
+
+    /// <inheritdoc/>
+    public async Task SendCaseClosureNotificationsAsync(
+        Guid caseId,
+        Guid workflowInstanceId,
+        string outcome,
+        string? finalComment,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // ── 1. Load the case with its linked complaint → taxpayer → user ──
+            var caseItem = await _context.Cases
+                .Include(c => c.Complaint)
+                    .ThenInclude(cp => cp.Taxpayer)
+                        .ThenInclude(tp => tp.User)
+                .FirstOrDefaultAsync(c => c.Id == caseId, cancellationToken);
+
+            if (caseItem == null)
+            {
+                _logger.LogWarning("SendCaseClosureNotificationsAsync: Case {CaseId} not found — skipping notifications.", caseId);
+                return;
+            }
+
+            var caseRef    = caseItem.CaseNumber?.Value ?? caseItem.Id.ToString();
+            var closedAt   = caseItem.ClosedAt?.ToString("dd MMM yyyy, HH:mm UTC") ?? DateTimeOffset.UtcNow.ToString("dd MMM yyyy, HH:mm UTC");
+            var complaint  = caseItem.Complaint;
+            var taxpayer   = complaint?.Taxpayer;
+            var lodgerUser = taxpayer?.User;
+
+            // ── 2. Determine if corporate (Option C: same email, different subject/body) ──
+            bool isCorporate = taxpayer != null && taxpayer.TaxpayerType != TaxpayerType.Individual;
+            string? companyName = isCorporate ? (taxpayer!.CompanyName ?? "Your Organisation") : null;
+
+            // ── 3. Collect recipients — use a dict to deduplicate by email ──
+            var recipients = new Dictionary<string, (string Name, string Role)>(StringComparer.OrdinalIgnoreCase);
+
+            // Lodger
+            if (lodgerUser != null && !string.IsNullOrWhiteSpace(lodgerUser.Email))
+            {
+                var lodgerName = $"{lodgerUser.FirstName} {lodgerUser.LastName}".Trim();
+                recipients[lodgerUser.Email] = (lodgerName, "Complainant");
+            }
+
+            // ── 4. Load every officer who executed a task on this workflow instance ──
+            var actingTasks = await _context.CaseApprovalTasks
+                .Include(t => t.AssignedUser)
+                .Where(t => t.WorkflowInstanceId == workflowInstanceId && t.PerformedAt != null)
+                .ToListAsync(cancellationToken);
+
+            foreach (var approvalTask in actingTasks)
+            {
+                var officer = approvalTask.AssignedUser;
+                if (officer == null || string.IsNullOrWhiteSpace(officer.Email)) continue;
+                if (!recipients.ContainsKey(officer.Email))
+                {
+                    var officerName = $"{officer.FirstName} {officer.LastName}".Trim();
+                    recipients[officer.Email] = (officerName, "Officer");
+                }
+            }
+
+            // ── 5. Send personalized email to each recipient ──
+            foreach (var (email, (name, role)) in recipients)
+            {
+                // Option C: for corporate complaints, prefix subject with company name
+                var subjectSuffix = (isCorporate && role == "Complainant")
+                    ? $" — {companyName}"
+                    : string.Empty;
+
+                var subject = $"Case {caseRef} Has Been {outcome}{subjectSuffix} | Office of the Tax Ombud";
+
+                var corporateNotice = (isCorporate && role == "Complainant")
+                    ? $"""
+                      <div style="background:#fff8e1;border-left:4px solid #c9a227;padding:10px 16px;margin:16px 0;font-size:.9rem;">
+                        <strong>Organisation:</strong> {companyName}<br/>
+                        This notification is issued on behalf of the above-mentioned organisation.
+                      </div>
+                      """
+                    : string.Empty;
+
+                var outcomeColor = outcome.Equals("Approved", StringComparison.OrdinalIgnoreCase) ? "#114a31" : "#c0392b";
+                var roleLabel    = role == "Officer" ? "As an officer who acted on this case, please keep a copy for your records." : "You are receiving this because you filed the original complaint.";
+
+                var bodyContent = $"""
+                    <p>Dear <strong>{name}</strong>,</p>
+                    <p>We write to formally notify you that the case referenced below has been <strong style="color:{outcomeColor};">{outcome}</strong> and officially closed.</p>
+                    {corporateNotice}
+                    <table style="width:100%;border-collapse:collapse;font-size:.9rem;margin:16px 0;">
+                      <tr style="background:#f4f6f8;">
+                        <td style="padding:8px 12px;font-weight:600;width:40%;">Case Reference</td>
+                        <td style="padding:8px 12px;">{caseRef}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding:8px 12px;font-weight:600;">Outcome</td>
+                        <td style="padding:8px 12px;color:{outcomeColor};font-weight:bold;">{outcome}</td>
+                      </tr>
+                      <tr style="background:#f4f6f8;">
+                        <td style="padding:8px 12px;font-weight:600;">Closed At</td>
+                        <td style="padding:8px 12px;">{closedAt}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding:8px 12px;font-weight:600;">Subject</td>
+                        <td style="padding:8px 12px;">{caseItem.Subject}</td>
+                      </tr>
+                      {(string.IsNullOrWhiteSpace(finalComment) ? "" : $"""
+                      <tr style="background:#f4f6f8;">
+                        <td style="padding:8px 12px;font-weight:600;">Final Remarks</td>
+                        <td style="padding:8px 12px;">{finalComment}</td>
+                      </tr>
+                      """)}
+                    </table>
+                    <p style="font-size:.85rem;color:#666;">{roleLabel}</p>
+                    <p>Should you have any enquiries regarding this outcome, please contact the Office of the Tax Ombud directly.</p>
+                    """;
+
+                await SendStageNotificationWithAuditCopyAsync(
+                    email,
+                    name,
+                    subject,
+                    bodyContent,
+                    Guid.Empty,           // no initiator audit copy needed for closure broadcast
+                    "10_closure",
+                    caseRef);
+            }
+
+            _logger.LogInformation(
+                "Case closure notifications dispatched for Case {CaseRef} (outcome: {Outcome}) to {Count} recipient(s).",
+                caseRef, outcome, recipients.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send case closure notifications for CaseId {CaseId}", caseId);
+        }
     }
 }
