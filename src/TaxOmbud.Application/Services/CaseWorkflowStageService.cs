@@ -692,8 +692,7 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
                 var roleLabel    = role == "Officer" ? "As an officer who acted on this case, please keep a copy for your records." : "You are receiving this because you filed the original complaint.";
 
                 var bodyContent = $"""
-                    <p>Dear <strong>{name}</strong>,</p>
-                    <p>We write to formally notify you that the case referenced below has been <strong style="color:{outcomeColor};">{outcome}</strong> and officially closed.</p>
+                                        <p>We write to formally notify you that the case referenced below has been <strong style="color:{outcomeColor};">{outcome}</strong> and officially closed.</p>
                     {corporateNotice}
                     <table style="width:100%;border-collapse:collapse;font-size:.9rem;margin:16px 0;">
                       <tr style="background:#f4f6f8;">
