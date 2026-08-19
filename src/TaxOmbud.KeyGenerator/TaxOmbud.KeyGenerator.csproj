@@ -7,4 +7,11 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\TaxOmbud.Domain\TaxOmbud.Domain.csproj" />
+    <ProjectReference Include="..\TaxOmbud.Application\TaxOmbud.Application.csproj" />
+    <ProjectReference Include="..\TaxOmbud.Persistence\TaxOmbud.Persistence.csproj" />
+    <ProjectReference Include="..\TaxOmbud.Common\TaxOmbud.Common.csproj" />
+  </ItemGroup>
+
 </Project>

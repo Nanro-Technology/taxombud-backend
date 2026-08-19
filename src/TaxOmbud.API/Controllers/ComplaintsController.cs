@@ -140,7 +140,7 @@ public class ComplaintsController : ControllerBase
     }
 
     /// <summary>Escalate a complaint.</summary>
-    [HttpPatch("{id:guid}/escalate")]
+    [HttpPost("{id:guid}/escalate")]
     [Authorize(Policy = "OfficerOrAbove")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -152,7 +152,7 @@ public class ComplaintsController : ControllerBase
     }
 
     /// <summary>Close a complaint.</summary>
-    [HttpPatch("{id:guid}/close")]
+    [HttpPost("{id:guid}/close")]
     [Authorize(Policy = "OfficerOrAbove")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -164,7 +164,7 @@ public class ComplaintsController : ControllerBase
     }
 
     /// <summary>Reopen a closed complaint.</summary>
-    [HttpPatch("{id:guid}/reopen")]
+    [HttpPost("{id:guid}/reopen")]
     [Authorize(Policy = "OfficerOrAbove")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

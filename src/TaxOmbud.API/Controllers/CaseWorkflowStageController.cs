@@ -1,8 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TaxOmbud.Application.Cases.DTOs;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Common.Responses;
 
@@ -15,10 +17,12 @@ namespace TaxOmbud.Api.Controllers;
 public class CaseWorkflowStageController : ControllerBase
 {
     private readonly ICaseWorkflowStageService _stageService;
+    private readonly ICasesService _casesService;
 
-    public CaseWorkflowStageController(ICaseWorkflowStageService stageService)
+    public CaseWorkflowStageController(ICaseWorkflowStageService stageService, ICasesService casesService)
     {
         _stageService = stageService;
+        _casesService = casesService;
     }
 
     private Guid GetUserId()
@@ -83,6 +87,26 @@ public class CaseWorkflowStageController : ControllerBase
         return Ok(new Response<Guid> { StatusCode = 200, Message = "Call center record saved.", Data = recordId });
     }
 
+    /// <summary>Record a Case Officer finding (Stage 7) — delegates to ICasesService.</summary>
+    [HttpPost("{caseId}/findings")]
+    public async Task<ActionResult> AddFinding(Guid caseId, [FromBody] AddFindingRequest request)
+    {
+        var result = await _casesService.AddCaseFindingAsync(
+            new AddCaseFindingCommand(caseId, request.Description),
+            HttpContext.RequestAborted);
+        return StatusCode(result.StatusCode, result);
+    }
+
+    /// <summary>Retrieve all findings for a case — delegates to ICasesService.</summary>
+    [HttpGet("{caseId}/findings")]
+    public async Task<ActionResult<Response<IReadOnlyList<CaseFindingDto>>>> GetFindings(Guid caseId)
+    {
+        var result = await _casesService.GetCaseFindingsAsync(
+            new GetCaseFindingsQuery(caseId),
+            HttpContext.RequestAborted);
+        return StatusCode(result.StatusCode, result);
+    }
+
     [HttpGet("{caseId}/details")]
     public async Task<ActionResult<Response<WorkflowStageDetailsDto>>> GetWorkflowStageDetails(Guid caseId)
     {
@@ -90,6 +114,11 @@ public class CaseWorkflowStageController : ControllerBase
         if (details == null) return NotFound(new Response<WorkflowStageDetailsDto> { StatusCode = 404, Message = "Case details not found." });
         return Ok(new Response<WorkflowStageDetailsDto> { StatusCode = 200, Message = "Stage details retrieved.", Data = details });
     }
+}
+
+public class AddFindingRequest
+{
+    public string Description { get; set; } = null!;
 }
 
 public class AssignCaseRequest

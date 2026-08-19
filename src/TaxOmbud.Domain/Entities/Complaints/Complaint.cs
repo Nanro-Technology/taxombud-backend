@@ -18,7 +18,7 @@ public class Complaint : BaseEntity, IHasDomainEvents
     public void AddDomainEvent(IDomainEvent domainEvent) => _domainEvents.Add(domainEvent);
     public void RemoveDomainEvent(IDomainEvent domainEvent) => _domainEvents.Remove(domainEvent);
     public void ClearDomainEvents() => _domainEvents.Clear();
-    // ─── Properties ───────────────────────────────────────────────────────────
+
     public string ReferenceNumber { get; private set; } = null!;
     public string Subject { get; private set; } = null!;
     public string Description { get; private set; } = null!;
@@ -54,10 +54,8 @@ public class Complaint : BaseEntity, IHasDomainEvents
     public ICollection<ComplaintLink> Links { get; private set; } = new List<ComplaintLink>();
     public ICollection<CallCenterRecord> CallCenterRecords { get; private set; } = new List<CallCenterRecord>();
 
-    // ─── EF Core constructor ──────────────────────────────────────────────────
     protected Complaint() { }
 
-    // ─── Factory ──────────────────────────────────────────────────────────────
     public static Complaint Create(
         Guid taxpayerId,
         string taxType,
@@ -88,7 +86,6 @@ public class Complaint : BaseEntity, IHasDomainEvents
         };
     }
 
-    // ─── State Machine ────────────────────────────────────────────────────────
     public void Submit()
     {
         if (Status != ComplaintStatus.Draft)
@@ -119,11 +116,17 @@ public class Complaint : BaseEntity, IHasDomainEvents
 
     public void Escalate(string reason, Guid escalatedByUserId)
     {
+        if (Status == ComplaintStatus.Closed || Status == ComplaintStatus.Withdrawn)
+            throw new DomainException("Cannot escalate a complaint that is already closed or withdrawn.");
+
+        if (Status == ComplaintStatus.UnderInvestigation)
+            throw new DomainException("Complaint is already under investigation and cannot be re-escalated.");
+
         var previous = Status;
         Status = ComplaintStatus.UnderInvestigation;
         CurrentStage = "5_investigation";
 
-        AddDomainEvent(new ComplaintEscalatedEvent(Id, reason, escalatedByUserId, DateTimeOffset.UtcNow));
+        AddDomainEvent(new ComplaintEscalatedEvent(Id, previous, reason, escalatedByUserId, DateTimeOffset.UtcNow));
     }
 
     public void Close(string reason, Guid closedByUserId)
