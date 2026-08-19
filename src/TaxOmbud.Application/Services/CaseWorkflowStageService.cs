@@ -1,3 +1,4 @@
+using TaxOmbud.Application.Cases.DTOs;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -339,6 +340,7 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
 
         _context.MediationLogs.Add(log);
         caseItem.StartInvestigation();
+        caseItem.SetSubStage("6_mediation");
 
         await _context.SaveChangesAsync();
 
@@ -383,6 +385,7 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
         };
 
         _context.QualityAssuranceReviews.Add(qa);
+        caseItem.SetSubStage("8_qa_review");
         
         if (dto.IsApprovedForDecision)
         {
@@ -541,7 +544,16 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
 
     public async Task<WorkflowStageDetailsDto?> GetWorkflowStageDetailsAsync(Guid caseId)
     {
-        var caseItem = await EnsureCaseExistsAsync(caseId, Guid.Empty);
+        // Load case with all sub-stage data for details view
+        var caseItem = await _context.Cases
+            .Include(c => c.AdmissibilityAssessment)
+            .Include(c => c.MediationLogs)
+            .Include(c => c.Findings)
+            .Include(c => c.Recommendations)
+            .Include(c => c.QualityAssuranceReviews)
+            .Include(c => c.Decision)
+            .FirstOrDefaultAsync(c => c.Id == caseId || c.ComplaintId == caseId);
+        // (EnsureCaseExistsAsync used for other methods; direct query used here for includes)
 
         if (caseItem == null) return null;
 
@@ -564,6 +576,7 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
             CaseId = caseItem.Id,
             CaseNumber = caseItem.CaseNumber?.Value ?? caseItem.Id.ToString(),
             CurrentStage = caseItem.CurrentStage,
+            CurrentSubStage = caseItem.CurrentSubStage,
             Status = caseItem.Status.ToString(),
             Admissibility = caseItem.AdmissibilityAssessment == null ? null : new AdmissibilityAssessmentDto
             {
@@ -576,6 +589,14 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
                 ScreeningNotes = caseItem.AdmissibilityAssessment.ScreeningNotes,
                 RejectionReason = caseItem.AdmissibilityAssessment.RejectionReason
             },
+            Findings = caseItem.Findings.Select(f => new CaseFindingDto(f.Id, f.CaseId, f.Description, DateTimeOffset.Parse(f.CreatedAt.ToString("o")), f.CreatedByUserId)).ToArray(),
+            Recommendations = caseItem.Recommendations.Select(r => new CaseRecommendationDto
+            {
+                Id = r.Id,
+                RecommendationText = r.RecommendationText,
+                Status = r.Status,
+                Notes = r.Notes
+            }).ToArray(),
             MediationSessions = caseItem.MediationLogs.Select(m => new MediationLogDto
             {
                 SessionDate = m.SessionDate,
@@ -607,7 +628,8 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
         };
     }
 
-    // ─── Case Closure Notifications ────────────────────────────────────────────
+
+// ─── Case Closure Notifications ────────────────────────────────────────────
 
     /// <inheritdoc/>
     public async Task SendCaseClosureNotificationsAsync(

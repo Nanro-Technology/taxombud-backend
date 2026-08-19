@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using TaxOmbud.Application.Cases.DTOs;
 
 namespace TaxOmbud.Application.Interfaces.Services;
 
@@ -57,14 +58,26 @@ public class CallCenterRecordDto
     public string CallSummary { get; set; } = null!;
 }
 
+/// <summary>New DTO for case recommendations (Gap 4).</summary>
+public class CaseRecommendationDto
+{
+    public Guid Id { get; set; }
+    public string RecommendationText { get; set; } = null!;
+    public string Status { get; set; } = "pending";
+    public string? Notes { get; set; }
+}
+
 public class WorkflowStageDetailsDto
 {
     public Guid CaseId { get; set; }
     public string CaseNumber { get; set; } = null!;
     public string CurrentStage { get; set; } = null!;
+    public string? CurrentSubStage { get; set; }
     public string Status { get; set; } = null!;
     public AdmissibilityAssessmentDto? Admissibility { get; set; }
     public MediationLogDto[] MediationSessions { get; set; } = Array.Empty<MediationLogDto>();
+    public CaseFindingDto[] Findings { get; set; } = Array.Empty<CaseFindingDto>();
+    public CaseRecommendationDto[] Recommendations { get; set; } = Array.Empty<CaseRecommendationDto>();
     public QualityAssuranceReviewDto[] QaReviews { get; set; } = Array.Empty<QualityAssuranceReviewDto>();
     public CaseDecisionDto? Decision { get; set; }
     public CallCenterRecordDto[] CallRecords { get; set; } = Array.Empty<CallCenterRecordDto>();

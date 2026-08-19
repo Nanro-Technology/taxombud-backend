@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using TaxOmbud.Common.CustomException;
 using TaxOmbud.Common.Utilities;
 using TaxOmbud.Domain.Common;
@@ -30,7 +32,7 @@ public class Case : BaseEntity, IHasDomainEvents
     
     public CaseStatus Status { get; private set; } = CaseStatus.Submitted;
     public string CurrentStage { get; private set; } = "1_submission";
-
+    public string? CurrentSubStage { get; private set; }  // e.g. "6_mediation", "7_findings", "8_qa_review"
 
     public Guid? AssignedOfficerId { get; private set; }
     public Officer? AssignedOfficer { get; private set; }
@@ -117,9 +119,19 @@ public class Case : BaseEntity, IHasDomainEvents
 
     public void StartInvestigation()
     {
+        if (Status == CaseStatus.Closed)
+            throw new DomainException("Cannot start investigation on a closed case.");
+
+        if (Status != CaseStatus.Assigned)
+            throw new DomainException("A case must be assigned to an officer before investigation can begin.");
+
         Status = CaseStatus.UnderInvestigation;
         CurrentStage = "5_investigation";
+        CurrentSubStage = "5_investigation";
     }
+
+    public void SetSubStage(string subStage)
+        => CurrentSubStage = subStage;
 
     public void IssueDecision(CaseDecision decision)
     {
