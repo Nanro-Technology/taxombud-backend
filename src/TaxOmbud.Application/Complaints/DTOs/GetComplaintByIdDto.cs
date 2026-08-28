@@ -30,7 +30,8 @@ public record ComplaintDetailDto(
     TaxpayerSummary Taxpayer,
     OfficerSummary? AssignedOfficer,
     DateTimeOffset CreatedAt,
-    DateTimeOffset? UpdatedAt
+    DateTimeOffset? UpdatedAt,
+    Guid? CaseId = null
 );
 
 public record TaxpayerSummary(Guid Id, string FullName, string? Email, string? Phone);

@@ -6,6 +6,8 @@ using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Application.Workflows.DTOs;
 using TaxOmbud.Application.Workflows.Strategies;
 using TaxOmbud.Common.CustomException;
+using TaxOmbud.Domain.Constants;
+using TaxOmbud.Domain.Entities.Cases;
 using TaxOmbud.Domain.Entities.Workflows;
 using TaxOmbud.Domain.Enums;
 using Microsoft.Extensions.Logging;
@@ -144,7 +146,7 @@ public class ExecuteCaseApprovalCommandHandler : IRequestHandler<ExecuteCaseAppr
                         // NOTE: Do NOT call case.Assign() here — AssignedOfficerId points to Officers table
                     }
 
-                    @case.UpdateStatus(CaseStatus.UnderInvestigation, nextLevel.Name, currentUserId);
+                    @case.UpdateStatus(GetCanonicalStatus(nextLevel.LevelNumber), GetCanonicalStage(nextLevel.LevelNumber), currentUserId);
                 }
                 break;
 
@@ -158,9 +160,7 @@ public class ExecuteCaseApprovalCommandHandler : IRequestHandler<ExecuteCaseAppr
             case WorkflowAction.ReturnForCorrection:
                 var returnLevelNum = request.ReturnToLevelNumber ?? 1;
                 var returnLevel = allLevels.FirstOrDefault(l => l.LevelNumber == returnLevelNum) ?? allLevels.First();
-                
-                instance.CurrentLevelNumber = returnLevel.LevelNumber;
-                instance.Status = WorkflowStatus.Returned;
+                instance.AdvanceToLevel(returnLevel.LevelNumber);
 
                 var returnInstanceLevel = await _context.WorkflowInstanceLevels
                     .FirstOrDefaultAsync(il => il.WorkflowInstanceId == instance.Id && il.LevelNumber == returnLevel.LevelNumber, cancellationToken);
@@ -265,4 +265,28 @@ public class ExecuteCaseApprovalCommandHandler : IRequestHandler<ExecuteCaseAppr
 
     // Transient flag used within a single Handle() call to signal a closure outcome for post-save notifications
     private string? _pendingClosureOutcome;
+
+    private static string GetCanonicalStage(int levelNumber) => levelNumber switch
+    {
+        1 => WorkflowStage.Intake,
+        2 => WorkflowStage.RegistrationAndAcknowledgement,
+        3 => WorkflowStage.InitialReviewAndAssignment,
+        4 => WorkflowStage.JurisdictionAndAdmissibility,
+        5 => WorkflowStage.InvestigationAndResolution,
+        6 => WorkflowStage.DecisionAndCommunication,
+        7 => WorkflowStage.ClosureAndArchiving,
+        _ => WorkflowStage.Intake
+    };
+
+    private static CaseStatus GetCanonicalStatus(int levelNumber) => levelNumber switch
+    {
+        1 => CaseStatus.Submitted,
+        2 => CaseStatus.Registered,
+        3 => CaseStatus.UnderAssessment,
+        4 => CaseStatus.UnderAssessment,
+        5 => CaseStatus.UnderInvestigation,
+        6 => CaseStatus.DecisionIssued,
+        7 => CaseStatus.Closed,
+        _ => CaseStatus.UnderInvestigation
+    };
 }

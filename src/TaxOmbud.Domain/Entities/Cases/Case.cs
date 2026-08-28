@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using TaxOmbud.Common.CustomException;
 using TaxOmbud.Common.Utilities;
 using TaxOmbud.Domain.Common;
+using TaxOmbud.Domain.Constants;
 using TaxOmbud.Domain.Entities.Complaints;
 using TaxOmbud.Domain.Entities.Identity;
 using TaxOmbud.Domain.Entities.Officers;
@@ -22,17 +23,23 @@ public class Case : BaseEntity, IHasDomainEvents
     public void ClearDomainEvents() => _domainEvents.Clear();
 
     public ReferenceNumber CaseNumber { get; private set; } = null!;
-    
+
     public Guid ComplaintId { get; set; }
     public Complaint Complaint { get; set; } = null!;
 
     public string Subject { get; set; } = null!;
     public string? Summary { get; set; }
     public string Priority { get; set; } = "medium"; // low, medium, high, urgent
-    
+
     public CaseStatus Status { get; private set; } = CaseStatus.Submitted;
-    public string CurrentStage { get; private set; } = "1_submission";
-    public string? CurrentSubStage { get; private set; }  // e.g. "6_mediation", "7_findings", "8_qa_review"
+
+    /// <summary>
+    /// Current workflow stage slug. Always one of the WorkflowStage constants.
+    /// </summary>
+    public string CurrentStage { get; private set; } = WorkflowStage.Intake;
+
+    /// <summary>How the complaint was originally received.</summary>
+    public IntakeChannel IntakeChannel { get; set; } = IntakeChannel.OnlinePortal;
 
     public Guid? AssignedOfficerId { get; private set; }
     public Officer? AssignedOfficer { get; private set; }
@@ -45,10 +52,16 @@ public class Case : BaseEntity, IHasDomainEvents
 
     public DateTimeOffset? DueDate { get; set; } // SLA deadline
     public DateTimeOffset? ClosedAt { get; private set; }
-    
+
     public string? Outcome { get; private set; }
     public string? FindingsSummary { get; private set; }
-    
+
+    /// <summary>
+    /// Archiving fields — set at Stage 7 (Closure & Archiving).
+    /// </summary>
+    public bool IsArchived { get; private set; } = false;
+    public DateTimeOffset? ArchivedAt { get; private set; }
+
     public int? CsatRating { get; set; }
     public int? NpsScore { get; set; }
     public string? CsatComment { get; set; }
@@ -57,6 +70,9 @@ public class Case : BaseEntity, IHasDomainEvents
     public WorkflowInstance? ActiveWorkflowInstance { get; set; }
 
     public AdmissibilityAssessment? AdmissibilityAssessment { get; set; }
+    public NotAdmissibleDecision? NotAdmissibleDecision { get; set; }
+    public CaseArchiveRecord? ArchiveRecord { get; set; }
+
     public ICollection<MediationLog> MediationLogs { get; set; } = new List<MediationLog>();
     public ICollection<QualityAssuranceReview> QualityAssuranceReviews { get; set; } = new List<QualityAssuranceReview>();
     public CaseDecision? Decision { get; set; }
@@ -71,52 +87,64 @@ public class Case : BaseEntity, IHasDomainEvents
     // Constructor for EF Core
     protected Case() { }
 
-    public Case(Guid complaintId, string subject, Guid accountId, string priority)
+    public Case(Guid complaintId, string subject, Guid accountId, string priority, IntakeChannel intakeChannel = IntakeChannel.OnlinePortal)
     {
         Id = Guid.NewGuid();
         ComplaintId = complaintId;
         Subject = subject;
         AccountId = accountId;
         Priority = priority;
+        IntakeChannel = intakeChannel;
         Status = CaseStatus.Submitted;
-        CurrentStage = "1_submission";
+        CurrentStage = WorkflowStage.Intake;
         CreatedAt = DateTime.UtcNow;
     }
 
+    /// <summary>
+    /// Stage 2 — Registration & Acknowledgement.
+    /// Assigns the Case Reference Number and raises CaseOpenedEvent.
+    /// </summary>
     public void Open(ReferenceNumber caseNumber)
     {
         if (CaseNumber != null)
-        {
             throw new DomainException("Case number has already been assigned.");
-        }
 
         CaseNumber = caseNumber;
         Status = CaseStatus.Registered;
-        CurrentStage = "2_registration";
-        
+        CurrentStage = WorkflowStage.RegistrationAndAcknowledgement;
+
         AddDomainEvent(new CaseOpenedEvent(Id, CaseNumber.Value, ComplaintId, DateTimeOffset.UtcNow));
     }
 
-    public void MoveToAssessment()
+    /// <summary>
+    /// Stage 3 — Initial Review & Assignment.
+    /// CE performs initial review and assigns to an officer.
+    /// </summary>
+    public void StartInitialReview()
     {
         Status = CaseStatus.UnderAssessment;
-        CurrentStage = "3_assessment";
+        CurrentStage = WorkflowStage.InitialReviewAndAssignment;
     }
 
+    /// <summary>
+    /// Stage 3 → 4 — CE assigns the case to an officer, transitioning to Jurisdiction & Admissibility Assessment.
+    /// </summary>
     public void Assign(Guid officerId, Guid assignedByUserId)
     {
         if (Status == CaseStatus.Closed)
-        {
             throw new DomainException("Cannot assign an officer to a closed case.");
-        }
 
         AssignedOfficerId = officerId;
         Status = CaseStatus.Assigned;
-        CurrentStage = "4_assignment";
+        CurrentStage = WorkflowStage.JurisdictionAndAdmissibility;
 
         AddDomainEvent(new CaseAssignedEvent(Id, officerId, assignedByUserId, DateTimeOffset.UtcNow));
     }
 
+    /// <summary>
+    /// Stage 5 — Investigation & Resolution.
+    /// Called after the case is declared admissible at Stage 4.
+    /// </summary>
     public void StartInvestigation()
     {
         if (Status == CaseStatus.Closed)
@@ -126,44 +154,58 @@ public class Case : BaseEntity, IHasDomainEvents
             throw new DomainException("A case must be assigned to an officer before investigation can begin.");
 
         Status = CaseStatus.UnderInvestigation;
-        CurrentStage = "5_investigation";
-        CurrentSubStage = "5_investigation";
+        CurrentStage = WorkflowStage.InvestigationAndResolution;
     }
 
-    public void SetSubStage(string subStage)
-        => CurrentSubStage = subStage;
-
+    /// <summary>
+    /// Stage 6 — Decision & Communication.
+    /// CE issues a formal decision; triggers Decision Letter generation.
+    /// </summary>
     public void IssueDecision(CaseDecision decision)
     {
         Decision = decision;
         Status = CaseStatus.DecisionIssued;
-        CurrentStage = "9_decision";
+        CurrentStage = WorkflowStage.DecisionAndCommunication;
     }
 
-    public void UpdateStatus(CaseStatus newStatus, string stage, Guid changedByUserId)
-    {
-        if (Status == CaseStatus.Closed)
-        {
-            throw new DomainException("Cannot change status of a closed case.");
-        }
-
-        Status = newStatus;
-        CurrentStage = string.IsNullOrEmpty(stage) ? "1_submission" : (stage.Length > 50 ? stage.Substring(0, 50) : stage);
-    }
-
+    /// <summary>
+    /// Stage 7 — Closure & Archiving.
+    /// Formally closes the case and marks it as archived.
+    /// </summary>
     public void Close(string outcome, string findingsSummary, Guid closedByUserId)
     {
         if (Status == CaseStatus.Closed)
-        {
             throw new DomainException("Case is already closed.");
-        }
 
         Status = CaseStatus.Closed;
-        CurrentStage = "10_closure";
+        CurrentStage = WorkflowStage.ClosureAndArchiving;
         ClosedAt = DateTimeOffset.UtcNow;
         Outcome = outcome;
         FindingsSummary = findingsSummary;
 
         AddDomainEvent(new CaseClosedEvent(Id, outcome, closedByUserId, DateTimeOffset.UtcNow));
+    }
+
+    /// <summary>
+    /// Marks the case as fully archived at Stage 7.
+    /// Called after a CaseArchiveRecord has been created.
+    /// </summary>
+    public void Archive()
+    {
+        IsArchived = true;
+        ArchivedAt = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
+    /// Generic status update used by the workflow engine.
+    /// Always supply one of the WorkflowStage constants as the stage argument.
+    /// </summary>
+    public void UpdateStatus(CaseStatus newStatus, string stage, Guid changedByUserId)
+    {
+        if (Status == CaseStatus.Closed)
+            throw new DomainException("Cannot change status of a closed case.");
+
+        Status = newStatus;
+        CurrentStage = string.IsNullOrEmpty(stage) ? WorkflowStage.Intake : (stage.Length > 50 ? stage[..50] : stage);
     }
 }

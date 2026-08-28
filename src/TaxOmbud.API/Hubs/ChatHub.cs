@@ -13,6 +13,8 @@ namespace TaxOmbud.API.Hubs;
 public interface IChatClient
 {
     Task ReceiveMessage(ChatMessageDto message);
+    Task ReceiveDiscussionMessage(TaxOmbud.Application.Cases.DTOs.DiscussionMessageDto message);
+    Task DiscussionThreadLocked(Guid caseId);
     Task UserTyping(Guid chatId, Guid userId);
     Task MessageRead(Guid messageId, Guid userId);
     Task UserPresenceChanged(Guid userId, bool isOnline);
@@ -93,4 +95,34 @@ public class ChatHub : Hub<IChatClient>
             }
         }
     }
+
+    // ─── Stage 5: Case Investigation Discussion Rooms ─────────────────────────
+
+    /// <summary>
+    /// Joins the real-time SignalR group for a specific case's investigation discussion thread.
+    /// </summary>
+    public async Task JoinCaseDiscussionRoom(Guid caseId)
+    {
+        await Groups.AddToGroupAsync(Context.ConnectionId, GetCaseDiscussionGroupName(caseId));
+    }
+
+    /// <summary>
+    /// Leaves the real-time SignalR group for a specific case's investigation discussion thread.
+    /// </summary>
+    public async Task LeaveCaseDiscussionRoom(Guid caseId)
+    {
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, GetCaseDiscussionGroupName(caseId));
+    }
+
+    /// <summary>
+    /// Broadcasts typing activity in the case discussion room.
+    /// </summary>
+    public async Task SendDiscussionTypingIndicator(Guid caseId)
+    {
+        if (!_currentUser.UserId.HasValue) return;
+        await Clients.OthersInGroup(GetCaseDiscussionGroupName(caseId))
+            .UserTyping(caseId, _currentUser.UserId.Value);
+    }
+
+    public static string GetCaseDiscussionGroupName(Guid caseId) => $"case_discussion_{caseId}";
 }

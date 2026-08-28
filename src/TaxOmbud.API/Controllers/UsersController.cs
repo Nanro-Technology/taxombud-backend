@@ -14,7 +14,6 @@ namespace TaxOmbud.Api.Controllers;
 [ApiController]
 [Route("api/v1/users")]
 [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
-[Authorize(Policy = "AdminOnly")]
 [Produces("application/json")]
 public class UsersController : ControllerBase
 {
@@ -29,6 +28,7 @@ public class UsersController : ControllerBase
 
     /// <summary>List users with optional search and filters.</summary>
     [HttpGet]
+    [Authorize(Policy = "OfficerOrAbove")]
     [ProducesResponseType(typeof(Response<PagedResult<UserListDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetUsers(
         [FromQuery] string? search,
@@ -44,6 +44,7 @@ public class UsersController : ControllerBase
 
     /// <summary>Get user details by ID.</summary>
     [HttpGet("{id:guid}", Name = "GetUserById")]
+    [Authorize(Policy = "OfficerOrAbove")]
     [ProducesResponseType(typeof(Response<UserDetailDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetUserById(Guid id, CancellationToken ct)
@@ -64,6 +65,7 @@ public class UsersController : ControllerBase
 
     /// <summary>Create a new staff user.</summary>
     [HttpPost]
+    [Authorize(Policy = "AdminOnly")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> CreateUser([FromBody] CreateUserCommand command, CancellationToken ct)
@@ -76,6 +78,7 @@ public class UsersController : ControllerBase
 
     /// <summary>Update user profile details.</summary>
     [HttpPut("{id:guid}")]
+    [Authorize(Policy = "AdminOnly")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateUser(Guid id, [FromBody] UpdateUserRequest request, CancellationToken ct)
@@ -88,6 +91,7 @@ public class UsersController : ControllerBase
 
     /// <summary>Toggle User Status (Activate/Deactivate).</summary>
     [HttpPut("{id:guid}/status")]
+    [Authorize(Policy = "AdminOnly")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateUserStatus(Guid id, [FromBody] UpdateUserStatusRequest request, CancellationToken ct)
@@ -98,6 +102,7 @@ public class UsersController : ControllerBase
 
     /// <summary>Assign role to user.</summary>
     [HttpPost("{id:guid}/roles")]
+    [Authorize(Policy = "AdminOnly")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> AssignRole(Guid id, [FromBody] AssignRolesRequest request, CancellationToken ct)
@@ -120,6 +125,7 @@ public class UsersController : ControllerBase
 
     /// <summary>Get the audit log for a specific user (admin only).</summary>
     [HttpGet("{id:guid}/audit-log")]
+    [Authorize(Policy = "AdminOnly")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAuditLog(
         Guid id,

@@ -74,6 +74,12 @@ public class ApplicationDbContext : IdentityDbContext<User, IdentityRole<Guid>, 
     public DbSet<MediationLog> MediationLogs => Set<MediationLog>();
     public DbSet<QualityAssuranceReview> QualityAssuranceReviews => Set<QualityAssuranceReview>();
     public DbSet<CaseDecision> CaseDecisions => Set<CaseDecision>();
+    public DbSet<CaseStatusHistory> CaseStatusHistories => Set<CaseStatusHistory>();
+    public DbSet<CaseRecommendation> CaseRecommendations => Set<CaseRecommendation>();
+
+    // ─── New Stage Entities ───────────────────────────────────────────────────
+    public DbSet<CaseArchiveRecord> CaseArchiveRecords => Set<CaseArchiveRecord>();
+    public DbSet<NotAdmissibleDecision> NotAdmissibleDecisions => Set<NotAdmissibleDecision>();
 
 
     // ─── Workflow Engine ──────────────────────────────────────────────────────
@@ -177,6 +183,9 @@ public class ApplicationDbContext : IdentityDbContext<User, IdentityRole<Guid>, 
     public DbSet<TaxOmbud.Domain.Entities.Hr.Holiday> Holidays => Set<TaxOmbud.Domain.Entities.Hr.Holiday>();
     public DbSet<TaxOmbud.Domain.Entities.Communications.AgentChatMessage> AgentChatMessages => Set<TaxOmbud.Domain.Entities.Communications.AgentChatMessage>();
     public DbSet<TaxOmbud.Domain.Entities.Communications.AgentChatPreference> AgentChatPreferences => Set<TaxOmbud.Domain.Entities.Communications.AgentChatPreference>();
+
+    // ─── Discussion Thread Participants (replaces JSON ParticipantIds) ──────────────────
+    public DbSet<TaxOmbud.Domain.Entities.Communications.AgentChatParticipant> AgentChatParticipants => Set<TaxOmbud.Domain.Entities.Communications.AgentChatParticipant>();
     public DbSet<TaxOmbud.Domain.Entities.Communications.SmsMessage> SmsMessages => Set<TaxOmbud.Domain.Entities.Communications.SmsMessage>();
     public DbSet<TaxOmbud.Domain.Entities.Crm.Organization> Organizations => Set<TaxOmbud.Domain.Entities.Crm.Organization>();
     public DbSet<TaxOmbud.Domain.Entities.Crm.Interaction> Interactions => Set<TaxOmbud.Domain.Entities.Crm.Interaction>();
@@ -208,6 +217,100 @@ public class ApplicationDbContext : IdentityDbContext<User, IdentityRole<Guid>, 
 
         // Map Account entity to singular table name
         modelBuilder.Entity<Account>(b => b.ToTable("Account"));
+
+        // ─── AgentChat: Case Discussion Thread binding ────────────────────────────────
+        modelBuilder.Entity<TaxOmbud.Domain.Entities.Communications.AgentChat>(b =>
+        {
+            b.HasOne(c => c.Case)
+             .WithMany()
+             .HasForeignKey(c => c.CaseId)
+             .IsRequired(false)
+             .OnDelete(DeleteBehavior.SetNull);
+
+            b.Property(c => c.BoundToStage).HasMaxLength(30);
+            b.Property(c => c.IsLocked).HasDefaultValue(false);
+
+            b.HasIndex(c => new { c.CaseId, c.BoundToStage })
+             .HasDatabaseName("IX_AgentChats_CaseId_Stage");
+        });
+
+        // ─── AgentChatParticipant: Junction table replacing JSON ParticipantIds ──────────
+        modelBuilder.Entity<TaxOmbud.Domain.Entities.Communications.AgentChatParticipant>(b =>
+        {
+            b.HasOne(p => p.Chat)
+             .WithMany(c => c.Participants)
+             .HasForeignKey(p => p.AgentChatId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasIndex(p => new { p.AgentChatId, p.UserId })
+             .IsUnique()
+             .HasDatabaseName("UX_AgentChatParticipants_ChatId_UserId");
+
+            b.Property(p => p.ParticipantTier).HasMaxLength(20).HasDefaultValue("role");
+            b.Property(p => p.RoleName).HasMaxLength(100);
+            b.Property(p => p.IsReadOnly).HasDefaultValue(false);
+        });
+
+        // ─── AgentChatMessage: MessageType ──────────────────────────────────────────
+        modelBuilder.Entity<TaxOmbud.Domain.Entities.Communications.AgentChatMessage>(b =>
+        {
+            b.Property(m => m.MessageType).HasMaxLength(20).HasDefaultValue("message");
+            b.Property(m => m.IsPinned).HasDefaultValue(false);
+        });
+
+        // ─── CaseArchiveRecord ───────────────────────────────────────────────────────
+        modelBuilder.Entity<CaseArchiveRecord>(b =>
+        {
+            b.HasOne(r => r.Case)
+             .WithOne(c => c.ArchiveRecord)
+             .HasForeignKey<CaseArchiveRecord>(r => r.CaseId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            b.Property(r => r.ArchivedDocumentRefs)
+             .HasConversion(
+                 v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
+                 v => System.Text.Json.JsonSerializer.Deserialize<List<string>>(v, (System.Text.Json.JsonSerializerOptions?)null)!
+             );
+        });
+
+        // ─── NotAdmissibleDecision ───────────────────────────────────────────────────
+        modelBuilder.Entity<NotAdmissibleDecision>(b =>
+        {
+            b.HasOne(d => d.Case)
+             .WithOne(c => c.NotAdmissibleDecision)
+             .HasForeignKey<NotAdmissibleDecision>(d => d.CaseId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            b.Property(d => d.Reason).HasMaxLength(2000);
+            b.Property(d => d.NotificationSent).HasDefaultValue(false);
+        });
+
+        // ─── Case: IntakeChannel + Archive flags ─────────────────────────────────
+        modelBuilder.Entity<Case>(b =>
+        {
+            b.Property(c => c.IntakeChannel)
+             .HasConversion<int>()
+             .HasDefaultValue(TaxOmbud.Domain.Enums.IntakeChannel.OnlinePortal);
+
+            b.Property(c => c.IsArchived).HasDefaultValue(false);
+            b.Property(c => c.CurrentStage).HasMaxLength(50);
+        });
+
+        // ─── Complaint: IntakeChannel ───────────────────────────────────────────────
+        modelBuilder.Entity<Complaint>(b =>
+        {
+            b.Property(c => c.IntakeChannel)
+             .HasConversion<int>()
+             .HasDefaultValue(TaxOmbud.Domain.Enums.IntakeChannel.OnlinePortal);
+
+            b.Property(c => c.CurrentStage).HasMaxLength(50);
+        });
+
+        // ─── AdmissibilityAssessment: JurisdictionCheck default ───────────────────────
+        modelBuilder.Entity<AdmissibilityAssessment>(b =>
+        {
+            b.Property(a => a.JurisdictionCheck).HasDefaultValue(false);
+        });
     }
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)

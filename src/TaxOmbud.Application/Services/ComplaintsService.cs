@@ -169,9 +169,11 @@ public class ComplaintsService : IComplaintsService
 
             if (c is null) { response.StatusCode = StatusCodes.Status404NotFound; response.Message = Constants.Messages.ComplaintNotFound; return response; }
 
+            var linkedCase = await _caseRepo.Query().FirstOrDefaultAsync(cs => cs.ComplaintId == c.Id, cancellationToken);
+
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = Constants.Messages.ComplaintRetrieved;
-            response.Data = MapToDetail(c);
+            response.Data = MapToDetail(c, linkedCase?.CurrentStage, linkedCase?.Id);
         }
         catch (Exception)
         {
@@ -193,9 +195,11 @@ public class ComplaintsService : IComplaintsService
 
             if (c is null) { response.StatusCode = StatusCodes.Status404NotFound; response.Message = Constants.Messages.ComplaintNotFound; return response; }
 
+            var linkedCase = await _caseRepo.Query().FirstOrDefaultAsync(cs => cs.ComplaintId == c.Id, cancellationToken);
+
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = Constants.Messages.ComplaintRetrieved;
-            response.Data = MapToDetail(c);
+            response.Data = MapToDetail(c, linkedCase?.CurrentStage, linkedCase?.Id);
         }
         catch (Exception)
         {
@@ -311,7 +315,7 @@ public class ComplaintsService : IComplaintsService
             var refNumber = $"TOC-{DateTimeOffset.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString()[..6].ToUpper()}";
             var complaint = Complaint.Create(
                 request.TaxpayerId, request.TaxType, request.TaxPeriod, request.ComplaintCategory,
-                request.Subject, request.Description, refNumber, request.TaxOfficeRef, request.TinNumber);
+                request.Subject, request.Description, refNumber, TaxOmbud.Domain.Enums.IntakeChannel.OnlinePortal, request.TaxOfficeRef, request.TinNumber);
 
             complaint.Submit();
             await _complaintRepo.AddAsync(complaint);
@@ -591,9 +595,9 @@ public class ComplaintsService : IComplaintsService
 
     // ─── Private helpers ───────────────────────────────────────────────────────
 
-    private static ComplaintDetailDto MapToDetail(Complaint c) => new(
+    private static ComplaintDetailDto MapToDetail(Complaint c, string? overrideStage = null, Guid? caseId = null) => new(
         c.Id, c.ReferenceNumber, c.Subject, c.Description, c.TaxType, c.TaxPeriod, c.ComplaintCategory,
-        c.TaxOfficeRef, c.TinNumber, c.Status.ToString(), c.CurrentStage, c.Priority,
+        c.TaxOfficeRef, c.TinNumber, c.Status.ToString(), overrideStage ?? c.CurrentStage, c.Priority,
         c.RequiresApprovalToClose, c.ClosedAt, c.ClosureReason, c.WithdrawalReason,
         new TaxpayerSummary(
             c.Taxpayer.Id,
@@ -602,6 +606,7 @@ public class ComplaintsService : IComplaintsService
             c.Taxpayer.User?.Phone
         ),
         c.AssignedOfficer is null ? null : new OfficerSummary(c.AssignedOfficer.Id, $"{c.AssignedOfficer.User.FirstName} {c.AssignedOfficer.User.LastName}", c.AssignedOfficer.User.Email),
-        c.CreatedAt, c.LastModifiedAt
+        c.CreatedAt, c.LastModifiedAt,
+        caseId
     );
 }

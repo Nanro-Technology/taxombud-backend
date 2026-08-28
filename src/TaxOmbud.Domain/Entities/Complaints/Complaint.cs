@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using TaxOmbud.Domain.Common;
+using TaxOmbud.Domain.Constants;
 using TaxOmbud.Domain.Entities.Identity;
 using TaxOmbud.Domain.Entities.Officers;
 using TaxOmbud.Domain.Entities.Taxpayers;
@@ -36,7 +37,14 @@ public class Complaint : BaseEntity, IHasDomainEvents
     public string Priority { get; private set; } = "medium";
 
     public ComplaintStatus Status { get; private set; } = ComplaintStatus.Draft;
-    public string CurrentStage { get; private set; } = "input";
+
+    /// <summary>
+    /// Current workflow stage slug. Always one of the WorkflowStage constants.
+    /// </summary>
+    public string CurrentStage { get; private set; } = WorkflowStage.Intake;
+
+    /// <summary>How the complaint was originally received.</summary>
+    public IntakeChannel IntakeChannel { get; set; } = IntakeChannel.OnlinePortal;
 
     public Guid? AssignedOfficerId { get; private set; }
     public Officer? AssignedOfficer { get; private set; }
@@ -48,6 +56,9 @@ public class Complaint : BaseEntity, IHasDomainEvents
     public DateTimeOffset? ClosedAt { get; private set; }
     public string? WithdrawalReason { get; private set; }
     public string? ClosureReason { get; private set; }
+
+    /// <summary>Reason provided when a complaint is declared Not Admissible at Stage 4.</summary>
+    public string? NotAdmissibleReason { get; private set; }
 
     public ICollection<ComplaintStatusHistory> StatusHistory { get; private set; } = new List<ComplaintStatusHistory>();
     public ICollection<ComplaintNote> Notes { get; private set; } = new List<ComplaintNote>();
@@ -64,6 +75,7 @@ public class Complaint : BaseEntity, IHasDomainEvents
         string subject,
         string description,
         string referenceNumber,
+        IntakeChannel intakeChannel = IntakeChannel.OnlinePortal,
         string? taxOfficeRef = null,
         string? tinNumber = null,
         string? whyOtoHandle = null)
@@ -72,63 +84,94 @@ public class Complaint : BaseEntity, IHasDomainEvents
         {
             Id = Guid.NewGuid(),
             TaxpayerId = taxpayerId,
-            TaxType = taxType,
-            TaxPeriod = taxPeriod,
-            ComplaintCategory = category,
-            Subject = subject,
-            Description = description,
+            TaxType = taxType != null && taxType.Length > 50 ? taxType[..50] : (taxType ?? "Tax Dispute"),
+            TaxPeriod = taxPeriod != null && taxPeriod.Length > 50 ? taxPeriod[..50] : (taxPeriod ?? DateTimeOffset.UtcNow.Year.ToString()),
+            ComplaintCategory = category != null && category.Length > 100 ? category[..100] : (category ?? "General"),
+            Subject = subject != null && subject.Length > 500 ? subject[..500] : (subject ?? "Tax Complaint"),
+            Description = description != null && description.Length > 5000 ? description[..5000] : (description ?? ""),
             ReferenceNumber = referenceNumber,
+            IntakeChannel = intakeChannel,
             TaxOfficeRef = taxOfficeRef != null && taxOfficeRef.Length > 100 ? taxOfficeRef[..100] : taxOfficeRef,
             TinNumber = tinNumber != null && tinNumber.Length > 50 ? tinNumber[..50] : tinNumber,
             WhyOtoHandle = whyOtoHandle != null && whyOtoHandle.Length > 2000 ? whyOtoHandle[..2000] : whyOtoHandle,
             Status = ComplaintStatus.Draft,
-            CurrentStage = "input"
+            CurrentStage = WorkflowStage.Intake
         };
     }
 
+    /// <summary>
+    /// Stage 1 — Intake. Taxpayer submits the complaint.
+    /// </summary>
     public void Submit()
     {
         if (Status != ComplaintStatus.Draft)
             throw new DomainException("Only complaints in Draft status can be submitted.");
 
         Status = ComplaintStatus.Submitted;
-        CurrentStage = "verify";
+        CurrentStage = WorkflowStage.Intake;
 
         AddDomainEvent(new ComplaintSubmittedEvent(Id, ReferenceNumber, TaxpayerId, DateTimeOffset.UtcNow));
     }
 
+    /// <summary>
+    /// Stage 3 → 4 — CE assigns the complaint to an investigating officer.
+    /// </summary>
     public void Assign(Guid officerId, Guid assignedByUserId)
     {
-        if (Status == ComplaintStatus.Closed || Status == ComplaintStatus.Withdrawn)
-            throw new DomainException("Cannot assign a closed or withdrawn complaint.");
+        if (Status == ComplaintStatus.Closed || Status == ComplaintStatus.Withdrawn || Status == ComplaintStatus.NotAdmissible)
+            throw new DomainException("Cannot assign a closed, withdrawn, or not-admissible complaint.");
 
         var previous = Status;
         AssignedOfficerId = officerId;
 
-        if (Status == ComplaintStatus.Submitted)
+        if (Status == ComplaintStatus.Submitted || Status == ComplaintStatus.Registered || Status == ComplaintStatus.UnderAssessment)
         {
             Status = ComplaintStatus.Assigned;
-            CurrentStage = "4_assignment";
+            CurrentStage = WorkflowStage.JurisdictionAndAdmissibility;
         }
 
         AddDomainEvent(new ComplaintStatusChangedEvent(Id, previous, Status, assignedByUserId, DateTimeOffset.UtcNow));
     }
 
+    /// <summary>
+    /// Stage 4 terminal — Declares the complaint NOT ADMISSIBLE.
+    /// Sets status to NotAdmissible and records the reason. A formal notification email is dispatched by the service layer.
+    /// </summary>
+    public void DeclareNotAdmissible(string reason, Guid declaredByUserId)
+    {
+        if (Status == ComplaintStatus.Closed || Status == ComplaintStatus.Withdrawn || Status == ComplaintStatus.NotAdmissible)
+            throw new DomainException("This complaint cannot be declared not admissible in its current state.");
+
+        var previous = Status;
+        Status = ComplaintStatus.NotAdmissible;
+        CurrentStage = WorkflowStage.NotAdmissible;
+        ClosedAt = DateTimeOffset.UtcNow;
+        NotAdmissibleReason = reason;
+
+        AddDomainEvent(new ComplaintStatusChangedEvent(Id, previous, Status, declaredByUserId, DateTimeOffset.UtcNow));
+    }
+
+    /// <summary>
+    /// Stage 5 — Investigation & Resolution.
+    /// </summary>
     public void Escalate(string reason, Guid escalatedByUserId)
     {
-        if (Status == ComplaintStatus.Closed || Status == ComplaintStatus.Withdrawn)
-            throw new DomainException("Cannot escalate a complaint that is already closed or withdrawn.");
+        if (Status == ComplaintStatus.Closed || Status == ComplaintStatus.Withdrawn || Status == ComplaintStatus.NotAdmissible)
+            throw new DomainException("Cannot escalate a complaint that is closed, withdrawn, or not admissible.");
 
         if (Status == ComplaintStatus.UnderInvestigation)
             throw new DomainException("Complaint is already under investigation and cannot be re-escalated.");
 
         var previous = Status;
         Status = ComplaintStatus.UnderInvestigation;
-        CurrentStage = "5_investigation";
+        CurrentStage = WorkflowStage.InvestigationAndResolution;
 
         AddDomainEvent(new ComplaintEscalatedEvent(Id, previous, reason, escalatedByUserId, DateTimeOffset.UtcNow));
     }
 
+    /// <summary>
+    /// Stage 7 — Closure & Archiving.
+    /// </summary>
     public void Close(string reason, Guid closedByUserId)
     {
         if (Status == ComplaintStatus.Closed)
@@ -136,7 +179,7 @@ public class Complaint : BaseEntity, IHasDomainEvents
 
         var previous = Status;
         Status = ComplaintStatus.Closed;
-        CurrentStage = "10_closure";
+        CurrentStage = WorkflowStage.ClosureAndArchiving;
         ClosedAt = DateTimeOffset.UtcNow;
         ClosureReason = reason;
 
@@ -149,7 +192,7 @@ public class Complaint : BaseEntity, IHasDomainEvents
             throw new DomainException("Only closed complaints can be reopened.");
 
         Status = ComplaintStatus.UnderAssessment;
-        CurrentStage = "3_assessment";
+        CurrentStage = WorkflowStage.InitialReviewAndAssignment;
         ClosedAt = null;
         ClosureReason = null;
 
@@ -163,42 +206,50 @@ public class Complaint : BaseEntity, IHasDomainEvents
 
         var previous = Status;
         Status = ComplaintStatus.Withdrawn;
-        CurrentStage = "10_closure";
+        CurrentStage = WorkflowStage.ClosureAndArchiving;
         ClosedAt = DateTimeOffset.UtcNow;
         WithdrawalReason = reason;
 
         AddDomainEvent(new ComplaintStatusChangedEvent(Id, previous, Status, taxpayerUserId, DateTimeOffset.UtcNow));
     }
 
+    /// <summary>
+    /// Stage 6 — Decision & Communication.
+    /// </summary>
     public void Resolve(Guid resolvedByUserId)
     {
-        if (Status == ComplaintStatus.Closed || Status == ComplaintStatus.Withdrawn)
-            throw new DomainException("Cannot resolve a closed or withdrawn complaint.");
+        if (Status == ComplaintStatus.Closed || Status == ComplaintStatus.Withdrawn || Status == ComplaintStatus.NotAdmissible)
+            throw new DomainException("Cannot resolve a closed, withdrawn, or not-admissible complaint.");
 
         var previous = Status;
         Status = ComplaintStatus.DecisionIssued;
-        CurrentStage = "9_decision";
+        CurrentStage = WorkflowStage.DecisionAndCommunication;
 
         AddDomainEvent(new ComplaintStatusChangedEvent(Id, previous, Status, resolvedByUserId, DateTimeOffset.UtcNow));
     }
 
+    /// <summary>
+    /// Generic status update used by the workflow engine.
+    /// Always supply one of the WorkflowStage constants as the stage argument.
+    /// </summary>
     public void UpdateStatus(ComplaintStatus newStatus, string stage)
     {
         Status = newStatus;
-        CurrentStage = string.IsNullOrEmpty(stage) ? "input" : (stage.Length > 50 ? stage.Substring(0, 50) : stage);
+        CurrentStage = string.IsNullOrEmpty(stage) ? WorkflowStage.Intake : (stage.Length > 50 ? stage[..50] : stage);
     }
 
+    /// <summary>
+    /// Mirrors the Case's CaseStatus to keep Complaint in sync via the workflow engine.
+    /// </summary>
     public void UpdateStatus(CaseStatus caseStatus, string stage)
     {
         if (Enum.TryParse<ComplaintStatus>(caseStatus.ToString(), true, out var mapped))
-        {
             Status = mapped;
-        }
-        CurrentStage = string.IsNullOrEmpty(stage) ? "input" : (stage.Length > 50 ? stage.Substring(0, 50) : stage);
+        CurrentStage = string.IsNullOrEmpty(stage) ? WorkflowStage.Intake : (stage.Length > 50 ? stage[..50] : stage);
     }
 
     public void UpdatePriority(string priority) => Priority = priority;
-    public void UpdateStage(string stage) => CurrentStage = string.IsNullOrEmpty(stage) ? "input" : (stage.Length > 50 ? stage.Substring(0, 50) : stage);
+    public void UpdateStage(string stage) => CurrentStage = string.IsNullOrEmpty(stage) ? WorkflowStage.Intake : (stage.Length > 50 ? stage[..50] : stage);
     public void SetDepartment(Guid departmentId) => DepartmentId = departmentId;
 
     public void UpdateDetails(

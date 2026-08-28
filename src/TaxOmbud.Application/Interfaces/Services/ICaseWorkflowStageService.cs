@@ -12,6 +12,10 @@ public class AdmissibilityAssessmentDto
     public bool IsWithinMandate { get; set; }
     public bool HasSupportingDocuments { get; set; }
     public bool HasExhaustedInternalProcedures { get; set; }
+
+    /// <summary>6th criterion — confirms Tax Ombud has jurisdiction over this matter.</summary>
+    public bool JurisdictionCheck { get; set; }
+
     public bool IsAdmissible { get; set; }
     public string? ScreeningNotes { get; set; }
     public string? RejectionReason { get; set; }
@@ -58,7 +62,6 @@ public class CallCenterRecordDto
     public string CallSummary { get; set; } = null!;
 }
 
-/// <summary>New DTO for case recommendations (Gap 4).</summary>
 public class CaseRecommendationDto
 {
     public Guid Id { get; set; }
@@ -71,8 +74,10 @@ public class WorkflowStageDetailsDto
 {
     public Guid CaseId { get; set; }
     public string CaseNumber { get; set; } = null!;
+
+    /// <summary>One of the WorkflowStage constants (e.g., "5_investigation").</summary>
     public string CurrentStage { get; set; } = null!;
-    public string? CurrentSubStage { get; set; }
+
     public string Status { get; set; } = null!;
     public AdmissibilityAssessmentDto? Admissibility { get; set; }
     public MediationLogDto[] MediationSessions { get; set; } = Array.Empty<MediationLogDto>();
@@ -86,12 +91,24 @@ public class WorkflowStageDetailsDto
 public interface ICaseWorkflowStageService
 {
     Task<bool> RegisterComplaintAsync(Guid complaintId, Guid registeredBy);
+
+    /// <summary>Stage 3 — CE performs initial review and optionally assigns officer.</summary>
+    Task<bool> StartInitialReviewAsync(StartInitialReviewCommand cmd, Guid initiatedBy);
+
     Task<bool> AssessAdmissibilityAsync(Guid caseId, AdmissibilityAssessmentDto dto, Guid assessedBy);
+
+    /// <summary>Stage 4 terminal — Formally declares a complaint Not Admissible and notifies the taxpayer.</summary>
+    Task<bool> DeclareNotAdmissibleAsync(DeclareNotAdmissibleCommand cmd, Guid declaredBy);
+
     Task<bool> AssignCaseByCeAsync(Guid caseId, Guid officerId, Guid departmentId, Guid assignedBy);
     Task<bool> LogMediationSessionAsync(Guid caseId, MediationLogDto dto, Guid loggedBy);
     Task<bool> SubmitQaReviewAsync(Guid caseId, QualityAssuranceReviewDto dto, Guid reviewedBy);
     Task<bool> IssueCeDecisionAsync(Guid caseId, CaseDecisionDto dto, Guid issuedBy);
     Task<bool> CloseAndArchiveCaseAsync(Guid caseId, string outcome, string summary, Guid closedBy);
+
+    /// <summary>Stage 7 — Creates a CaseArchiveRecord and marks the case as formally archived.</summary>
+    Task<bool> ArchiveCaseAsync(ArchiveCaseCommand cmd, Guid archivedBy);
+
     Task<Guid> LogCallCenterRecordAsync(CallCenterRecordDto dto, Guid loggedBy);
     Task<WorkflowStageDetailsDto?> GetWorkflowStageDetailsAsync(Guid caseId);
 
@@ -100,7 +117,7 @@ public interface ICaseWorkflowStageService
     /// 1. The complaint lodger (taxpayer user who filed the complaint).
     /// 2. Every officer who acted on an approval task during the workflow.
     /// 3. For corporate complaints (TaxpayerType != Individual), the same lodger email
-    ///    is used but the subject and body prominently reference the organisation name (Option C).
+    ///    is used but the subject and body prominently reference the organisation name.
     /// </summary>
     Task SendCaseClosureNotificationsAsync(
         Guid caseId,
