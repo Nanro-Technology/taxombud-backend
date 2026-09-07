@@ -81,13 +81,14 @@ public class CasesService : ICasesService
         try
         {
             var query = _caseRepo.Query()
-                .Include(c => c.Complaint)
-                    .ThenInclude(co => co.Taxpayer).ThenInclude(tp => tp.User)
+                .Include(c => c.AssignedOfficer)
+                    .ThenInclude(o => o.User)
                 .AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(request.Search))
-                query = query.Where(c => c.CaseNumber.Value.Contains(request.Search) ||
-                                         c.Complaint.ReferenceNumber.Contains(request.Search));
+                query = query.Where(c =>
+                    (c.CaseNumber != null && c.CaseNumber.Value.Contains(request.Search)) ||
+                    c.Complaint.ReferenceNumber.Contains(request.Search));
 
             if (!string.IsNullOrWhiteSpace(request.Stage))
                 query = query.Where(c => c.CurrentStage == request.Stage);
@@ -96,34 +97,46 @@ public class CasesService : ICasesService
                 query = query.Where(c => c.Status.ToString() == request.Status);
 
             var total = await query.CountAsync(cancellationToken);
-            var items = await query
-                .OrderByDescending(c => c.CreatedAt)
-                .Skip((request.Page - 1) * request.PageSize)
-                .Take(request.PageSize)
-                .Select(c => new CaseListDto(
+
+            var items = await (
+                from c in query.OrderByDescending(c => c.CreatedAt)
+                                .Skip((request.Page - 1) * request.PageSize)
+                                .Take(request.PageSize)
+                join co in _complaintRepo.Query()
+                    on c.ComplaintId equals co.Id
+                join tp in _taxpayerProfileRepo.Query()
+                    on co.TaxpayerId equals tp.Id into tpGroup
+                from tp in tpGroup.DefaultIfEmpty()
+                join u in _userRepo.Query()
+                    on (tp != null ? tp.UserId : (Guid?)null) equals u.Id into uGroup
+                from u in uGroup.DefaultIfEmpty()
+                select new CaseListDto(
                     c.Id,
-                    c.CaseNumber.Value,
+                    c.CaseNumber != null ? c.CaseNumber.Value : co.ReferenceNumber,
                     c.ComplaintId,
-                    c.Complaint.ReferenceNumber,
-                    c.Complaint.Taxpayer != null && c.Complaint.Taxpayer.User != null ? $"{c.Complaint.Taxpayer.User.FirstName} {c.Complaint.Taxpayer.User.LastName}" : "Unknown",
+                    co.ReferenceNumber,
+                    u != null ? $"{u.FirstName} {u.LastName}" : "Unknown",
                     c.Subject,
                     c.Priority,
                     c.Status.ToString(),
                     c.CurrentStage,
-                    c.AssignedOfficer != null ? c.AssignedOfficer.User.FirstName + " " + c.AssignedOfficer.User.LastName : "Unassigned",
+                    c.AssignedOfficer != null && c.AssignedOfficer.User != null
+                        ? c.AssignedOfficer.User.FirstName + " " + c.AssignedOfficer.User.LastName
+                        : "Unassigned",
                     c.DueDate,
                     c.CreatedAt
-                ))
-                .ToListAsync(cancellationToken);
+                )
+            ).ToListAsync(cancellationToken);
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = Constants.Messages.CasesRetrieved;
             response.Data = new PagedResult<CaseListDto>(items, total, request.Page, request.PageSize);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Failed to retrieve cases in GetCasesAsync");
             response.StatusCode = StatusCodes.Status500InternalServerError;
-            response.Message = Constants.Messages.CaseRetrieveError;
+            response.Message = ex.Message;
         }
         return response;
     }
@@ -134,12 +147,14 @@ public class CasesService : ICasesService
         try
         {
             var query = _caseRepo.Query()
-                .Include(c => c.Complaint)
-                    .ThenInclude(co => co.Taxpayer).ThenInclude(tp => tp.User)
+                .Include(c => c.AssignedOfficer)
+                    .ThenInclude(o => o.User)
                 .AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(request.Search))
-                query = query.Where(c => c.CaseNumber.Value.Contains(request.Search));
+                query = query.Where(c =>
+                    (c.CaseNumber != null && c.CaseNumber.Value.Contains(request.Search)) ||
+                    c.Complaint.ReferenceNumber.Contains(request.Search));
 
             if (!string.IsNullOrWhiteSpace(request.Stage))
                 query = query.Where(c => c.CurrentStage == request.Stage);
@@ -148,25 +163,36 @@ public class CasesService : ICasesService
                 query = query.Where(c => c.Status.ToString() == request.Status);
 
             var total = await query.CountAsync(cancellationToken);
-            var items = await query
-                .OrderByDescending(c => c.CreatedAt)
-                .Skip((request.Page - 1) * request.PageSize)
-                .Take(request.PageSize)
-                .Select(c => new CaseListDto(
+
+            var items = await (
+                from c in query.OrderByDescending(c => c.CreatedAt)
+                                .Skip((request.Page - 1) * request.PageSize)
+                                .Take(request.PageSize)
+                join co in _complaintRepo.Query()
+                    on c.ComplaintId equals co.Id
+                join tp in _taxpayerProfileRepo.Query()
+                    on co.TaxpayerId equals tp.Id into tpGroup
+                from tp in tpGroup.DefaultIfEmpty()
+                join u in _userRepo.Query()
+                    on (tp != null ? tp.UserId : (Guid?)null) equals u.Id into uGroup
+                from u in uGroup.DefaultIfEmpty()
+                select new CaseListDto(
                     c.Id,
-                    c.CaseNumber.Value,
+                    c.CaseNumber != null ? c.CaseNumber.Value : co.ReferenceNumber,
                     c.ComplaintId,
-                    c.Complaint.ReferenceNumber,
-                    c.Complaint.Taxpayer != null && c.Complaint.Taxpayer.User != null ? $"{c.Complaint.Taxpayer.User.FirstName} {c.Complaint.Taxpayer.User.LastName}" : "Unknown",
+                    co.ReferenceNumber,
+                    u != null ? $"{u.FirstName} {u.LastName}" : "Unknown",
                     c.Subject,
                     c.Priority,
                     c.Status.ToString(),
                     c.CurrentStage,
-                    c.AssignedOfficer != null ? c.AssignedOfficer.User.FirstName + " " + c.AssignedOfficer.User.LastName : "Unassigned",
+                    c.AssignedOfficer != null && c.AssignedOfficer.User != null
+                        ? c.AssignedOfficer.User.FirstName + " " + c.AssignedOfficer.User.LastName
+                        : "Unassigned",
                     c.DueDate,
                     c.CreatedAt
-                ))
-                .ToListAsync(cancellationToken);
+                )
+            ).ToListAsync(cancellationToken);
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = Constants.Messages.CasesRetrieved;
@@ -516,13 +542,14 @@ public class CasesService : ICasesService
                 : request.Description[..Math.Min(80, request.Description.Length)];
 
             var complaint = Complaint.Create(
-                taxpayerProfile.Id,
-                request.ComplaintType ?? "Tax Dispute",
-                request.ServiceDomain ?? "N/A",
-                request.SubmitterType ?? "Personal",
-                subjectText,
-                request.Description,
-                refNumber,
+                taxpayerId: taxpayerProfile.Id,
+                taxType: request.ComplaintType ?? "Tax Dispute",
+                taxPeriod: $"{DateTimeOffset.UtcNow.Year}",
+                category: request.ServiceDomain ?? "General",
+                subject: subjectText,
+                description: request.Description,
+                referenceNumber: refNumber,
+                intakeChannel: IntakeChannel.OnlinePortal,
                 taxOfficeRef: null,
                 tinNumber: request.TaxId,
                 whyOtoHandle: request.OtoReason
@@ -781,6 +808,14 @@ public class CasesService : ICasesService
             caseEntity.UpdateStatus(caseEntity.Status, request.TargetStage, Guid.Empty);
             await _caseRepo.UpdateAsync(caseEntity);
             await _caseRepo.SaveAsync();
+
+            var complaint = await _complaintRepo.GetByIdAsync(caseEntity.ComplaintId);
+            if (complaint != null)
+            {
+                complaint.UpdateStatus(caseEntity.Status, request.TargetStage);
+                await _complaintRepo.UpdateAsync(complaint);
+                await _complaintRepo.SaveAsync();
+            }
 
             // Write an immutable audit log entry for the transition.
             var historyEntry = new CaseStatusHistory

@@ -5,6 +5,7 @@ using TaxOmbud.Application.Interfaces.Persistence;
 using TaxOmbud.Application.Workflows.DTOs;
 using TaxOmbud.Application.Workflows.Strategies;
 using TaxOmbud.Common.CustomException;
+using TaxOmbud.Domain.Constants;
 using TaxOmbud.Domain.Entities.Cases;
 using TaxOmbud.Domain.Entities.Workflows;
 using TaxOmbud.Domain.Enums;
@@ -133,7 +134,7 @@ public class SubmitCaseToWorkflowCommandHandler : IRequestHandler<SubmitCaseToWo
         }
 
         @case.ActiveWorkflowInstanceId = instance.Id;
-        @case.UpdateStatus(CaseStatus.Assigned, "2_in_progress", _currentUser.UserId ?? Guid.Empty);
+        @case.UpdateStatus(CaseStatus.Submitted, WorkflowStage.Intake, _currentUser.UserId ?? Guid.Empty);
 
         var complaint = await _context.Complaints.FirstOrDefaultAsync(c => c.Id == @case.ComplaintId, cancellationToken);
         if (complaint != null)

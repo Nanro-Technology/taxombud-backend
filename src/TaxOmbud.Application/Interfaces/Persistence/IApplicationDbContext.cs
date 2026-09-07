@@ -52,10 +52,18 @@ public interface IApplicationDbContext
     DbSet<CaseMilestone> CaseMilestones { get; }
     DbSet<CaseCommunicationLog> CaseCommunicationLogs { get; }
     DbSet<CaseTask> CaseTasks { get; }
+    DbSet<CaseStatusHistory> CaseStatusHistories { get; }
+    DbSet<CaseRecommendation> CaseRecommendations { get; }
     DbSet<AdmissibilityAssessment> AdmissibilityAssessments { get; }
     DbSet<MediationLog> MediationLogs { get; }
     DbSet<QualityAssuranceReview> QualityAssuranceReviews { get; }
     DbSet<CaseDecision> CaseDecisions { get; }
+
+    /// <summary>Created at Stage 7 — formal archiving records.</summary>
+    DbSet<CaseArchiveRecord> CaseArchiveRecords { get; }
+
+    /// <summary>Created at Stage 4 terminal — formal Not Admissible declarations.</summary>
+    DbSet<NotAdmissibleDecision> NotAdmissibleDecisions { get; }
 
 
     // Workflow Engine
@@ -133,6 +141,11 @@ public interface IApplicationDbContext
     DbSet<Announcement> Announcements { get; }
     DbSet<CalendarEvent> CalendarEvents { get; }
     DbSet<AgentChat> AgentChats { get; }
+    DbSet<AgentChatMessage> AgentChatMessages { get; }
+    DbSet<AgentChatPreference> AgentChatPreferences { get; }
+
+    /// <summary>Replaces the old JSON ParticipantIds string on AgentChat.</summary>
+    DbSet<AgentChatParticipant> AgentChatParticipants { get; }
     DbSet<AnnouncementReadReceipt> AnnouncementReadReceipts { get; }
     DbSet<DashboardWidget> DashboardWidgets { get; }
     DbSet<UserDashboardLayout> UserDashboardLayouts { get; }
@@ -156,8 +169,6 @@ public interface IApplicationDbContext
     DbSet<Visitor> Visitors { get; }
     DbSet<AttendanceLog> AttendanceLogs { get; }
     DbSet<Holiday> Holidays { get; }
-    DbSet<AgentChatMessage> AgentChatMessages { get; }
-    DbSet<AgentChatPreference> AgentChatPreferences { get; }
     DbSet<SmsMessage> SmsMessages { get; }
     DbSet<Organization> Organizations { get; }
     DbSet<Interaction> Interactions { get; }

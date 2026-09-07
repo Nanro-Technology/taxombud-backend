@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using TaxOmbud.Application.Interfaces.Persistence;
 using TaxOmbud.Application.Interfaces.Services;
+using TaxOmbud.Domain.Constants;
 using TaxOmbud.Domain.Entities.Cases;
 using TaxOmbud.Domain.Entities.Complaints;
 using TaxOmbud.Domain.Enums;
@@ -124,9 +125,9 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
         }
 
         var caseNumberStr = $"CASE-{DateTimeOffset.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString()[..6].ToUpper()}";
-        caseItem = new Case(complaint.Id, complaint.Subject, account.Id, complaint.Priority.ToString());
+        caseItem = new Case(complaint.Id, complaint.Subject, account.Id, complaint.Priority.ToString(), complaint.IntakeChannel);
         caseItem.Open(ReferenceNumber.From(caseNumberStr));
-        caseItem.UpdateStatus(CaseStatus.Submitted, "1_intake", userId);
+        caseItem.UpdateStatus(CaseStatus.Submitted, WorkflowStage.Intake, userId);
 
         _context.Cases.Add(caseItem);
         await _context.SaveChangesAsync();
@@ -141,25 +142,70 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
             .FirstOrDefaultAsync(c => c.Id == complaintId);
         if (complaint == null) return false;
 
-        // Transition complaint & underlying case status to Registered
         var existingCase = await EnsureCaseExistsAsync(complaintId, registeredBy);
         if (existingCase != null)
         {
-            existingCase.UpdateStatus(CaseStatus.Registered, "2_registration", registeredBy);
+            existingCase.UpdateStatus(CaseStatus.Registered, WorkflowStage.RegistrationAndAcknowledgement, registeredBy);
         }
 
         await _context.SaveChangesAsync();
 
         var complainantEmail = complaint.Taxpayer?.User?.Email;
-        var complainantName = complaint.Taxpayer?.User != null ? $"{complaint.Taxpayer.User.FirstName} {complaint.Taxpayer.User.LastName}" : "Complainant";
+        var complainantName = complaint.Taxpayer?.User != null
+            ? $"{complaint.Taxpayer.User.FirstName} {complaint.Taxpayer.User.LastName}"
+            : "Complainant";
+
         await SendStageNotificationWithAuditCopyAsync(
             complainantEmail ?? string.Empty,
             complainantName,
-            "Complaint Formally Registered",
-            $"<p>Your complaint has been formally registered with the Tax Ombud Office.</p>",
+            "Your Complaint Has Been Formally Registered",
+            $"<p>Your complaint has been formally registered with the Office of the Tax Ombud. A <strong>Case Reference Number</strong> has been assigned and an investigating officer will be allocated shortly.</p>",
             registeredBy,
-            "2_registration",
+            "Stage 2 — Registration & Acknowledgement",
             complaint.ReferenceNumber);
+
+        return true;
+    }
+
+    /// <summary>
+    /// Stage 3 — Initial Review & Assignment.
+    /// CE performs initial review and optionally assigns to an officer and department.
+    /// </summary>
+    public async Task<bool> StartInitialReviewAsync(StartInitialReviewCommand cmd, Guid initiatedBy)
+    {
+        var caseItem = await EnsureCaseExistsAsync(cmd.CaseId, initiatedBy);
+        if (caseItem == null) return false;
+
+        caseItem.StartInitialReview();
+
+        if (cmd.AssignedOfficerId.HasValue)
+            caseItem.Assign(cmd.AssignedOfficerId.Value, initiatedBy);
+
+        if (cmd.DepartmentId.HasValue)
+            caseItem.DepartmentId = cmd.DepartmentId;
+
+        var complaint = await _context.Complaints.FirstOrDefaultAsync(c => c.Id == caseItem.ComplaintId);
+        complaint?.UpdateStatus(CaseStatus.UnderAssessment, WorkflowStage.InitialReviewAndAssignment);
+
+        await _context.SaveChangesAsync();
+
+        var caseRef = caseItem.CaseNumber?.Value ?? caseItem.Id.ToString();
+
+        if (cmd.AssignedOfficerId.HasValue)
+        {
+            var officer = await _context.Users.FirstOrDefaultAsync(u => u.Id == cmd.AssignedOfficerId.Value);
+            if (officer != null && !string.IsNullOrWhiteSpace(officer.Email))
+            {
+                await SendStageNotificationWithAuditCopyAsync(
+                    officer.Email,
+                    $"{officer.FirstName} {officer.LastName}",
+                    "Case Assigned to You — Initial Review & Assignment",
+                    $"<p>The Chief Executive has completed the Initial Review for Case <strong>{caseRef}</strong> and assigned it to you for Jurisdiction & Admissibility Assessment.</p>",
+                    initiatedBy,
+                    "Stage 3 — Initial Review & Assignment",
+                    caseRef);
+            }
+        }
 
         return true;
     }
@@ -187,6 +233,7 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
         assessment.IsWithinMandate = dto.IsWithinMandate;
         assessment.HasSupportingDocuments = dto.HasSupportingDocuments;
         assessment.HasExhaustedInternalProcedures = dto.HasExhaustedInternalProcedures;
+        assessment.JurisdictionCheck = dto.JurisdictionCheck;
         assessment.IsAdmissible = dto.IsAdmissible;
         assessment.ScreeningNotes = dto.ScreeningNotes;
         assessment.RejectionReason = dto.RejectionReason;
@@ -199,94 +246,121 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
 
         if (dto.IsAdmissible)
         {
-            caseItem.UpdateStatus(CaseStatus.UnderAssessment, "3_assessment", assessedBy);
-            complainant?.UpdateStatus(CaseStatus.UnderAssessment, "3_assessment");
+            // ADMISSIBLE — advance to Stage 5: Investigation & Resolution
+            caseItem.StartInvestigation();
+            complainant?.UpdateStatus(CaseStatus.UnderInvestigation, WorkflowStage.InvestigationAndResolution);
         }
         else
         {
-            caseItem.Close("Inadmissible - Rejected at Assessment", dto.RejectionReason ?? "Screening failed admissibility criteria.", assessedBy);
-            complainant?.Close(dto.RejectionReason ?? "Inadmissible - Rejected at Assessment", assessedBy);
+            // NOT ADMISSIBLE — formal declaration handled by DeclareNotAdmissibleAsync
+            // This assessment save alone does NOT close the case; caller must invoke DeclareNotAdmissibleAsync
+            caseItem.UpdateStatus(CaseStatus.Assigned, WorkflowStage.JurisdictionAndAdmissibility, assessedBy);
+        }
 
-            // Cancel active workflow instance and skip pending approval tasks
-            if (caseItem.ActiveWorkflowInstanceId.HasValue)
+        await _context.SaveChangesAsync();
+
+        var cEmail = complainant?.Taxpayer?.User?.Email;
+        var cName = complainant?.Taxpayer?.User != null
+            ? $"{complainant.Taxpayer.User.FirstName} {complainant.Taxpayer.User.LastName}"
+            : "Complainant";
+        var caseRef = caseItem.CaseNumber?.Value ?? caseItem.Id.ToString();
+
+        if (dto.IsAdmissible)
+        {
+            await SendStageNotificationWithAuditCopyAsync(
+                cEmail ?? string.Empty,
+                cName,
+                "Your Case Has Been Declared ADMISSIBLE",
+                "<p>Your case has passed the Jurisdiction & Admissibility Assessment and has been declared <strong style=\"color:#114a31;\">ADMISSIBLE</strong>. It is now advancing to the Investigation & Resolution stage.</p>",
+                assessedBy,
+                "Stage 4 — Jurisdiction & Admissibility Assessment",
+                caseRef);
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Stage 4 Terminal — Formally declares a complaint Not Admissible.
+    /// Closes the case, creates a NotAdmissibleDecision record, and dispatches a formal notification to the taxpayer.
+    /// </summary>
+    public async Task<bool> DeclareNotAdmissibleAsync(DeclareNotAdmissibleCommand cmd, Guid declaredBy)
+    {
+        var caseItem = await _context.Cases
+            .Include(c => c.Complaint).ThenInclude(cp => cp.Taxpayer).ThenInclude(tp => tp.User)
+            .Include(c => c.NotAdmissibleDecision)
+            .FirstOrDefaultAsync(c => c.Id == cmd.CaseId || c.ComplaintId == cmd.CaseId);
+
+        if (caseItem == null) return false;
+        if (caseItem.NotAdmissibleDecision != null) return false; // Already declared
+
+        // Create formal record
+        var decision = new NotAdmissibleDecision
+        {
+            Id = Guid.NewGuid(),
+            CaseId = caseItem.Id,
+            Reason = cmd.Reason,
+            AdmissibilityAssessmentId = cmd.AdmissibilityAssessmentId,
+            DeclaredByUserId = declaredBy,
+            DeclaredAt = DateTimeOffset.UtcNow
+        };
+        _context.NotAdmissibleDecisions.Add(decision);
+
+        // Close the case
+        caseItem.Close("Not Admissible", cmd.Reason, declaredBy);
+
+        // Close the complaint with NotAdmissible status
+        var complaint = caseItem.Complaint;
+        complaint?.DeclareNotAdmissible(cmd.Reason, declaredBy);
+
+        // Cancel active workflow instance
+        if (caseItem.ActiveWorkflowInstanceId.HasValue)
+        {
+            var instance = await _context.WorkflowInstances
+                .Include(i => i.ApprovalTasks)
+                .FirstOrDefaultAsync(i => i.Id == caseItem.ActiveWorkflowInstanceId.Value);
+
+            if (instance != null)
             {
-                var instance = await _context.WorkflowInstances
-                    .Include(i => i.ApprovalTasks)
-                    .FirstOrDefaultAsync(i => i.Id == caseItem.ActiveWorkflowInstanceId.Value);
-
-                if (instance != null)
+                instance.Complete(WorkflowStatus.Rejected);
+                foreach (var t in instance.ApprovalTasks.Where(t => t.TaskStatus == WorkflowLevelStatus.Pending))
                 {
-                    instance.Complete(WorkflowStatus.Rejected);
-                    foreach (var t in instance.ApprovalTasks.Where(t => t.TaskStatus == WorkflowLevelStatus.Pending))
-                    {
-                        t.TaskStatus = WorkflowLevelStatus.Skipped;
-                        t.Comment = "Cancelled: Case failed admissibility screening.";
-                        t.PerformedAt = DateTimeOffset.UtcNow;
-                    }
+                    t.TaskStatus = WorkflowLevelStatus.Skipped;
+                    t.Comment = "Cancelled: Complaint declared Not Admissible.";
+                    t.PerformedAt = DateTimeOffset.UtcNow;
                 }
             }
         }
 
         await _context.SaveChangesAsync();
 
-        var cEmail = complainant?.Taxpayer?.User?.Email;
-        var cName = complainant?.Taxpayer?.User != null ? $"{complainant.Taxpayer.User.FirstName} {complainant.Taxpayer.User.LastName}" : "Complainant";
+        // Dispatch formal Not Admissible notification to taxpayer
+        var taxpayerEmail = complaint?.Taxpayer?.User?.Email;
+        var taxpayerName = complaint?.Taxpayer?.User != null
+            ? $"{complaint.Taxpayer.User.FirstName} {complaint.Taxpayer.User.LastName}"
+            : "Complainant";
         var caseRef = caseItem.CaseNumber?.Value ?? caseItem.Id.ToString();
 
-        var admissibilityStatus = dto.IsAdmissible ? "ADMISSIBLE" : "INADMISSIBLE";
-
-        var reasonText = !string.IsNullOrWhiteSpace(dto.RejectionReason)
-            ? dto.RejectionReason
-            : !string.IsNullOrWhiteSpace(dto.ScreeningNotes)
-                ? dto.ScreeningNotes
-                : null;
-
-        // Build list of specific failed criteria
-        var failedCriteria = new List<string>();
-        if (!dto.IsNotAnonymous) failedCriteria.Add("Complaint submitted anonymously");
-        if (!dto.IsNotInCourt) failedCriteria.Add("Matter is currently before a court or tribunal");
-        if (!dto.IsWithinMandate) failedCriteria.Add("Subject matter falls outside Tax Ombud statutory mandate");
-        if (!dto.HasSupportingDocuments) failedCriteria.Add("Insufficient supporting documentation provided");
-        if (!dto.HasExhaustedInternalProcedures) failedCriteria.Add("Internal tax authority dispute procedures have not been exhausted");
-
-        if (string.IsNullOrWhiteSpace(reasonText))
-        {
-            reasonText = failedCriteria.Any()
-                ? string.Join("; ", failedCriteria)
-                : "Did not meet statutory admissibility requirements.";
-        }
-
-        var failedCriteriaHtml = failedCriteria.Any()
-            ? $"""
-              <div style="margin-top:10px;font-size:.88rem;color:#7f1d1d;">
-                <strong>Specific Unmet Criteria:</strong>
-                <ul style="margin:4px 0 0 18px;padding:0;">
-                  {string.Join("", failedCriteria.Select(c => $"<li>{c}</li>"))}
-                </ul>
-              </div>
-              """
-            : string.Empty;
-
-        var bodyMsg = dto.IsAdmissible
-            ? $"<p>Your case has passed statutory admissibility screening (Status: <strong style=\"color:#114a31;\">ADMISSIBLE</strong>) and is advancing to assignment and investigation.</p>"
-            : $"""
-              <p>Your case was evaluated as <strong style="color:#c0392b;">INADMISSIBLE</strong> and cannot be admitted for investigation at this time.</p>
-              <div style="background:#fef2f2;border-left:4px solid #dc2626;padding:14px 18px;margin:16px 0;border-radius:4px;">
-                <strong style="color:#991b1b;display:block;margin-bottom:4px;">Reason for Inadmissibility:</strong>
-                <span style="color:#1f2937;">{reasonText}</span>
-                {failedCriteriaHtml}
-              </div>
-              <p style="font-size:.85rem;color:#4b5563;">If you believe this determination was made in error or if you have new supporting evidence, you may contact the Office of the Tax Ombud for further guidance.</p>
-              """;
-
         await SendStageNotificationWithAuditCopyAsync(
-            cEmail ?? string.Empty,
-            cName,
-            $"Case Admissibility Screened: {admissibilityStatus}",
-            bodyMsg,
-            assessedBy,
-            "3_assessment",
+            taxpayerEmail ?? string.Empty,
+            taxpayerName,
+            $"Formal Determination: Complaint {caseRef} — NOT ADMISSIBLE",
+            $"""
+            <p>Following a thorough Jurisdiction and Admissibility Assessment, the Office of the Tax Ombud has formally determined that your complaint is <strong style="color:#c0392b;">NOT ADMISSIBLE</strong> for investigation.</p>
+            <div style="background:#fef2f2;border-left:4px solid #dc2626;padding:14px 18px;margin:16px 0;border-radius:4px;">
+              <strong style="color:#991b1b;display:block;margin-bottom:4px;">Reason:</strong>
+              <span style="color:#1f2937;">{cmd.Reason}</span>
+            </div>
+            <p style="font-size:.85rem;color:#4b5563;">If you believe this determination was made in error, or if you have new information not previously considered, you may contact the Office of the Tax Ombud to seek further guidance.</p>
+            """,
+            declaredBy,
+            "Stage 4 — Not Admissible (Terminal)",
             caseRef);
+
+        // Mark notification sent
+        decision.NotificationSent = true;
+        decision.NotificationSentAt = DateTimeOffset.UtcNow;
+        await _context.SaveChangesAsync();
 
         return true;
     }
@@ -309,10 +383,10 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
             await SendStageNotificationWithAuditCopyAsync(
                 assignedOfficer.Email,
                 $"{assignedOfficer.FirstName} {assignedOfficer.LastName}",
-                "Case Assigned to You",
-                $"<p>You have been assigned as the Case Officer for case <strong>{caseRef}</strong> by the Chief Executive.</p>",
+                "Case Assigned to You — Jurisdiction & Admissibility Assessment",
+                $"<p>You have been assigned as the Case Officer for case <strong>{caseRef}</strong>. Please proceed with the Jurisdiction & Admissibility Assessment.</p>",
                 assignedBy,
-                "4_assignment",
+                "Stage 3 — Initial Review & Assignment",
                 caseRef);
         }
 
@@ -339,8 +413,10 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
         };
 
         _context.MediationLogs.Add(log);
-        caseItem.StartInvestigation();
-        caseItem.SetSubStage("6_mediation");
+
+        // Ensure case is in Investigation stage (sub-activity within Stage 5)
+        if (caseItem.Status != CaseStatus.UnderInvestigation)
+            caseItem.StartInvestigation();
 
         await _context.SaveChangesAsync();
 
@@ -349,16 +425,18 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
             .FirstOrDefaultAsync(c => c.Id == caseItem.ComplaintId);
 
         var cEmail = complainant?.Taxpayer?.User?.Email;
-        var cName = complainant?.Taxpayer?.User != null ? $"{complainant.Taxpayer.User.FirstName} {complainant.Taxpayer.User.LastName}" : "Complainant";
+        var cName = complainant?.Taxpayer?.User != null
+            ? $"{complainant.Taxpayer.User.FirstName} {complainant.Taxpayer.User.LastName}"
+            : "Complainant";
         var caseRef = caseItem.CaseNumber?.Value ?? caseItem.Id.ToString();
 
         await SendStageNotificationWithAuditCopyAsync(
             cEmail ?? string.Empty,
             cName,
-            "Mediation Session Logged",
+            "Mediation Session Logged — Investigation & Resolution",
             $"<p>A dispute resolution / mediation session has been recorded for your case. Status: {(dto.IsAmicablySettled ? "Amicably Settled" : "Ongoing Resolution")}.</p>",
             loggedBy,
-            "6_mediation",
+            "Stage 5 — Investigation & Resolution",
             caseRef);
 
         return true;
@@ -385,12 +463,10 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
         };
 
         _context.QualityAssuranceReviews.Add(qa);
-        caseItem.SetSubStage("8_qa_review");
-        
+
+        // QA is a sub-activity within Stage 5 — stage slug remains 5_investigation
         if (dto.IsApprovedForDecision)
-        {
-            caseItem.UpdateStatus(CaseStatus.UnderInvestigation, "8_qa_approved", reviewedBy);
-        }
+            caseItem.UpdateStatus(CaseStatus.UnderInvestigation, WorkflowStage.InvestigationAndResolution, reviewedBy);
 
         await _context.SaveChangesAsync();
 
@@ -405,10 +481,10 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
             await SendStageNotificationWithAuditCopyAsync(
                 assignedOfficer.Email,
                 $"{assignedOfficer.FirstName} {assignedOfficer.LastName}",
-                $"Supervisory QA Review Gate: {qaStatus}",
+                $"Supervisory QA Review — Stage 5: {qaStatus}",
                 $"<p>Supervisory Quality Assurance review for case <strong>{caseRef}</strong> has been marked as <strong>{qaStatus}</strong>.</p>",
                 reviewedBy,
-                "8_qa_review",
+                "Stage 5 — Investigation & Resolution (QA Review)",
                 caseRef);
         }
 
@@ -418,7 +494,6 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
     public async Task<bool> IssueCeDecisionAsync(Guid caseId, CaseDecisionDto dto, Guid issuedBy)
     {
         var caseItem = await EnsureCaseExistsAsync(caseId, issuedBy);
-
         if (caseItem == null) return false;
 
         var decision = new CaseDecision
@@ -437,6 +512,10 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
         _context.CaseDecisions.Add(decision);
         caseItem.IssueDecision(decision);
 
+        // Mirror to complaint
+        var complaint = await _context.Complaints.FirstOrDefaultAsync(c => c.Id == caseItem.ComplaintId);
+        complaint?.UpdateStatus(CaseStatus.DecisionIssued, WorkflowStage.DecisionAndCommunication);
+
         await _context.SaveChangesAsync();
 
         var complainant = await _context.Complaints
@@ -444,16 +523,22 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
             .FirstOrDefaultAsync(c => c.Id == caseItem.ComplaintId);
 
         var cEmail = complainant?.Taxpayer?.User?.Email;
-        var cName = complainant?.Taxpayer?.User != null ? $"{complainant.Taxpayer.User.FirstName} {complainant.Taxpayer.User.LastName}" : "Complainant";
+        var cName = complainant?.Taxpayer?.User != null
+            ? $"{complainant.Taxpayer.User.FirstName} {complainant.Taxpayer.User.LastName}"
+            : "Complainant";
         var caseRef = caseItem.CaseNumber?.Value ?? caseItem.Id.ToString();
+
+        var decisionLetterButton = !string.IsNullOrWhiteSpace(dto.DecisionDocumentUrl)
+            ? $"<p style=\"margin-top:16px;\"><a href=\"{dto.DecisionDocumentUrl}\" style=\"background:#114a31;color:#fff;padding:10px 20px;border-radius:4px;text-decoration:none;font-weight:bold;\">Download Decision Letter</a></p>"
+            : string.Empty;
 
         await SendStageNotificationWithAuditCopyAsync(
             cEmail ?? string.Empty,
             cName,
-            "Chief Executive Determination Issued",
-            $"<p>The Chief Executive of the Tax Ombud Office has formally issued the Final Determination Decision for case <strong>{caseRef}</strong>.</p><p><strong>Summary:</strong> {dto.DecisionSummary}</p>",
+            $"Formal Decision Issued — Case {caseRef}",
+            $"<p>The Chief Executive of the Office of the Tax Ombud has formally issued the Decision & Communication for your case.</p><p><strong>Decision Summary:</strong> {dto.DecisionSummary}</p>{decisionLetterButton}",
             issuedBy,
-            "9_ce_decision",
+            "Stage 6 — Decision & Communication",
             caseRef);
 
         return true;
@@ -472,7 +557,7 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
 
         complainant?.Close(outcome, closedBy);
 
-        // Cancel active workflow instance and skip pending approval tasks
+        // Cancel active workflow instance
         if (caseItem.ActiveWorkflowInstanceId.HasValue)
         {
             var instance = await _context.WorkflowInstances
@@ -494,18 +579,50 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
         await _context.SaveChangesAsync();
 
         var cEmail = complainant?.Taxpayer?.User?.Email;
-        var cName = complainant?.Taxpayer?.User != null ? $"{complainant.Taxpayer.User.FirstName} {complainant.Taxpayer.User.LastName}" : "Complainant";
+        var cName = complainant?.Taxpayer?.User != null
+            ? $"{complainant.Taxpayer.User.FirstName} {complainant.Taxpayer.User.LastName}"
+            : "Complainant";
         var caseRef = caseItem.CaseNumber?.Value ?? caseItem.Id.ToString();
 
         await SendStageNotificationWithAuditCopyAsync(
             cEmail ?? string.Empty,
             cName,
-            "Case Closed & Archived",
-            $"<p>Your case <strong>{caseRef}</strong> has been closed and securely archived in the Tax Ombud Vault.</p><p><strong>Outcome:</strong> {outcome}</p>",
+            $"Case {caseRef} — Formally Closed & Archived",
+            $"<p>Your case <strong>{caseRef}</strong> has been formally closed and securely archived by the Office of the Tax Ombud.</p><p><strong>Outcome:</strong> {outcome}</p>",
             closedBy,
-            "10_closure",
+            "Stage 7 — Closure & Archiving",
             caseRef);
 
+        return true;
+    }
+
+    /// <summary>
+    /// Stage 7 — Formal Archiving.
+    /// Creates a CaseArchiveRecord and marks the case as archived.
+    /// </summary>
+    public async Task<bool> ArchiveCaseAsync(ArchiveCaseCommand cmd, Guid archivedBy)
+    {
+        var caseItem = await _context.Cases
+            .Include(c => c.ArchiveRecord)
+            .FirstOrDefaultAsync(c => c.Id == cmd.CaseId || c.ComplaintId == cmd.CaseId);
+
+        if (caseItem == null) return false;
+        if (caseItem.ArchiveRecord != null) return false; // Already archived
+
+        var archiveRecord = new CaseArchiveRecord
+        {
+            Id = Guid.NewGuid(),
+            CaseId = caseItem.Id,
+            ArchivePurpose = cmd.ArchivePurpose,
+            ArchivedDocumentRefs = cmd.ArchivedDocumentRefs,
+            ArchivedByUserId = archivedBy,
+            ArchivedAt = DateTimeOffset.UtcNow
+        };
+
+        _context.CaseArchiveRecords.Add(archiveRecord);
+        caseItem.Archive();
+
+        await _context.SaveChangesAsync();
         return true;
     }
 
@@ -576,7 +693,6 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
             CaseId = caseItem.Id,
             CaseNumber = caseItem.CaseNumber?.Value ?? caseItem.Id.ToString(),
             CurrentStage = caseItem.CurrentStage,
-            CurrentSubStage = caseItem.CurrentSubStage,
             Status = caseItem.Status.ToString(),
             Admissibility = caseItem.AdmissibilityAssessment == null ? null : new AdmissibilityAssessmentDto
             {
@@ -585,6 +701,7 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
                 IsWithinMandate = caseItem.AdmissibilityAssessment.IsWithinMandate,
                 HasSupportingDocuments = caseItem.AdmissibilityAssessment.HasSupportingDocuments,
                 HasExhaustedInternalProcedures = caseItem.AdmissibilityAssessment.HasExhaustedInternalProcedures,
+                JurisdictionCheck = caseItem.AdmissibilityAssessment.JurisdictionCheck,
                 IsAdmissible = caseItem.AdmissibilityAssessment.IsAdmissible,
                 ScreeningNotes = caseItem.AdmissibilityAssessment.ScreeningNotes,
                 RejectionReason = caseItem.AdmissibilityAssessment.RejectionReason
@@ -749,8 +866,8 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
                     name,
                     subject,
                     bodyContent,
-                    Guid.Empty,           // no initiator audit copy needed for closure broadcast
-                    "10_closure",
+                    Guid.Empty,
+                    "Stage 7 — Closure & Archiving",
                     caseRef);
             }
 
