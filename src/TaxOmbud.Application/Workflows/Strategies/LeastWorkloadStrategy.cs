@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using TaxOmbud.Application.Interfaces.Persistence;
+using TaxOmbud.Domain.Entities.Workflows;
 using TaxOmbud.Domain.Enums;
 
 namespace TaxOmbud.Application.Workflows.Strategies;
@@ -15,31 +16,26 @@ public class LeastWorkloadStrategy : IRoutingStrategy
         _context = context;
     }
 
-    public async Task<Guid?> SelectAssigneeAsync(Guid? roleId, Guid? specificUserId, CancellationToken cancellationToken = default)
+    public async Task<Guid?> SelectAssigneeAsync(
+        IEnumerable<WorkflowLevelTarget> targets,
+        CancellationToken cancellationToken = default)
     {
-        if (specificUserId.HasValue) return specificUserId.Value;
-        if (!roleId.HasValue) return null;
-
-        var candidateUserIds = await _context.Users
-            .AsNoTracking()
-            .Where(u => u.UserType == UserType.StaffUser && u.Status == UserStatus.Active && !u.IsDeleted && u.RoleId == roleId)
-            .Select(u => u.Id)
-            .ToListAsync(cancellationToken);
+        var (candidateUserIds, _) = await CandidateResolver.ResolveAsync(_context, targets, cancellationToken);
 
         if (!candidateUserIds.Any()) return null;
 
-        // Group active tasks by user ID to find officer with lowest count
+        // Select candidate with fewest pending approval tasks
         var workloadCounts = await _context.CaseApprovalTasks
             .AsNoTracking()
-            .Where(t => t.AssignedUserId.HasValue && candidateUserIds.Contains(t.AssignedUserId.Value) && t.TaskStatus == WorkflowLevelStatus.Pending)
+            .Where(t => t.AssignedUserId.HasValue
+                     && candidateUserIds.Contains(t.AssignedUserId.Value)
+                     && t.TaskStatus == WorkflowLevelStatus.Pending)
             .GroupBy(t => t.AssignedUserId!.Value)
             .Select(g => new { UserId = g.Key, Count = g.Count() })
             .ToDictionaryAsync(g => g.UserId, g => g.Count, cancellationToken);
 
-        var leastWorkloadUser = candidateUserIds
+        return candidateUserIds
             .OrderBy(id => workloadCounts.ContainsKey(id) ? workloadCounts[id] : 0)
             .First();
-
-        return leastWorkloadUser;
     }
 }

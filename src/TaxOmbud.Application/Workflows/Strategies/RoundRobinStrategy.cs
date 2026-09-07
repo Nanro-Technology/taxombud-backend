@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using TaxOmbud.Application.Interfaces.Persistence;
+using TaxOmbud.Domain.Entities.Workflows;
 using TaxOmbud.Domain.Enums;
 
 namespace TaxOmbud.Application.Workflows.Strategies;
@@ -15,25 +16,11 @@ public class RoundRobinStrategy : IRoutingStrategy
         _context = context;
     }
 
-    public async Task<Guid?> SelectAssigneeAsync(Guid? roleId, Guid? specificUserId, CancellationToken cancellationToken = default)
+    public async Task<Guid?> SelectAssigneeAsync(
+        IEnumerable<WorkflowLevelTarget> targets,
+        CancellationToken cancellationToken = default)
     {
-        if (specificUserId.HasValue) return specificUserId.Value;
-        if (!roleId.HasValue) return null;
-
-        var candidateUserIds = await _context.Users
-            .AsNoTracking()
-            .Where(u => u.UserType == UserType.StaffUser && u.Status == UserStatus.Active && !u.IsDeleted && u.RoleId == roleId)
-            .Select(u => u.Id)
-            .ToListAsync(cancellationToken);
-
-        if (!candidateUserIds.Any())
-        {
-            candidateUserIds = await _context.Users
-                .AsNoTracking()
-                .Where(u => u.UserType == UserType.StaffUser && u.Status == UserStatus.Active && !u.IsDeleted)
-                .Select(u => u.Id)
-                .ToListAsync(cancellationToken);
-        }
+        var (candidateUserIds, _) = await CandidateResolver.ResolveAsync(_context, targets, cancellationToken);
 
         if (!candidateUserIds.Any()) return null;
 

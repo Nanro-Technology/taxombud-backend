@@ -1068,7 +1068,47 @@ public class DataSeeder
 
     private async Task SeedWorkflowsAsync()
     {
-        // Idempotent — skip if a workflow already exists
+        // ─── Stage Library ──────────────────────────────────────────────────────────────────
+        if (!await _context.WorkflowStageLibrary.AnyAsync())
+        {
+            var stageLibraryItems = new TaxOmbud.Domain.Entities.Workflows.WorkflowStageLibraryItem[]
+            {
+                new("Intake",
+                    "Complaint received through any intake channel. Officer verifies completeness.",
+                    Domain.Enums.LevelRole.Intake, 24, 48,
+                    Domain.Enums.AssignmentAlgorithm.RoundRobin, isSystemStage: true, orderHint: 1),
+                new("Registration & Acknowledgement",
+                    "Registry assigns a Case Reference Number and dispatches a formal Acknowledgement Letter.",
+                    Domain.Enums.LevelRole.Registration, 48, 72,
+                    Domain.Enums.AssignmentAlgorithm.RoundRobin, isSystemStage: true, orderHint: 2),
+                new("Initial Review & Assignment",
+                    "CE reviews the complaint dossier and assigns the case to the appropriate officer.",
+                    Domain.Enums.LevelRole.InitialReview, 48, 72,
+                    Domain.Enums.AssignmentAlgorithm.FirstAvailable, isSystemStage: true, orderHint: 3),
+                new("Jurisdiction & Admissibility Assessment",
+                    "Officer assesses jurisdiction and admissibility. Not-admissible cases are formally closed.",
+                    Domain.Enums.LevelRole.AdmissibilityGate, 72, 96,
+                    Domain.Enums.AssignmentAlgorithm.LeastWorkload, isSystemStage: true, orderHint: 4),
+                new("Investigation & Resolution",
+                    "Officers investigate via the Discussion Thread. Findings and conclusions are documented.",
+                    Domain.Enums.LevelRole.Investigation, 240, 336,
+                    Domain.Enums.AssignmentAlgorithm.LeastWorkload, isSystemStage: true, orderHint: 5),
+                new("Decision & Communication",
+                    "CE/Director issues the formal decision and dispatches the Decision Letter to all parties.",
+                    Domain.Enums.LevelRole.Decision, 72, 96,
+                    Domain.Enums.AssignmentAlgorithm.FirstAvailable, isSystemStage: true, orderHint: 6),
+                new("Closure & Archiving",
+                    "Registry formally closes and archives the case. A CaseArchiveRecord is created.",
+                    Domain.Enums.LevelRole.Closure, 48, 72,
+                    Domain.Enums.AssignmentAlgorithm.RoundRobin, isSystemStage: true, orderHint: 7),
+            };
+
+            _context.WorkflowStageLibrary.AddRange(stageLibraryItems);
+            await _context.SaveChangesAsync();
+            _logger.LogInformation("\u2713 Seeded 7-item Stage Library");
+        }
+
+        // ─── Workflow ──────────────────────────────────────────────────────────────────────────────
         if (await _context.Workflows.AnyAsync()) return;
 
         var workflow = new TaxOmbud.Domain.Entities.Workflows.Workflow(
@@ -1083,69 +1123,52 @@ public class DataSeeder
         var managerRole  = await _context.CustomRoles.FirstOrDefaultAsync(r => r.Name == RoleConstants.Manager);
         var directorRole = await _context.CustomRoles.FirstOrDefaultAsync(r => r.Name == RoleConstants.Director);
 
-        // Stage 1 — Intake
-        var level1 = new TaxOmbud.Domain.Entities.Workflows.WorkflowLevel(
-            workflow.Id, 1, "Stage 1 - Intake",
+        TaxOmbud.Domain.Entities.Workflows.WorkflowLevel MakeLevel(
+            int num, string name, string desc,
+            Domain.Enums.LevelRole levelRole,
+            Domain.Enums.AssignmentAlgorithm algo,
+            TaxOmbud.Domain.Entities.Identity.Role? targetRole,
+            int sla, int esc, bool requireComment)
+        {
+            var lv = new TaxOmbud.Domain.Entities.Workflows.WorkflowLevel(
+                workflow.Id, num, name, desc,
+                levelRole,
+                Domain.Enums.AssignmentMode.Automatic, algo)
+            { SlaHours = sla, EscalationHours = esc, RequireComment = requireComment };
+
+            if (targetRole is not null)
+                lv.Targets.Add(new TaxOmbud.Domain.Entities.Workflows.WorkflowLevelTarget(
+                    lv.Id, Domain.Enums.WorkflowLevelTargetType.Role, targetRole.Id));
+            return lv;
+        }
+
+        workflow.Levels.Add(MakeLevel(1, "Stage 1 - Intake",
             "Complaint received through any intake channel. Officer verifies completeness and issues a receipt.",
-            Domain.Enums.AssignmentTargetType.Role, officerRole?.Id, null,
-            Domain.Enums.AssignmentMode.Automatic, Domain.Enums.AssignmentAlgorithm.RoundRobin
-        ) { SlaHours = 24, EscalationHours = 48, RequireComment = false };
+            Domain.Enums.LevelRole.Intake, Domain.Enums.AssignmentAlgorithm.RoundRobin, officerRole, 24, 48, false));
 
-        // Stage 2 — Registration & Acknowledgement
-        var level2 = new TaxOmbud.Domain.Entities.Workflows.WorkflowLevel(
-            workflow.Id, 2, "Stage 2 - Registration & Acknowledgement",
+        workflow.Levels.Add(MakeLevel(2, "Stage 2 - Registration & Acknowledgement",
             "Registry assigns a Case Reference Number and dispatches a formal Acknowledgement Letter.",
-            Domain.Enums.AssignmentTargetType.Role, officerRole?.Id, null,
-            Domain.Enums.AssignmentMode.Automatic, Domain.Enums.AssignmentAlgorithm.RoundRobin
-        ) { SlaHours = 48, EscalationHours = 72, RequireComment = false };
+            Domain.Enums.LevelRole.Registration, Domain.Enums.AssignmentAlgorithm.RoundRobin, officerRole, 48, 72, false));
 
-        // Stage 3 — Initial Review & Assignment
-        var level3 = new TaxOmbud.Domain.Entities.Workflows.WorkflowLevel(
-            workflow.Id, 3, "Stage 3 - Initial Review & Assignment",
+        workflow.Levels.Add(MakeLevel(3, "Stage 3 - Initial Review & Assignment",
             "CE reviews the complaint dossier and assigns the case to the appropriate officer and department.",
-            Domain.Enums.AssignmentTargetType.Role, managerRole?.Id, null,
-            Domain.Enums.AssignmentMode.Automatic, Domain.Enums.AssignmentAlgorithm.FirstAvailable
-        ) { SlaHours = 48, EscalationHours = 72, RequireComment = true };
+            Domain.Enums.LevelRole.InitialReview, Domain.Enums.AssignmentAlgorithm.FirstAvailable, managerRole, 48, 72, true));
 
-        // Stage 4 — Jurisdiction & Admissibility Assessment
-        var level4 = new TaxOmbud.Domain.Entities.Workflows.WorkflowLevel(
-            workflow.Id, 4, "Stage 4 - Jurisdiction & Admissibility Assessment",
+        workflow.Levels.Add(MakeLevel(4, "Stage 4 - Jurisdiction & Admissibility Assessment",
             "Officer assesses jurisdiction and admissibility. Not Admissible cases are formally closed with a determination letter.",
-            Domain.Enums.AssignmentTargetType.Role, seniorRole?.Id, null,
-            Domain.Enums.AssignmentMode.Automatic, Domain.Enums.AssignmentAlgorithm.LeastWorkload
-        ) { SlaHours = 72, EscalationHours = 96, RequireComment = true };
+            Domain.Enums.LevelRole.AdmissibilityGate, Domain.Enums.AssignmentAlgorithm.LeastWorkload, seniorRole, 72, 96, true));
 
-        // Stage 5 — Investigation & Resolution
-        var level5 = new TaxOmbud.Domain.Entities.Workflows.WorkflowLevel(
-            workflow.Id, 5, "Stage 5 - Investigation & Resolution",
+        workflow.Levels.Add(MakeLevel(5, "Stage 5 - Investigation & Resolution",
             "Officers investigate via the collaborative Discussion Thread. Findings and conclusions are documented.",
-            Domain.Enums.AssignmentTargetType.Role, seniorRole?.Id, null,
-            Domain.Enums.AssignmentMode.Automatic, Domain.Enums.AssignmentAlgorithm.LeastWorkload
-        ) { SlaHours = 240, EscalationHours = 336, RequireComment = true };
+            Domain.Enums.LevelRole.Investigation, Domain.Enums.AssignmentAlgorithm.LeastWorkload, seniorRole, 240, 336, true));
 
-        // Stage 6 — Decision & Communication
-        var level6 = new TaxOmbud.Domain.Entities.Workflows.WorkflowLevel(
-            workflow.Id, 6, "Stage 6 - Decision & Communication",
+        workflow.Levels.Add(MakeLevel(6, "Stage 6 - Decision & Communication",
             "CE/Director issues the formal decision and dispatches the Decision Letter to all parties.",
-            Domain.Enums.AssignmentTargetType.Role, directorRole?.Id, null,
-            Domain.Enums.AssignmentMode.Automatic, Domain.Enums.AssignmentAlgorithm.FirstAvailable
-        ) { SlaHours = 72, EscalationHours = 96, RequireComment = true };
+            Domain.Enums.LevelRole.Decision, Domain.Enums.AssignmentAlgorithm.FirstAvailable, directorRole, 72, 96, true));
 
-        // Stage 7 — Closure & Archiving
-        var level7 = new TaxOmbud.Domain.Entities.Workflows.WorkflowLevel(
-            workflow.Id, 7, "Stage 7 - Closure & Archiving",
+        workflow.Levels.Add(MakeLevel(7, "Stage 7 - Closure & Archiving",
             "Registry formally closes and archives the case. A CaseArchiveRecord is created.",
-            Domain.Enums.AssignmentTargetType.Role, officerRole?.Id, null,
-            Domain.Enums.AssignmentMode.Automatic, Domain.Enums.AssignmentAlgorithm.RoundRobin
-        ) { SlaHours = 48, EscalationHours = 72, RequireComment = false };
-
-        workflow.Levels.Add(level1);
-        workflow.Levels.Add(level2);
-        workflow.Levels.Add(level3);
-        workflow.Levels.Add(level4);
-        workflow.Levels.Add(level5);
-        workflow.Levels.Add(level6);
-        workflow.Levels.Add(level7);
+            Domain.Enums.LevelRole.Closure, Domain.Enums.AssignmentAlgorithm.RoundRobin, officerRole, 48, 72, false));
 
         _context.Workflows.Add(workflow);
         await _context.SaveChangesAsync();
@@ -1162,8 +1185,6 @@ public class DataSeeder
         _context.WorkflowVersions.Add(version);
         await _context.SaveChangesAsync();
 
-        _logger.LogInformation("✓ Seeded 7-stage Tax Ombud workflow: Intake → Registration → Initial Review → Admissibility → Investigation → Decision → Closure");
+        _logger.LogInformation("\u2713 Seeded 7-stage Tax Ombud workflow: Intake \u2192 Registration \u2192 Initial Review \u2192 Admissibility \u2192 Investigation \u2192 Decision \u2192 Closure");
     }
 }
-
-

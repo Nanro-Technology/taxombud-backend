@@ -90,6 +90,8 @@ public class ApplicationDbContext : IdentityDbContext<User, IdentityRole<Guid>, 
     public DbSet<TaxOmbud.Domain.Entities.Workflows.WorkflowInstanceLevel> WorkflowInstanceLevels => Set<TaxOmbud.Domain.Entities.Workflows.WorkflowInstanceLevel>();
     public DbSet<TaxOmbud.Domain.Entities.Workflows.CaseApprovalTask> CaseApprovalTasks => Set<TaxOmbud.Domain.Entities.Workflows.CaseApprovalTask>();
     public DbSet<TaxOmbud.Domain.Entities.Workflows.CaseWorkflowAuditLog> CaseWorkflowAuditLogs => Set<TaxOmbud.Domain.Entities.Workflows.CaseWorkflowAuditLog>();
+    public DbSet<TaxOmbud.Domain.Entities.Workflows.WorkflowLevelTarget> WorkflowLevelTargets => Set<TaxOmbud.Domain.Entities.Workflows.WorkflowLevelTarget>();
+    public DbSet<TaxOmbud.Domain.Entities.Workflows.WorkflowStageLibraryItem> WorkflowStageLibrary => Set<TaxOmbud.Domain.Entities.Workflows.WorkflowStageLibraryItem>();
 
     // ─── Documents ────────────────────────────────────────────────────────────
     public DbSet<Document> Documents => Set<Document>();
@@ -310,6 +312,36 @@ public class ApplicationDbContext : IdentityDbContext<User, IdentityRole<Guid>, 
         modelBuilder.Entity<AdmissibilityAssessment>(b =>
         {
             b.Property(a => a.JurisdictionCheck).HasDefaultValue(false);
+        });
+
+        // ─── WorkflowLevel → WorkflowLevelTarget (multi-target junction) ──────────────
+        modelBuilder.Entity<TaxOmbud.Domain.Entities.Workflows.WorkflowLevelTarget>(b =>
+        {
+            b.HasOne(t => t.WorkflowLevel)
+             .WithMany(l => l.Targets)
+             .HasForeignKey(t => t.WorkflowLevelId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            b.Property(t => t.TargetType).HasConversion<int>();
+            // TargetId is not a typed FK — it points polymorphically to Role/Department/User
+            b.HasIndex(t => new { t.WorkflowLevelId, t.TargetType, t.TargetId })
+             .HasDatabaseName("IX_WorkflowLevelTargets_LevelId_Type_TargetId");
+        });
+
+        // ─── WorkflowLevel: LevelRole enum stored as int ─────────────────────────────
+        modelBuilder.Entity<TaxOmbud.Domain.Entities.Workflows.WorkflowLevel>(b =>
+        {
+            b.Property(l => l.LevelRole).HasConversion<int>().HasDefaultValue(TaxOmbud.Domain.Enums.LevelRole.Custom);
+        });
+
+        // ─── WorkflowStageLibraryItem ─────────────────────────────────────────────────
+        modelBuilder.Entity<TaxOmbud.Domain.Entities.Workflows.WorkflowStageLibraryItem>(b =>
+        {
+            b.Property(s => s.LevelRole).HasConversion<int>();
+            b.Property(s => s.DefaultAlgorithm).HasConversion<int>();
+            b.Property(s => s.IsSystemStage).HasDefaultValue(false);
+            b.Property(s => s.Name).HasMaxLength(150).IsRequired();
+            b.HasIndex(s => s.Name).IsUnique().HasDatabaseName("UX_WorkflowStageLibrary_Name");
         });
     }
 

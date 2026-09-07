@@ -40,14 +40,14 @@ public class CaseDiscussionService : ICaseDiscussionService
             .Include(c => c.ActiveWorkflowInstance)
                 .ThenInclude(wi => wi!.Workflow)
                     .ThenInclude(w => w.Levels)
-                        .ThenInclude(l => l.TargetRole)
+                        .ThenInclude(l => l.Targets)   // multi-target junction
             .Include(c => c.ActiveWorkflowInstance)
                 .ThenInclude(wi => wi!.InstanceLevels)
                     .ThenInclude(il => il.AssignedRole)
             .Include(c => c.ActiveWorkflowInstance)
                 .ThenInclude(wi => wi!.InstanceLevels)
                     .ThenInclude(il => il.WorkflowLevel)
-                        .ThenInclude(wl => wl.TargetRole)
+                        .ThenInclude(wl => wl.Targets)  // multi-target junction
             .FirstOrDefaultAsync(c => c.Id == caseOrComplaintId || c.ComplaintId == caseOrComplaintId, ct);
     }
 
@@ -58,15 +58,16 @@ public class CaseDiscussionService : ICaseDiscussionService
             var levels = caseItem.ActiveWorkflowInstance.InstanceLevels;
             if (levels != null && levels.Any())
             {
-                var invLevel = levels.FirstOrDefault(l => 
-                    (l.WorkflowLevel != null && l.WorkflowLevel.Name.Contains("investigation", StringComparison.OrdinalIgnoreCase)) ||
-                    l.LevelNumber == 5
-                ) ?? levels.FirstOrDefault(l => l.AssignedRoleId.HasValue || (l.WorkflowLevel != null && l.WorkflowLevel.TargetRoleId.HasValue));
+                // Prefer instance level with AssignedRoleId already set, or whose WorkflowLevel has Investigation LevelRole
+                var invLevel = levels.FirstOrDefault(l =>
+                    (l.WorkflowLevel != null && l.WorkflowLevel.LevelRole == TaxOmbud.Domain.Enums.LevelRole.Investigation) ||
+                    l.WorkflowLevel?.Name.Contains("investigation", StringComparison.OrdinalIgnoreCase) == true
+                ) ?? levels.FirstOrDefault(l => l.AssignedRoleId.HasValue);
 
                 if (invLevel != null)
                 {
-                    var rId = invLevel.AssignedRoleId ?? invLevel.WorkflowLevel?.TargetRoleId;
-                    var rName = invLevel.AssignedRole?.Name ?? invLevel.WorkflowLevel?.TargetRole?.Name;
+                    var rId = invLevel.AssignedRoleId;
+                    var rName = invLevel.AssignedRole?.Name;
                     if (rId.HasValue)
                     {
                         if (string.IsNullOrEmpty(rName))
@@ -82,14 +83,20 @@ public class CaseDiscussionService : ICaseDiscussionService
             if (caseItem.ActiveWorkflowInstance.Workflow?.Levels != null)
             {
                 var wfLevels = caseItem.ActiveWorkflowInstance.Workflow.Levels;
+                // Find level with Investigation LevelRole, or fall back to any level with Role targets
                 var invWfLevel = wfLevels.FirstOrDefault(l =>
-                    l.Name.Contains("investigation", StringComparison.OrdinalIgnoreCase) ||
-                    l.LevelNumber == 5
-                ) ?? wfLevels.FirstOrDefault(l => l.TargetRoleId.HasValue);
+                    l.LevelRole == TaxOmbud.Domain.Enums.LevelRole.Investigation ||
+                    l.Name.Contains("investigation", StringComparison.OrdinalIgnoreCase)
+                ) ?? wfLevels.FirstOrDefault(l => l.Targets.Any(t => t.TargetType == TaxOmbud.Domain.Enums.WorkflowLevelTargetType.Role));
 
-                if (invWfLevel?.TargetRoleId.HasValue == true)
+                if (invWfLevel != null)
                 {
-                    return (invWfLevel.TargetRoleId, invWfLevel.TargetRole?.Name);
+                    var roleTarget = invWfLevel.Targets.FirstOrDefault(t => t.TargetType == TaxOmbud.Domain.Enums.WorkflowLevelTargetType.Role);
+                    if (roleTarget != null)
+                    {
+                        var role = await _context.CustomRoles.FirstOrDefaultAsync(r => r.Id == roleTarget.TargetId, ct);
+                        return (role?.Id, role?.Name);
+                    }
                 }
             }
         }
@@ -97,7 +104,7 @@ public class CaseDiscussionService : ICaseDiscussionService
         // Fallback: check default active workflow in database
         var defaultWf = await _context.Workflows
             .Include(w => w.Levels)
-                .ThenInclude(l => l.TargetRole)
+                .ThenInclude(l => l.Targets)
             .Where(w => w.IsActive)
             .OrderByDescending(w => w.IsDefault)
             .FirstOrDefaultAsync(ct);
@@ -105,13 +112,18 @@ public class CaseDiscussionService : ICaseDiscussionService
         if (defaultWf?.Levels != null)
         {
             var invLvl = defaultWf.Levels.FirstOrDefault(l =>
-                l.Name.Contains("investigation", StringComparison.OrdinalIgnoreCase) ||
-                l.LevelNumber == 5
-            ) ?? defaultWf.Levels.FirstOrDefault(l => l.TargetRoleId.HasValue);
+                l.LevelRole == TaxOmbud.Domain.Enums.LevelRole.Investigation ||
+                l.Name.Contains("investigation", StringComparison.OrdinalIgnoreCase)
+            ) ?? defaultWf.Levels.FirstOrDefault(l => l.Targets.Any(t => t.TargetType == TaxOmbud.Domain.Enums.WorkflowLevelTargetType.Role));
 
-            if (invLvl?.TargetRoleId.HasValue == true)
+            if (invLvl != null)
             {
-                return (invLvl.TargetRoleId, invLvl.TargetRole?.Name);
+                var roleTarget = invLvl.Targets.FirstOrDefault(t => t.TargetType == TaxOmbud.Domain.Enums.WorkflowLevelTargetType.Role);
+                if (roleTarget != null)
+                {
+                    var role = await _context.CustomRoles.FirstOrDefaultAsync(r => r.Id == roleTarget.TargetId, ct);
+                    return (role?.Id, role?.Name);
+                }
             }
         }
 

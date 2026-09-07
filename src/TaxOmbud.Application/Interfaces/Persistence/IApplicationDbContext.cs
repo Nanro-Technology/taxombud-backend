@@ -74,6 +74,8 @@ public interface IApplicationDbContext
     DbSet<TaxOmbud.Domain.Entities.Workflows.WorkflowInstanceLevel> WorkflowInstanceLevels { get; }
     DbSet<TaxOmbud.Domain.Entities.Workflows.CaseApprovalTask> CaseApprovalTasks { get; }
     DbSet<TaxOmbud.Domain.Entities.Workflows.CaseWorkflowAuditLog> CaseWorkflowAuditLogs { get; }
+    DbSet<TaxOmbud.Domain.Entities.Workflows.WorkflowLevelTarget> WorkflowLevelTargets { get; }
+    DbSet<TaxOmbud.Domain.Entities.Workflows.WorkflowStageLibraryItem> WorkflowStageLibrary { get; }
 
     // Documents
     DbSet<Document> Documents { get; }
