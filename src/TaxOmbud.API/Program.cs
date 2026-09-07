@@ -180,7 +180,7 @@ try
     Log.Information("Tax Ombud API started successfully.");
     await app.RunAsync();
 }
-catch (Exception ex)
+catch (Exception ex) when (ex is not Microsoft.Extensions.Hosting.HostAbortedException)
 {
     Log.Fatal(ex, "Tax Ombud API terminated unexpectedly.");
 }

@@ -45,14 +45,20 @@ public class SubmitCaseToWorkflowCommandHandler : IRequestHandler<SubmitCaseToWo
         Workflow? workflow = null;
         if (request.WorkflowId.HasValue)
         {
-            workflow = await _context.Workflows.Include(w => w.Levels).FirstOrDefaultAsync(w => w.Id == request.WorkflowId.Value, cancellationToken);
+            workflow = await _context.Workflows
+                .Include(w => w.Levels).ThenInclude(l => l.Targets)
+                .FirstOrDefaultAsync(w => w.Id == request.WorkflowId.Value, cancellationToken);
         }
 
         if (workflow == null)
         {
             // Find default or category matching workflow
-            workflow = await _context.Workflows.Include(w => w.Levels).FirstOrDefaultAsync(w => w.IsDefault && w.IsActive, cancellationToken)
-                    ?? await _context.Workflows.Include(w => w.Levels).FirstOrDefaultAsync(w => w.IsActive, cancellationToken);
+            workflow = await _context.Workflows
+                    .Include(w => w.Levels).ThenInclude(l => l.Targets)
+                    .FirstOrDefaultAsync(w => w.IsDefault && w.IsActive, cancellationToken)
+                    ?? await _context.Workflows
+                    .Include(w => w.Levels).ThenInclude(l => l.Targets)
+                    .FirstOrDefaultAsync(w => w.IsActive, cancellationToken);
         }
 
         if (workflow == null || !workflow.Levels.Any())
@@ -89,16 +95,18 @@ public class SubmitCaseToWorkflowCommandHandler : IRequestHandler<SubmitCaseToWo
             if (level.LevelNumber == 1)
             {
                 var strategy = _strategyFactory.GetStrategy(level.AssignmentAlgorithm);
-                assignedUserId = await strategy.SelectAssigneeAsync(level.TargetRoleId, level.TargetUserId, cancellationToken);
+                assignedUserId = await strategy.SelectAssigneeAsync(level.Targets, cancellationToken);
                 firstAssigneeId = assignedUserId;
             }
+
+            var (_, primaryRoleId) = await CandidateResolver.ResolveAsync(_context, level.Targets, cancellationToken);
 
             var instanceLevel = new WorkflowInstanceLevel(
                 instance.Id,
                 level.Id,
                 level.LevelNumber,
                 assignedUserId,
-                level.TargetRoleId,
+                primaryRoleId,
                 level.SlaHours,
                 level.EscalationHours
             );

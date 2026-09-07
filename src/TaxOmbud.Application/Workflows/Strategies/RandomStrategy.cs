@@ -1,5 +1,5 @@
-using Microsoft.EntityFrameworkCore;
 using TaxOmbud.Application.Interfaces.Persistence;
+using TaxOmbud.Domain.Entities.Workflows;
 using TaxOmbud.Domain.Enums;
 
 namespace TaxOmbud.Application.Workflows.Strategies;
@@ -15,20 +15,15 @@ public class RandomStrategy : IRoutingStrategy
         _context = context;
     }
 
-    public async Task<Guid?> SelectAssigneeAsync(Guid? roleId, Guid? specificUserId, CancellationToken cancellationToken = default)
+    public async Task<Guid?> SelectAssigneeAsync(
+        IEnumerable<WorkflowLevelTarget> targets,
+        CancellationToken cancellationToken = default)
     {
-        if (specificUserId.HasValue) return specificUserId.Value;
-        if (!roleId.HasValue) return null;
+        var (candidateUserIds, _) = await CandidateResolver.ResolveAsync(_context, targets, cancellationToken);
 
-        var candidates = await _context.Users
-            .AsNoTracking()
-            .Where(u => u.UserType == UserType.StaffUser && u.Status == UserStatus.Active && !u.IsDeleted && u.RoleId == roleId)
-            .Select(u => u.Id)
-            .ToListAsync(cancellationToken);
-
-        if (!candidates.Any()) return null;
+        if (!candidateUserIds.Any()) return null;
 
         var random = new Random();
-        return candidates[random.Next(candidates.Count)];
+        return candidateUserIds[random.Next(candidateUserIds.Count)];
     }
 }

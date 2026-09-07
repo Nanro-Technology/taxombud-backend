@@ -55,6 +55,7 @@ public class ExecuteCaseApprovalCommandHandler : IRequestHandler<ExecuteCaseAppr
             .Include(t => t.WorkflowInstance)
                 .ThenInclude(i => i.Workflow)
                     .ThenInclude(w => w.Levels)
+                        .ThenInclude(l => l.Targets)  // Load multi-targets for routing
             .Include(t => t.WorkflowInstanceLevel)
                 .ThenInclude(il => il.WorkflowLevel)
             .Include(t => t.Case)
@@ -110,7 +111,6 @@ public class ExecuteCaseApprovalCommandHandler : IRequestHandler<ExecuteCaseAppr
                     // Final Approval Reached -> Complete Workflow & Case
                     instance.Complete(WorkflowStatus.Approved);
                     @case.Close("Approved", request.Comment ?? "Approved via workflow engine", currentUserId);
-                    // Flag for post-save closure notifications
                     _pendingClosureOutcome = "Approved";
                 }
                 else
@@ -124,36 +124,32 @@ public class ExecuteCaseApprovalCommandHandler : IRequestHandler<ExecuteCaseAppr
                     {
                         nextInstanceLevel.Status = WorkflowLevelStatus.InProgress;
 
-                        // Resolve assignee for next level using Strategy
+                        // Resolve assignee using multi-target strategy
                         var strategy = _strategyFactory.GetStrategy(nextLevel.AssignmentAlgorithm);
-                        var nextAssigneeId = await strategy.SelectAssigneeAsync(nextLevel.TargetRoleId, nextLevel.TargetUserId, cancellationToken);
+                        var (_, primaryRoleId) = await CandidateResolver.ResolveAsync(_context, nextLevel.Targets, cancellationToken);
+                        var nextAssigneeId = await strategy.SelectAssigneeAsync(nextLevel.Targets, cancellationToken);
 
-                        // Always set role on the instance level so role-based queue lookup works
                         nextInstanceLevel.AssignedUserId = nextAssigneeId;
-                        nextInstanceLevel.AssignedRoleId = nextLevel.TargetRoleId;
+                        nextInstanceLevel.AssignedRoleId = primaryRoleId;
 
-                        // Always create a task — even when no specific user found (role-pool task).
-                        // AssignedUserId = null signals a role-pool task; any member of
-                        // AssignedRoleId can see and claim it from the approval queue.
                         var nextTask = new CaseApprovalTask(
                             instance.Id,
                             nextInstanceLevel.Id,
                             @case.Id,
                             nextAssigneeId,
-                            nextLevel.TargetRoleId
+                            primaryRoleId
                         );
                         _context.CaseApprovalTasks.Add(nextTask);
-                        // NOTE: Do NOT call case.Assign() here — AssignedOfficerId points to Officers table
                     }
 
-                    @case.UpdateStatus(GetCanonicalStatus(nextLevel.LevelNumber), GetCanonicalStage(nextLevel.LevelNumber), currentUserId);
+                    // Use LevelRole to drive canonical stage/status — works for any N-level workflow
+                    @case.UpdateStatus(GetCanonicalStatus(nextLevel.LevelRole), GetCanonicalStage(nextLevel.LevelRole), currentUserId);
                 }
                 break;
 
             case WorkflowAction.Reject:
                 instance.Complete(WorkflowStatus.Rejected);
                 @case.Close("Rejected", request.Comment ?? "Rejected via workflow engine", currentUserId);
-                // Flag for post-save closure notifications
                 _pendingClosureOutcome = "Rejected";
                 break;
 
@@ -170,22 +166,20 @@ public class ExecuteCaseApprovalCommandHandler : IRequestHandler<ExecuteCaseAppr
                     returnInstanceLevel.Status = WorkflowLevelStatus.InProgress;
 
                     var strategy = _strategyFactory.GetStrategy(returnLevel.AssignmentAlgorithm);
-                    var returnAssigneeId = await strategy.SelectAssigneeAsync(returnLevel.TargetRoleId, returnLevel.TargetUserId, cancellationToken);
+                    var (_, returnPrimaryRoleId) = await CandidateResolver.ResolveAsync(_context, returnLevel.Targets, cancellationToken);
+                    var returnAssigneeId = await strategy.SelectAssigneeAsync(returnLevel.Targets, cancellationToken);
 
-                    // Always set role so the returned level is visible to role-based queue
                     returnInstanceLevel.AssignedUserId = returnAssigneeId;
-                    returnInstanceLevel.AssignedRoleId = returnLevel.TargetRoleId;
+                    returnInstanceLevel.AssignedRoleId = returnPrimaryRoleId;
 
-                    // Always create a task — even without a specific user (role-pool task)
                     var returnTask = new CaseApprovalTask(
                         instance.Id,
                         returnInstanceLevel.Id,
                         @case.Id,
                         returnAssigneeId,
-                        returnLevel.TargetRoleId
+                        returnPrimaryRoleId
                     );
                     _context.CaseApprovalTasks.Add(returnTask);
-                    // NOTE: Do NOT call case.Assign() here — AssignedOfficerId points to Officers table
                 }
 
                 @case.UpdateStatus(CaseStatus.UnderInvestigation, $"Returned to {returnLevel.Name}", currentUserId);
@@ -266,27 +260,35 @@ public class ExecuteCaseApprovalCommandHandler : IRequestHandler<ExecuteCaseAppr
     // Transient flag used within a single Handle() call to signal a closure outcome for post-save notifications
     private string? _pendingClosureOutcome;
 
-    private static string GetCanonicalStage(int levelNumber) => levelNumber switch
+    /// <summary>
+    /// Maps a LevelRole to a canonical WorkflowStage string.
+    /// Works for any N-level workflow — not position-dependent.
+    /// </summary>
+    private static string GetCanonicalStage(LevelRole levelRole) => levelRole switch
     {
-        1 => WorkflowStage.Intake,
-        2 => WorkflowStage.RegistrationAndAcknowledgement,
-        3 => WorkflowStage.InitialReviewAndAssignment,
-        4 => WorkflowStage.JurisdictionAndAdmissibility,
-        5 => WorkflowStage.InvestigationAndResolution,
-        6 => WorkflowStage.DecisionAndCommunication,
-        7 => WorkflowStage.ClosureAndArchiving,
-        _ => WorkflowStage.Intake
+        LevelRole.Intake            => WorkflowStage.Intake,
+        LevelRole.Registration      => WorkflowStage.RegistrationAndAcknowledgement,
+        LevelRole.InitialReview     => WorkflowStage.InitialReviewAndAssignment,
+        LevelRole.AdmissibilityGate => WorkflowStage.JurisdictionAndAdmissibility,
+        LevelRole.Investigation     => WorkflowStage.InvestigationAndResolution,
+        LevelRole.Decision          => WorkflowStage.DecisionAndCommunication,
+        LevelRole.Closure           => WorkflowStage.ClosureAndArchiving,
+        _                           => WorkflowStage.Intake
     };
 
-    private static CaseStatus GetCanonicalStatus(int levelNumber) => levelNumber switch
+    /// <summary>
+    /// Maps a LevelRole to a canonical CaseStatus.
+    /// Works for any N-level workflow — not position-dependent.
+    /// </summary>
+    private static CaseStatus GetCanonicalStatus(LevelRole levelRole) => levelRole switch
     {
-        1 => CaseStatus.Submitted,
-        2 => CaseStatus.Registered,
-        3 => CaseStatus.UnderAssessment,
-        4 => CaseStatus.UnderAssessment,
-        5 => CaseStatus.UnderInvestigation,
-        6 => CaseStatus.DecisionIssued,
-        7 => CaseStatus.Closed,
-        _ => CaseStatus.UnderInvestigation
+        LevelRole.Intake            => CaseStatus.Submitted,
+        LevelRole.Registration      => CaseStatus.Registered,
+        LevelRole.InitialReview     => CaseStatus.UnderAssessment,
+        LevelRole.AdmissibilityGate => CaseStatus.UnderAssessment,
+        LevelRole.Investigation     => CaseStatus.UnderInvestigation,
+        LevelRole.Decision          => CaseStatus.DecisionIssued,
+        LevelRole.Closure           => CaseStatus.Closed,
+        _                           => CaseStatus.UnderInvestigation
     };
 }

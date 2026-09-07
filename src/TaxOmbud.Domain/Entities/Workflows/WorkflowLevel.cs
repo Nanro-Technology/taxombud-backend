@@ -1,5 +1,4 @@
 using TaxOmbud.Domain.Common;
-using TaxOmbud.Domain.Entities.Identity;
 using TaxOmbud.Domain.Enums;
 
 namespace TaxOmbud.Domain.Entities.Workflows;
@@ -9,9 +8,17 @@ public class WorkflowLevel : BaseEntity
     public Guid WorkflowId { get; set; }
     public Workflow Workflow { get; set; } = null!;
 
-    public int LevelNumber { get; set; } // 1-based order
-    public string Name { get; set; } = null!; // e.g. "Level 1 - Loan Officer"
+    public int LevelNumber { get; set; } // 1-based order within the workflow
+
+    public string Name { get; set; } = null!;  // e.g. "Stage 1 – Intake"
     public string? Description { get; set; }
+
+    /// <summary>
+    /// Semantic role of this level. Drives Case.CurrentStage and CaseStatus
+    /// independently of LevelNumber, enabling N-level workflows.
+    /// Every workflow must contain at least one level where LevelRole = AdmissibilityGate.
+    /// </summary>
+    public LevelRole LevelRole { get; set; } = LevelRole.Custom;
 
     public int? SlaHours { get; set; }
     public int? EscalationHours { get; set; }
@@ -20,26 +27,25 @@ public class WorkflowLevel : BaseEntity
     public bool RequireComment { get; set; } = false;
     public bool RequireAttachment { get; set; } = false;
 
-    public AssignmentTargetType TargetType { get; set; } = AssignmentTargetType.Role;
-    public Guid? TargetRoleId { get; set; }
-    public Role? TargetRole { get; set; }
-
-    public Guid? TargetUserId { get; set; }
-    public User? TargetUser { get; set; }
-
     public AssignmentMode AssignmentMode { get; set; } = AssignmentMode.Automatic;
     public AssignmentAlgorithm AssignmentAlgorithm { get; set; } = AssignmentAlgorithm.RoundRobin;
+
+    /// <summary>
+    /// Multi-target assignment targets for this level.
+    /// May contain any combination of Role, Department, and User targets.
+    /// Routing engine intersects Department + Role memberships when resolving assignees.
+    /// Specific User targets bypass the role/department filter.
+    /// </summary>
+    public ICollection<WorkflowLevelTarget> Targets { get; set; } = new List<WorkflowLevelTarget>();
 
     protected WorkflowLevel() { }
 
     public WorkflowLevel(
-        Guid workflowId, 
-        int levelNumber, 
-        string name, 
-        string? description, 
-        AssignmentTargetType targetType,
-        Guid? targetRoleId, 
-        Guid? targetUserId,
+        Guid workflowId,
+        int levelNumber,
+        string name,
+        string? description,
+        LevelRole levelRole = LevelRole.Custom,
         AssignmentMode assignmentMode = AssignmentMode.Automatic,
         AssignmentAlgorithm assignmentAlgorithm = AssignmentAlgorithm.RoundRobin)
     {
@@ -48,9 +54,7 @@ public class WorkflowLevel : BaseEntity
         LevelNumber = levelNumber;
         Name = name;
         Description = description;
-        TargetType = targetType;
-        TargetRoleId = targetRoleId;
-        TargetUserId = targetUserId;
+        LevelRole = levelRole;
         AssignmentMode = assignmentMode;
         AssignmentAlgorithm = assignmentAlgorithm;
         CreatedAt = DateTime.UtcNow;
