@@ -5,15 +5,18 @@ using Microsoft.Extensions.Logging;
 using System.Text.RegularExpressions;
 using TaxOmbud.Application.Cases.DTOs;
 using TaxOmbud.Application.Interfaces.InfrastructureService;
+using TaxOmbud.Application.Interfaces.Persistence;
 using TaxOmbud.Application.Interfaces.Repositories;
 using TaxOmbud.Application.Interfaces.Services;
 using TaxOmbud.Common.Responses;
 using TaxOmbud.Common.Utilities;
+using TaxOmbud.Domain.Constants;
 using TaxOmbud.Domain.Entities.Cases;
 using TaxOmbud.Domain.Entities.Complaints;
 using TaxOmbud.Domain.Entities.Documents;
 using TaxOmbud.Domain.Entities.Identity;
 using TaxOmbud.Domain.Entities.Taxpayers;
+using TaxOmbud.Domain.Entities.Workflows;
 using TaxOmbud.Domain.Enums;
 
 namespace TaxOmbud.Application.Services;
@@ -36,6 +39,8 @@ public class CasesService : ICasesService
     private readonly IFileStorageService _storage;
     private readonly IConfiguration _configuration;
     private readonly ILogger<CasesService> _logger;
+    private readonly ICurrentUser _currentUser;
+    private readonly IApplicationDbContext _context;
 
     public CasesService(
         IGenericRepository<Case> caseRepo,
@@ -53,7 +58,9 @@ public class CasesService : ICasesService
         IEmailService emailService,
         IFileStorageService storage,
         IConfiguration configuration,
-        ILogger<CasesService> logger)
+        ILogger<CasesService> logger,
+        ICurrentUser currentUser,
+        IApplicationDbContext context)
     {
         _caseRepo = caseRepo;
         _complaintRepo = complaintRepo;
@@ -71,12 +78,155 @@ public class CasesService : ICasesService
         _storage = storage;
         _configuration = configuration;
         _logger = logger;
+        _currentUser = currentUser;
+        _context = context;
     }
 
 
 
 
     // ─── Queries ───────────────────────────────────────────────────────────────
+
+    private static bool IsUserEligibleForLevel(User user, WorkflowLevel level)
+    {
+        var targets = level.Targets.ToList();
+        if (!targets.Any())
+        {
+            // No specific targets defined on this stage level -> open to all staff users
+            return true;
+        }
+
+        var userTargetIds = targets.Where(t => t.TargetType == WorkflowLevelTargetType.User).Select(t => t.TargetId).ToHashSet();
+        var roleTargetIds = targets.Where(t => t.TargetType == WorkflowLevelTargetType.Role).Select(t => t.TargetId).ToHashSet();
+        var deptTargetIds = targets.Where(t => t.TargetType == WorkflowLevelTargetType.Department).Select(t => t.TargetId).ToHashSet();
+
+        // 1. Direct user assignment target
+        if (userTargetIds.Contains(user.Id))
+            return true;
+
+        // 2. Department + Role intersection
+        if (roleTargetIds.Any() && deptTargetIds.Any())
+        {
+            return user.RoleId.HasValue && roleTargetIds.Contains(user.RoleId.Value)
+                && user.DepartmentId.HasValue && deptTargetIds.Contains(user.DepartmentId.Value);
+        }
+
+        // 3. Role target only
+        if (roleTargetIds.Any())
+        {
+            return user.RoleId.HasValue && roleTargetIds.Contains(user.RoleId.Value);
+        }
+
+        // 4. Department target only
+        if (deptTargetIds.Any())
+        {
+            return user.DepartmentId.HasValue && deptTargetIds.Contains(user.DepartmentId.Value);
+        }
+
+        return false;
+    }
+
+    private static bool IsUserEligibleForStageDefault(string roleName, string stage)
+    {
+        var r = (roleName ?? string.Empty).ToLowerInvariant();
+        return stage switch
+        {
+            WorkflowStage.Intake => r.Contains("officer") || r.Contains("intake") || r.Contains("registry") || r.Contains("front"),
+            WorkflowStage.RegistrationAndAcknowledgement => r.Contains("officer") || r.Contains("registrar") || r.Contains("registry"),
+            WorkflowStage.InitialReviewAndAssignment => r.Contains("manager") || r.Contains("director") || r.Contains("chief") || r.Contains("ce"),
+            WorkflowStage.JurisdictionAndAdmissibility or WorkflowStage.NotAdmissible => r.Contains("legal") || r.Contains("senior") || r.Contains("manager"),
+            WorkflowStage.InvestigationAndResolution => r.Contains("senior") || r.Contains("investigat") || r.Contains("operation"),
+            WorkflowStage.DecisionAndCommunication => r.Contains("manager") || r.Contains("director") || r.Contains("chief") || r.Contains("ce"),
+            WorkflowStage.ClosureAndArchiving => r.Contains("director") || r.Contains("chief") || r.Contains("ce") || r.Contains("registrar") || r.Contains("registry"),
+            _ => true
+        };
+    }
+
+    private async Task<IQueryable<Case>> ApplyStageQueueFilterAsync(IQueryable<Case> query, string stage, CancellationToken cancellationToken)
+    {
+        var currentUserId = _currentUser?.UserId;
+        if (!currentUserId.HasValue || currentUserId.Value == Guid.Empty)
+            return query;
+
+        var user = await _context.Users
+            .Include(u => u.Role)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == currentUserId.Value, cancellationToken);
+
+        if (user == null)
+            return query;
+
+        var roleName = user.Role?.Name ?? string.Empty;
+        var isSuperAdmin = (_currentUser != null && (_currentUser.IsInRole("Super Admin") || _currentUser.IsInRole("Admin")))
+                        || roleName.Equals("Super Admin", StringComparison.OrdinalIgnoreCase)
+                        || roleName.Equals("Admin", StringComparison.OrdinalIgnoreCase);
+
+        if (isSuperAdmin)
+            return query;
+
+        LevelRole? levelRole = stage switch
+        {
+            WorkflowStage.Intake => LevelRole.Intake,
+            WorkflowStage.RegistrationAndAcknowledgement => LevelRole.Registration,
+            WorkflowStage.InitialReviewAndAssignment => LevelRole.InitialReview,
+            WorkflowStage.JurisdictionAndAdmissibility or WorkflowStage.NotAdmissible => LevelRole.AdmissibilityGate,
+            WorkflowStage.InvestigationAndResolution => LevelRole.Investigation,
+            WorkflowStage.DecisionAndCommunication => LevelRole.Decision,
+            WorkflowStage.ClosureAndArchiving => LevelRole.Closure,
+            _ => null
+        };
+
+        int? levelNumber = stage switch
+        {
+            WorkflowStage.Intake => 1,
+            WorkflowStage.RegistrationAndAcknowledgement => 2,
+            WorkflowStage.InitialReviewAndAssignment => 3,
+            WorkflowStage.JurisdictionAndAdmissibility or WorkflowStage.NotAdmissible => 4,
+            WorkflowStage.InvestigationAndResolution => 5,
+            WorkflowStage.DecisionAndCommunication => 6,
+            WorkflowStage.ClosureAndArchiving => 7,
+            _ => null
+        };
+
+        var activeLevels = await _context.WorkflowLevels
+            .Include(l => l.Targets)
+            .Include(l => l.Workflow)
+            .Where(l => l.Workflow.IsActive && !l.Workflow.IsDeleted &&
+                       ((levelRole.HasValue && l.LevelRole == levelRole.Value) ||
+                        (levelNumber.HasValue && l.LevelNumber == levelNumber.Value)))
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+
+        bool isEligibleForStage = activeLevels.Any()
+            ? activeLevels.Any(l => IsUserEligibleForLevel(user, l))
+            : IsUserEligibleForStageDefault(roleName, stage);
+
+        var uid = currentUserId.Value;
+        var rid = user.RoleId;
+
+        if (isEligibleForStage)
+        {
+            // Officer's role is assigned to this stage:
+            // Sees cases assigned to them, cases with pending tasks for them or their role, or unassigned pool cases in this stage
+            return query.Where(c =>
+                (c.AssignedOfficer != null && c.AssignedOfficer.UserId == uid) ||
+                _context.CaseApprovalTasks.Any(t => t.CaseId == c.Id && t.TaskStatus == WorkflowLevelStatus.Pending &&
+                    ((t.AssignedUserId.HasValue && t.AssignedUserId.Value == uid) ||
+                     (rid.HasValue && t.AssignedRoleId.HasValue && t.AssignedRoleId.Value == rid.Value))) ||
+                c.AssignedOfficerId == null
+            );
+        }
+        else
+        {
+            // Officer's role is NOT assigned to this stage:
+            // Can ONLY see cases if specifically assigned to them as officer or task assignee
+            return query.Where(c =>
+                (c.AssignedOfficer != null && c.AssignedOfficer.UserId == uid) ||
+                _context.CaseApprovalTasks.Any(t => t.CaseId == c.Id && t.TaskStatus == WorkflowLevelStatus.Pending &&
+                    t.AssignedUserId.HasValue && t.AssignedUserId.Value == uid)
+            );
+        }
+    }
 
     public async Task<Response<PagedResult<CaseListDto>>> GetCasesAsync(GetCasesQuery request, CancellationToken cancellationToken = default)
     {
@@ -94,7 +244,10 @@ public class CasesService : ICasesService
                     c.Complaint.ReferenceNumber.Contains(request.Search));
 
             if (!string.IsNullOrWhiteSpace(request.Stage))
+            {
                 query = query.Where(c => c.CurrentStage == request.Stage);
+                query = await ApplyStageQueueFilterAsync(query, request.Stage, cancellationToken);
+            }
 
             if (!string.IsNullOrWhiteSpace(request.Status))
                 query = query.Where(c => c.Status.ToString() == request.Status);
@@ -153,6 +306,30 @@ public class CasesService : ICasesService
                 .Include(c => c.AssignedOfficer)
                     .ThenInclude(o => o.User)
                 .AsQueryable();
+
+            var currentUserId = _currentUser?.UserId;
+            if (currentUserId.HasValue && currentUserId.Value != Guid.Empty)
+            {
+                var user = await _context.Users
+                    .Include(u => u.Role)
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.Id == currentUserId.Value, cancellationToken);
+
+                var roleName = user?.Role?.Name ?? string.Empty;
+                var isSuperAdmin = (_currentUser != null && (_currentUser.IsInRole("Super Admin") || _currentUser.IsInRole("Admin")))
+                                || roleName.Equals("Super Admin", StringComparison.OrdinalIgnoreCase)
+                                || roleName.Equals("Admin", StringComparison.OrdinalIgnoreCase);
+
+                if (!isSuperAdmin)
+                {
+                    var uid = currentUserId.Value;
+                    query = query.Where(c =>
+                        (c.AssignedOfficer != null && c.AssignedOfficer.UserId == uid) ||
+                        _context.CaseApprovalTasks.Any(t => t.CaseId == c.Id && t.TaskStatus == WorkflowLevelStatus.Pending &&
+                            t.AssignedUserId.HasValue && t.AssignedUserId.Value == uid)
+                    );
+                }
+            }
 
             if (!string.IsNullOrWhiteSpace(request.Search))
                 query = query.Where(c =>
@@ -260,7 +437,10 @@ public class CasesService : ICasesService
             var query = _caseRepo.Query()
                 .Include(c => c.Complaint)
                     .ThenInclude(co => co.Taxpayer).ThenInclude(tp => tp.User)
+                .Include(c => c.AssignedOfficer)
                 .Where(c => c.CurrentStage == request.QueueName);
+
+            query = await ApplyStageQueueFilterAsync(query, request.QueueName, cancellationToken);
 
             var total = await query.CountAsync(cancellationToken);
             var items = await query
