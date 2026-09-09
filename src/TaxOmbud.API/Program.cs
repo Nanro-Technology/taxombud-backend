@@ -58,7 +58,18 @@ try
             o.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
         });
 
-    // ─── Swagger / OpenAPI ────────────────────────────────────────────────────
+    // ─── Multipart Form Upload Limits (5 MB/file, 25 MB total) ───────────────
+    builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(opts =>
+    {
+        opts.MultipartBodyLengthLimit   = 26_214_400; // 25 MB
+        opts.ValueLengthLimit           = 26_214_400;
+        opts.MultipartHeadersLengthLimit = 16_384;
+    });
+    builder.WebHost.ConfigureKestrel(k =>
+    {
+        k.Limits.MaxRequestBodySize = 26_214_400; // 25 MB
+    });
+
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen(c =>
     {

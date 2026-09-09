@@ -317,6 +317,7 @@ public class ApplicationDbContext : IdentityDbContext<User, IdentityRole<Guid>, 
         // ─── WorkflowLevel → WorkflowLevelTarget (multi-target junction) ──────────────
         modelBuilder.Entity<TaxOmbud.Domain.Entities.Workflows.WorkflowLevelTarget>(b =>
         {
+            b.Property(t => t.Id).ValueGeneratedNever();
             b.HasOne(t => t.WorkflowLevel)
              .WithMany(l => l.Targets)
              .HasForeignKey(t => t.WorkflowLevelId)
@@ -326,11 +327,14 @@ public class ApplicationDbContext : IdentityDbContext<User, IdentityRole<Guid>, 
             // TargetId is not a typed FK — it points polymorphically to Role/Department/User
             b.HasIndex(t => new { t.WorkflowLevelId, t.TargetType, t.TargetId })
              .HasDatabaseName("IX_WorkflowLevelTargets_LevelId_Type_TargetId");
+
+            b.HasQueryFilter(t => !t.IsDeleted);
         });
 
         // ─── WorkflowLevel: LevelRole enum stored as int ─────────────────────────────
         modelBuilder.Entity<TaxOmbud.Domain.Entities.Workflows.WorkflowLevel>(b =>
         {
+            b.Property(l => l.Id).ValueGeneratedNever();
             b.Property(l => l.LevelRole).HasConversion<int>().HasDefaultValue(TaxOmbud.Domain.Enums.LevelRole.Custom);
         });
 

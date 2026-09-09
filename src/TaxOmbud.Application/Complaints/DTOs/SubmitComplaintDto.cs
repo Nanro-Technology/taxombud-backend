@@ -6,6 +6,7 @@ using FluentValidation;
 using TaxOmbud.Domain.Entities.Complaints;
 using TaxOmbud.Common.Utilities;
 using TaxOmbud.Common.Responses;
+using Microsoft.AspNetCore.Http;
 
 namespace TaxOmbud.Application.Complaints.DTOs;
 
@@ -17,7 +18,9 @@ public record SubmitComplaintCommand(
     string Subject,
     string Description,
     string? TaxOfficeRef,
-    string? TinNumber
+    string? TinNumber,
+    IReadOnlyList<IFormFile>? Attachments = null
 ) ;
 
 public record SubmitComplaintResponse(Guid ComplaintId, string ReferenceNumber, string Status);
+

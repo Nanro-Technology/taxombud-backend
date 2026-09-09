@@ -20,8 +20,10 @@ public record SubmitPublicCaseCommand(
     string? TaxId = null,
     string? CacNumber = null,
     string? OtoReason = null,
-    string? CourtTribunal = null
+    string? CourtTribunal = null,
+    IReadOnlyList<Microsoft.AspNetCore.Http.IFormFile>? Attachments = null
 );
+
 
 public record SubmitPublicCaseResponse(Guid CaseId, string TrackingNumber);
 

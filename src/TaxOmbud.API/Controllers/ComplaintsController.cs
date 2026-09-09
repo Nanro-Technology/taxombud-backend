@@ -81,15 +81,21 @@ public class ComplaintsController : ControllerBase
     /// <summary>Submit a new complaint (taxpayer action).</summary>
     [HttpPost]
     [Authorize(Policy = "RequireAuthenticated")]
+    [Consumes("multipart/form-data")]
     [ProducesResponseType(typeof(Response<SubmitComplaintResponse>), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
-    public async Task<IActionResult> Submit([FromBody] SubmitComplaintCommand command, CancellationToken ct)
+    public async Task<IActionResult> Submit([FromForm] SubmitComplaintCommand command, CancellationToken ct)
     {
-        var result = await _complaintsService.SubmitComplaintAsync(command, ct);
+        var attachments = (command.Attachments != null && command.Attachments.Count > 0)
+            ? command.Attachments
+            : (Request.HasFormContentType && Request.Form.Files.Count > 0 ? Request.Form.Files.ToList() : null);
+        var finalCommand = attachments != null ? command with { Attachments = attachments } : command;
+        var result = await _complaintsService.SubmitComplaintAsync(finalCommand, ct);
         if (!(result.StatusCode >= 200 && result.StatusCode < 300))
             return StatusCode(result.StatusCode, result);
         return CreatedAtRoute("GetComplaintById", new { id = result.Data!.ComplaintId }, result);
     }
+
 
     /// <summary>Update a complaint (only allowed in Draft status).</summary>
     [HttpPut("{id:guid}")]
@@ -216,14 +222,19 @@ public class ComplaintsController : ControllerBase
         return StatusCode(result.StatusCode, result);
     }
 
-    /// <summary>Upload a document for a complaint.</summary>
+    /// <summary>Upload one or more documents for a complaint.</summary>
     [HttpPost("{id:guid}/documents")]
     [Consumes("multipart/form-data")]
-    [ProducesResponseType(typeof(Response<Guid>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Response<List<Guid>>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> UploadDocument(Guid id, IFormFile file, CancellationToken ct)
+    public async Task<IActionResult> UploadDocuments(Guid id, [FromForm] IFormFileCollection? files, CancellationToken ct)
     {
-        var result = await _complaintsService.UploadComplaintDocumentAsync(new UploadComplaintDocumentCommand(id, file), ct);
+        var formFiles = (files != null && files.Count > 0) ? files : Request.Form.Files;
+        if (formFiles == null || formFiles.Count == 0)
+            return BadRequest(new { message = "No files were provided." });
+
+        var result = await _complaintsService.UploadComplaintDocumentsAsync(
+            new UploadComplaintDocumentsCommand(id, formFiles.ToList()), ct);
         return StatusCode(result.StatusCode, result);
     }
 
