@@ -16,6 +16,7 @@ public interface IComplaintsService
     Task<Response<object?>> UpdateComplaintAsync(UpdateComplaintCommand request, CancellationToken cancellationToken = default);
     Task<Response<object?>> UpdateComplaintStatusAsync(UpdateComplaintStatusCommand request, CancellationToken cancellationToken = default);
     Task<Response<Guid>> UploadComplaintDocumentAsync(UploadComplaintDocumentCommand request, CancellationToken cancellationToken = default);
+    Task<Response<List<Guid>>> UploadComplaintDocumentsAsync(UploadComplaintDocumentsCommand request, CancellationToken cancellationToken = default);
     Task<Response<ComplaintDetailDto>> GetComplaintByIdAsync(GetComplaintByIdQuery request, CancellationToken cancellationToken = default);
     Task<Response<ComplaintDetailDto>> GetComplaintByReferenceAsync(GetComplaintByReferenceQuery request, CancellationToken cancellationToken = default);
     Task<Response<IReadOnlyList<ComplaintDocumentDto>>> GetComplaintDocumentsAsync(GetComplaintDocumentsQuery request, CancellationToken cancellationToken = default);

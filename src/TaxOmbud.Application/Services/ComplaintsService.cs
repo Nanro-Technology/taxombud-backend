@@ -237,8 +237,19 @@ public class ComplaintsService : IComplaintsService
         var response = new Response<IReadOnlyList<ComplaintDocumentDto>>();
         try
         {
+            var entityIds = new HashSet<Guid> { request.ComplaintId };
+            var caseItem = await _caseRepo.Query()
+                .Where(c => c.ComplaintId == request.ComplaintId || c.Id == request.ComplaintId)
+                .Select(c => new { c.Id, c.ComplaintId })
+                .FirstOrDefaultAsync(cancellationToken);
+            if (caseItem != null)
+            {
+                entityIds.Add(caseItem.Id);
+                entityIds.Add(caseItem.ComplaintId);
+            }
+
             var documents = await _documentRepo.Query()
-                .Where(d => d.EntityType == DocumentEntityType.Complaint && d.EntityId == request.ComplaintId)
+                .Where(d => entityIds.Contains(d.EntityId))
                 .OrderByDescending(d => d.CreatedAt)
                 .Select(d => new ComplaintDocumentDto(d.Id, d.FileName, d.ContentType, d.FileSize, d.CreatedAt))
                 .ToListAsync(cancellationToken);
@@ -320,6 +331,11 @@ public class ComplaintsService : IComplaintsService
             complaint.Submit();
             await _complaintRepo.AddAsync(complaint);
             await _complaintRepo.SaveAsync();
+
+            // Upload any attached files
+            if (request.Attachments is { Count: > 0 })
+                await UploadComplaintDocumentsAsync(
+                    new UploadComplaintDocumentsCommand(complaint.Id, request.Attachments), cancellationToken);
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = Constants.Messages.ComplaintSubmitted;
@@ -584,6 +600,42 @@ public class ComplaintsService : IComplaintsService
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = Constants.Messages.DocumentUploaded;
             response.Data = docId;
+        }
+        catch (Exception)
+        {
+            response.StatusCode = StatusCodes.Status500InternalServerError;
+            response.Message = Constants.Messages.ComplaintDocUploadError;
+        }
+        return response;
+    }
+
+    public async Task<Response<List<Guid>>> UploadComplaintDocumentsAsync(UploadComplaintDocumentsCommand request, CancellationToken cancellationToken = default)
+    {
+        var response = new Response<List<Guid>>();
+        var ids = new List<Guid>();
+        try
+        {
+            foreach (var file in request.Files)
+            {
+                await using var stream = file.OpenReadStream();
+                var path = await _storage.StoreAsync(stream, file.FileName, file.ContentType, cancellationToken);
+
+                var docId = Guid.NewGuid();
+                var doc = new Document
+                {
+                    Id = docId, FileName = file.FileName, FilePath = path,
+                    ContentType = file.ContentType, FileSize = file.Length,
+                    EntityType = DocumentEntityType.Complaint, EntityId = request.ComplaintId,
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _documentRepo.AddAsync(doc);
+                ids.Add(docId);
+            }
+            await _documentRepo.SaveAsync();
+
+            response.StatusCode = StatusCodes.Status200OK;
+            response.Message = $"{ids.Count} document(s) uploaded successfully.";
+            response.Data = ids;
         }
         catch (Exception)
         {

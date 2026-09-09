@@ -15,3 +15,10 @@ public record UploadComplaintDocumentCommand(
     Guid ComplaintId,
     IFormFile File
 ) ;
+
+/// <summary>Bulk-upload multiple documents to a complaint in a single call.</summary>
+public record UploadComplaintDocumentsCommand(
+    Guid ComplaintId,
+    IReadOnlyList<IFormFile> Files
+);
+

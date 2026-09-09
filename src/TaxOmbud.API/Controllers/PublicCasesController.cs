@@ -26,13 +26,19 @@ public class PublicCasesController : ControllerBase
 
     [HttpPost("case")]
     [HttpPost("submit")]
+    [Consumes("multipart/form-data")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> SubmitCase([FromBody] SubmitPublicCaseCommand command, CancellationToken ct)
+    public async Task<IActionResult> SubmitCase([FromForm] SubmitPublicCaseCommand command, CancellationToken ct)
     {
-        var result = await _casesService.SubmitPublicCaseAsync(command, ct);
+        var attachments = (command.Attachments != null && command.Attachments.Count > 0)
+            ? command.Attachments
+            : (Request.HasFormContentType && Request.Form.Files.Count > 0 ? Request.Form.Files.ToList() : null);
+        var finalCommand = attachments != null ? command with { Attachments = attachments } : command;
+        var result = await _casesService.SubmitPublicCaseAsync(finalCommand, ct);
         return StatusCode(result.StatusCode, result);
     }
+
 
     [HttpPost("track_complaints")]
     [HttpPost("track")]

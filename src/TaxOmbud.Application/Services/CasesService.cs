@@ -33,6 +33,7 @@ public class CasesService : ICasesService
     private readonly IGenericRepository<Account> _accountRepo;
     private readonly UserManager<User> _userManager;
     private readonly IEmailService _emailService;
+    private readonly IFileStorageService _storage;
     private readonly IConfiguration _configuration;
     private readonly ILogger<CasesService> _logger;
 
@@ -50,6 +51,7 @@ public class CasesService : ICasesService
         IGenericRepository<Account> accountRepo,
         UserManager<User> userManager,
         IEmailService emailService,
+        IFileStorageService storage,
         IConfiguration configuration,
         ILogger<CasesService> logger)
     {
@@ -66,6 +68,7 @@ public class CasesService : ICasesService
         _accountRepo = accountRepo;
         _userManager = userManager;
         _emailService = emailService;
+        _storage = storage;
         _configuration = configuration;
         _logger = logger;
     }
@@ -420,8 +423,19 @@ public class CasesService : ICasesService
         var response = new Response<IReadOnlyList<CaseDocumentDto>>();
         try
         {
+            var entityIds = new HashSet<Guid> { request.CaseId };
+            var caseItem = await _caseRepo.Query()
+                .Where(c => c.Id == request.CaseId || c.ComplaintId == request.CaseId)
+                .Select(c => new { c.Id, c.ComplaintId })
+                .FirstOrDefaultAsync(cancellationToken);
+            if (caseItem != null)
+            {
+                entityIds.Add(caseItem.Id);
+                entityIds.Add(caseItem.ComplaintId);
+            }
+
             var documents = await _docRepo.Query()
-                .Where(d => d.EntityId == request.CaseId && d.EntityType == DocumentEntityType.Case)
+                .Where(d => entityIds.Contains(d.EntityId))
                 .OrderByDescending(d => d.CreatedAt)
                 .Select(d => new CaseDocumentDto(d.Id, d.FileName, d.ContentType, d.FileSize, d.CreatedAt))
                 .ToListAsync(cancellationToken);
@@ -592,7 +606,12 @@ public class CasesService : ICasesService
             await _caseRepo.AddAsync(caseEntity);
             await _caseRepo.SaveAsync();
 
-
+            // Upload any attached files, linked to the complaint entity
+            if (request.Attachments is { Count: > 0 })
+            {
+                await UploadCaseDocumentsAsync(
+                    new UploadCaseDocumentsCommand(caseEntity.Id, request.Attachments), cancellationToken);
+            }
 
             // Dispatch Lodgement Receipt Email to Taxpayer
             var baseUrl = Helper.GetAppBaseUrl(_configuration);
@@ -955,6 +974,9 @@ public class CasesService : ICasesService
         var response = new Response<Guid>();
         try
         {
+            await using var stream = request.File.OpenReadStream();
+            var path = await _storage.StoreAsync(stream, request.File.FileName, request.File.ContentType, cancellationToken);
+
             var docId = Guid.NewGuid();
             var doc = new Document
             {
@@ -962,6 +984,7 @@ public class CasesService : ICasesService
                 EntityId = request.CaseId,
                 EntityType = DocumentEntityType.Case,
                 FileName = request.File.FileName,
+                FilePath = path,
                 ContentType = request.File.ContentType,
                 FileSize = request.File.Length,
                 CreatedAt = DateTime.UtcNow
@@ -1057,6 +1080,44 @@ public class CasesService : ICasesService
         {
             response.StatusCode = StatusCodes.Status500InternalServerError;
             response.Message = ex.Message;
+        }
+        return response;
+    }
+
+    // ─── Document Upload (bulk) ────────────────────────────────────────────
+
+    public async Task<Response<List<Guid>>> UploadCaseDocumentsAsync(UploadCaseDocumentsCommand request, CancellationToken cancellationToken = default)
+    {
+        var response = new Response<List<Guid>>();
+        var ids = new List<Guid>();
+        try
+        {
+            foreach (var file in request.Files)
+            {
+                await using var stream = file.OpenReadStream();
+                var path = await _storage.StoreAsync(stream, file.FileName, file.ContentType, cancellationToken);
+
+                var docId = Guid.NewGuid();
+                var doc = new Document
+                {
+                    Id = docId, FileName = file.FileName, FilePath = path,
+                    ContentType = file.ContentType, FileSize = file.Length,
+                    EntityType = DocumentEntityType.Case, EntityId = request.CaseId,
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _docRepo.AddAsync(doc);
+                ids.Add(docId);
+            }
+            await _docRepo.SaveAsync();
+
+            response.StatusCode = StatusCodes.Status200OK;
+            response.Message = $"{ids.Count} document(s) uploaded successfully.";
+            response.Data = ids;
+        }
+        catch (Exception)
+        {
+            response.StatusCode = StatusCodes.Status500InternalServerError;
+            response.Message = Constants.Messages.CaseDocUploadError;
         }
         return response;
     }

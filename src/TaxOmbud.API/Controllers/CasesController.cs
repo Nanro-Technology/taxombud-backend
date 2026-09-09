@@ -184,14 +184,18 @@ public class CasesController : ControllerBase
         return StatusCode(result.StatusCode, result);
     }
 
-    /// <summary>Upload a document for a case.</summary>
+    /// <summary>Upload documents for a case.</summary>
     [HttpPost("{id:guid}/documents")]
     [Consumes("multipart/form-data")]
-    [ProducesResponseType(typeof(Response<Guid>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Response<List<Guid>>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> UploadDocument(Guid id, IFormFile file, CancellationToken ct)
+    public async Task<IActionResult> UploadDocument(Guid id, CancellationToken ct)
     {
-        var result = await _casesService.UploadCaseDocumentAsync(new UploadCaseDocumentCommand(id, file), ct);
+        var files = Request.Form.Files;
+        if (files == null || files.Count == 0)
+            return BadRequest(new { message = "No files were provided." });
+
+        var result = await _casesService.UploadCaseDocumentsAsync(new UploadCaseDocumentsCommand(id, files.ToList()), ct);
         return StatusCode(result.StatusCode, result);
     }
 

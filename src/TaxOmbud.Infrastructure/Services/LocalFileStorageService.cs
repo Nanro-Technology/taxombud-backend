@@ -33,8 +33,8 @@ public class LocalFileStorageService : IFileStorageService
 
     public Task<string> GetDownloadUrlAsync(string storageKey, CancellationToken cancellationToken = default)
     {
-        // In local mode, the URL is constructed by the API controller; just return the key.
-        return Task.FromResult($"/api/documents/download/{storageKey}");
+        // In local mode, the URL is served by DocumentsController at /api/v1/documents/download/{storageKey}
+        return Task.FromResult($"/api/v1/documents/download/{storageKey}");
     }
 
     public Task DeleteAsync(string storageKey, CancellationToken cancellationToken = default)

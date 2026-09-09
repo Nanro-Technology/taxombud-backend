@@ -34,6 +34,10 @@ public static class ServiceExtensions
         if (databaseProvider == "MySql")
         {
             var connectionString = configuration.GetConnectionString("MySqlConnection");
+            if (!string.IsNullOrEmpty(connectionString) && !connectionString.Contains("UseAffectedRows", StringComparison.OrdinalIgnoreCase))
+            {
+                connectionString = connectionString.TrimEnd(';') + ";UseAffectedRows=false;";
+            }
             services.AddDbContext<MySqlApplicationDbContext>(options =>
             {
                 options.UseMySql(connectionString, ServerVersion.Parse("8.0.32-mysql"),

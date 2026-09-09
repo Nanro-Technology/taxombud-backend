@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.StaticFiles;
 using TaxOmbud.Application.Documents.DTOs;
 using TaxOmbud.Application.Interfaces.Services;
 
@@ -112,5 +114,32 @@ public class DocumentsController : ControllerBase
     {
         var result = await _documentsService.DeleteDocumentAsync(new DeleteDocumentCommand(id), ct);
         return StatusCode(result.StatusCode, result);
+    }
+
+    /// <summary>Stream a stored file directly from local disk (used for in-browser preview).</summary>
+    [HttpGet("download/{storageKey}")]
+    [HttpGet("/api/documents/download/{storageKey}")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public IActionResult ServeFile(string storageKey)
+    {
+        // Security: reject any path traversal attempts
+        var safeName = Path.GetFileName(storageKey);
+        if (string.IsNullOrWhiteSpace(safeName) || safeName != storageKey)
+            return BadRequest(new { message = "Invalid file key." });
+
+        var env = HttpContext.RequestServices.GetRequiredService<IWebHostEnvironment>();
+        var filePath = Path.Combine(env.ContentRootPath, "uploads", safeName);
+        if (!System.IO.File.Exists(filePath))
+            return NotFound(new { message = "File not found." });
+
+        var provider = new FileExtensionContentTypeProvider();
+        if (!provider.TryGetContentType(safeName, out var contentType))
+            contentType = "application/octet-stream";
+
+        // Use FileStreamResult so large files are streamed rather than buffered
+        var stream = System.IO.File.OpenRead(filePath);
+        return File(stream, contentType, enableRangeProcessing: true);
     }
 }
