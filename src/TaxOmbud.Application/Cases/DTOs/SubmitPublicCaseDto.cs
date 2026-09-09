@@ -1,14 +1,14 @@
 namespace TaxOmbud.Application.Cases.DTOs;
 
 public record SubmitPublicCaseCommand(
-    string SubmitterType, // Personal or Corporate
-    string FirstName,
-    string LastName,
     string Email,
-    string Phone,
-    string CountryId,
-    string StateId,
     string Description,
+    string? SubmitterType = null, // Personal or Corporate
+    string? FirstName = null,
+    string? LastName = null,
+    string? Phone = null,
+    string? CountryId = null,
+    string? StateId = null,
     string? Subject = null,
     string? ComplaintType = null,
     string? ServiceDomain = null,
