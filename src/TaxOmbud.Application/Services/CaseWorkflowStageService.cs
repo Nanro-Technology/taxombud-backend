@@ -100,6 +100,7 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
         var caseItem = await _context.Cases
             .Include(c => c.AdmissibilityAssessment)
             .Include(c => c.Decision)
+            .Include(c => c.AssignedOfficer)
             .FirstOrDefaultAsync(c => c.Id == caseIdOrComplaintId || c.ComplaintId == caseIdOrComplaintId);
 
         if (caseItem != null) return caseItem;
@@ -216,6 +217,88 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
         var caseItem = await EnsureCaseExistsAsync(caseId, assessedBy);
         if (caseItem == null) return false;
 
+        var complainant = await _context.Complaints
+            .Include(c => c.Taxpayer).ThenInclude(tp => tp.User)
+            .Include(c => c.AssignedOfficer)
+            .FirstOrDefaultAsync(c => c.Id == caseItem.ComplaintId);
+
+        // Verify authorization for Stage 4 (Jurisdiction & Admissibility Screening)
+        if (assessedBy != Guid.Empty)
+        {
+            var user = await _context.Users
+                .Include(u => u.Role)
+                .FirstOrDefaultAsync(u => u.Id == assessedBy);
+
+            if (user != null)
+            {
+                var roleName = user.Role?.Name ?? string.Empty;
+                bool isSuperAdmin = roleName.Contains("Super", StringComparison.OrdinalIgnoreCase) ||
+                                    roleName.Contains("Admin", StringComparison.OrdinalIgnoreCase);
+
+                if (!isSuperAdmin)
+                {
+                    var officerProfile = await _context.OfficerProfiles.FirstOrDefaultAsync(op => op.UserId == assessedBy);
+                    Guid? officerProfileId = officerProfile?.Id;
+
+                    bool isAssignedOfficer = (caseItem.AssignedOfficer != null && caseItem.AssignedOfficer.UserId == assessedBy) ||
+                                             (complainant?.AssignedOfficer != null && complainant.AssignedOfficer.UserId == assessedBy) ||
+                                             (officerProfileId.HasValue && (caseItem.AssignedOfficerId == officerProfileId.Value || complainant?.AssignedOfficerId == officerProfileId.Value)) ||
+                                             (caseItem.AssignedOfficerId == assessedBy || complainant?.AssignedOfficerId == assessedBy);
+
+                    var activeWorkflow = await _context.Workflows
+                        .Include(w => w.Levels)
+                            .ThenInclude(l => l.Targets)
+                        .FirstOrDefaultAsync(w => w.IsActive && !w.IsDeleted);
+
+                    var stage4Level = activeWorkflow?.Levels?.FirstOrDefault(l =>
+                        l.LevelRole == LevelRole.AdmissibilityGate || l.LevelNumber == 4);
+
+                    if (stage4Level != null && stage4Level.Targets != null && stage4Level.Targets.Any())
+                    {
+                        var targets = stage4Level.Targets.ToList();
+                        bool userMatches = targets.Any(t => t.TargetType == WorkflowLevelTargetType.User && t.TargetId == assessedBy);
+                        bool roleMatches = user.RoleId.HasValue && targets.Any(t => t.TargetType == WorkflowLevelTargetType.Role && t.TargetId == user.RoleId.Value);
+                        bool deptMatches = user.DepartmentId.HasValue && targets.Any(t => t.TargetType == WorkflowLevelTargetType.Department && t.TargetId == user.DepartmentId.Value);
+
+                        bool hasUserTargets = targets.Any(t => t.TargetType == WorkflowLevelTargetType.User);
+                        bool hasRoleTargets = targets.Any(t => t.TargetType == WorkflowLevelTargetType.Role);
+                        bool hasDeptTargets = targets.Any(t => t.TargetType == WorkflowLevelTargetType.Department);
+
+                        bool isEligible = false;
+                        if (userMatches)
+                        {
+                            isEligible = true;
+                        }
+                        else if (hasRoleTargets && hasDeptTargets)
+                        {
+                            isEligible = roleMatches && deptMatches;
+                        }
+                        else if (hasRoleTargets)
+                        {
+                            isEligible = roleMatches;
+                        }
+                        else if (hasDeptTargets)
+                        {
+                            isEligible = deptMatches;
+                        }
+                        else if (hasUserTargets)
+                        {
+                            isEligible = false;
+                        }
+                        else
+                        {
+                            isEligible = true;
+                        }
+
+                        if (!isEligible && !isAssignedOfficer)
+                        {
+                            throw new UnauthorizedAccessException("You are not authorized to submit Stage 4 admissibility screening. Only the assigned workflow target, officer, or Super Admin can perform this action.");
+                        }
+                    }
+                }
+            }
+        }
+
         var assessment = caseItem.AdmissibilityAssessment;
         if (assessment == null)
         {
@@ -239,10 +322,6 @@ public class CaseWorkflowStageService : ICaseWorkflowStageService
         assessment.RejectionReason = dto.RejectionReason;
         assessment.AssessedByUserId = assessedBy;
         assessment.AssessedAt = DateTimeOffset.UtcNow;
-
-        var complainant = await _context.Complaints
-            .Include(c => c.Taxpayer).ThenInclude(tp => tp.User)
-            .FirstOrDefaultAsync(c => c.Id == caseItem.ComplaintId);
 
         if (dto.IsAdmissible)
         {

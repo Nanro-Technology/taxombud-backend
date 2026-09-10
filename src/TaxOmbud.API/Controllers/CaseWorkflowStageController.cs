@@ -58,8 +58,15 @@ public class CaseWorkflowStageController : ControllerBase
     [HttpPost("{caseId}/assess")]
     public async Task<ActionResult<Response<bool>>> AssessAdmissibility(Guid caseId, [FromBody] AdmissibilityAssessmentDto dto)
     {
-        var result = await _stageService.AssessAdmissibilityAsync(caseId, dto, GetUserId());
-        return Ok(new Response<bool> { StatusCode = 200, Message = "Admissibility assessment saved - Stage 4.", Data = result });
+        try
+        {
+            var result = await _stageService.AssessAdmissibilityAsync(caseId, dto, GetUserId());
+            return Ok(new Response<bool> { StatusCode = 200, Message = "Admissibility assessment saved - Stage 4.", Data = result });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return StatusCode(403, new Response<bool> { StatusCode = 403, Message = ex.Message });
+        }
     }
 
     /// <summary>

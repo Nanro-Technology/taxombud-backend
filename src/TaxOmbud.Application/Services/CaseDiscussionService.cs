@@ -278,6 +278,43 @@ public class CaseDiscussionService : ICaseDiscussionService
             }
         }
 
+        // Also include all officers who worked on previous stages of this case
+        var canonicalCaseId = caseItem.Id;
+        var priorAuditUserIds = await _context.CaseWorkflowAuditLogs
+            .Where(l => (l.CaseId == canonicalCaseId || l.CaseId == caseItem.ComplaintId) && l.PerformedByUserId != Guid.Empty)
+            .Select(l => l.PerformedByUserId)
+            .Distinct()
+            .ToListAsync(ct);
+
+        var priorTaskUserIds = await _context.CaseApprovalTasks
+            .Where(t => (t.CaseId == canonicalCaseId || t.CaseId == caseItem.ComplaintId) && t.AssignedUserId.HasValue)
+            .Select(t => t.AssignedUserId!.Value)
+            .Distinct()
+            .ToListAsync(ct);
+
+        var allPriorOfficers = priorAuditUserIds.Concat(priorTaskUserIds).Distinct().ToList();
+        foreach (var priorUserId in allPriorOfficers)
+        {
+            bool exists = await _context.AgentChatParticipants
+                .AnyAsync(p => p.AgentChatId == thread.Id && p.UserId == priorUserId, ct);
+
+            if (!exists)
+            {
+                var priorUser = await _context.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.Id == priorUserId, ct);
+                _context.AgentChatParticipants.Add(new AgentChatParticipant
+                {
+                    Id = Guid.NewGuid(),
+                    AgentChatId = thread.Id,
+                    UserId = priorUserId,
+                    RoleName = priorUser?.Role?.Name ?? "Case Officer",
+                    ParticipantTier = "contributor",
+                    IsReadOnly = false,
+                    JoinedAt = DateTimeOffset.UtcNow
+                });
+                count++;
+            }
+        }
+
         return count;
     }
 
@@ -289,10 +326,13 @@ public class CaseDiscussionService : ICaseDiscussionService
         if (user.UserType != Domain.Enums.UserType.StaffUser) return false;
 
         var roleName = user.Role?.Name ?? string.Empty;
-        return string.Equals(user.Email, "admin@taxombud.gov.ng", StringComparison.OrdinalIgnoreCase) ||
+        var email = user.Email ?? string.Empty;
+
+        return string.Equals(email, "admin@taxombud.gov.ng", StringComparison.OrdinalIgnoreCase) ||
+               email.Contains("admin", StringComparison.OrdinalIgnoreCase) ||
                roleName.Contains("Super Admin", StringComparison.OrdinalIgnoreCase) ||
                roleName.Contains("SuperAdmin", StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(roleName, "Admin", StringComparison.OrdinalIgnoreCase);
+               roleName.Contains("Admin", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool UserHasWorkflowRole(Domain.Entities.Identity.User? user, Guid? stageRoleId, string? stageRoleName)
@@ -322,6 +362,39 @@ public class CaseDiscussionService : ICaseDiscussionService
             o => o.Id == caseItem.AssignedOfficerId.Value && o.UserId == userId, ct);
     }
 
+    private async Task<bool> HasWorkedOnCaseAsync(Guid caseId, Guid userId, CancellationToken ct = default)
+    {
+        if (userId == Guid.Empty) return false;
+
+        var caseItem = await _context.Cases.AsNoTracking().FirstOrDefaultAsync(c => c.Id == caseId || c.ComplaintId == caseId, ct);
+        var canonicalCaseId = caseItem?.Id ?? caseId;
+
+        // Check if directly assigned officer
+        if (caseItem?.AssignedOfficerId.HasValue == true)
+        {
+            if (caseItem.AssignedOfficerId.Value == userId) return true;
+            var officer = await _context.OfficerProfiles.AsNoTracking().FirstOrDefaultAsync(o => o.Id == caseItem.AssignedOfficerId.Value, ct);
+            if (officer != null && officer.UserId == userId) return true;
+        }
+
+        // Check if performed any workflow audit action on this case
+        bool performedAudit = await _context.CaseWorkflowAuditLogs.AsNoTracking()
+            .AnyAsync(l => (l.CaseId == canonicalCaseId || (caseItem != null && l.CaseId == caseItem.ComplaintId)) && l.PerformedByUserId == userId, ct);
+        if (performedAudit) return true;
+
+        // Check if assigned to any approval task on this case
+        bool hasApprovalTask = await _context.CaseApprovalTasks.AsNoTracking()
+            .AnyAsync(t => (t.CaseId == canonicalCaseId || (caseItem != null && t.CaseId == caseItem.ComplaintId)) && t.AssignedUserId.HasValue && t.AssignedUserId.Value == userId, ct);
+        if (hasApprovalTask) return true;
+
+        // Check case status history or communications
+        bool inStatusHistory = await _context.CaseStatusHistories.AsNoTracking()
+            .AnyAsync(sh => (sh.CaseId == canonicalCaseId || (caseItem != null && sh.CaseId == caseItem.ComplaintId)) && sh.ChangedByUserId == userId, ct);
+        if (inStatusHistory) return true;
+
+        return false;
+    }
+
     public async Task<CaseDiscussionThreadDto?> GetDiscussionThreadAsync(Guid caseId, Guid? currentUserId = null, CancellationToken ct = default)
     {
         var caseItem = await ResolveCaseAsync(caseId, ct);
@@ -346,14 +419,35 @@ public class CaseDiscussionService : ICaseDiscussionService
                 bool hasWfRole = UserHasWorkflowRole(currentUser, stage5RoleId, stage5RoleName);
                 bool isAssigned = await IsAssignedOfficerAsync(caseItem, currentUserId.Value, ct);
                 bool isSuper = IsSuperAdmin(currentUser);
+                bool hasWorkedOnCase = await HasWorkedOnCaseAsync(canonicalCaseId, currentUserId.Value, ct);
 
-                // Strictly require the workflow stage role, assigned case officer, or Super Admin oversight
-                canCurrentUserPost = hasWfRole || isAssigned || isSuper;
+                // Officers assigned to stage role, assigned case officers, superadmins, or any officer who worked on the case can post
+                canCurrentUserPost = hasWfRole || isAssigned || isSuper || hasWorkedOnCase;
             }
         }
 
+        // Query all users who worked on the case so they are included as contributors
+        var priorAuditUserIds = await _context.CaseWorkflowAuditLogs
+            .Where(l => (l.CaseId == canonicalCaseId || (caseItem != null && l.CaseId == caseItem.ComplaintId)) && l.PerformedByUserId != Guid.Empty)
+            .Select(l => l.PerformedByUserId)
+            .Distinct()
+            .ToListAsync(ct);
+
+        var priorTaskUserIds = await _context.CaseApprovalTasks
+            .Where(t => (t.CaseId == canonicalCaseId || (caseItem != null && t.CaseId == caseItem.ComplaintId)) && t.AssignedUserId.HasValue)
+            .Select(t => t.AssignedUserId!.Value)
+            .Distinct()
+            .ToListAsync(ct);
+
+        var contributorUserIds = priorAuditUserIds.Concat(priorTaskUserIds).ToHashSet();
+
         // Resolve user details for participants
-        var participantUserIds = thread.Participants.Select(p => p.UserId).ToList();
+        var participantUserIds = thread.Participants.Select(p => p.UserId).ToHashSet();
+        foreach (var id in contributorUserIds)
+        {
+            participantUserIds.Add(id);
+        }
+
         var users = await _context.Users
             .Include(u => u.Role)
             .Where(u => participantUserIds.Contains(u.Id))
@@ -362,9 +456,12 @@ public class CaseDiscussionService : ICaseDiscussionService
         var participants = thread.Participants.Select(p =>
         {
             var user = users.FirstOrDefault(u => u.Id == p.UserId);
-            bool userCanPost = user != null && (UserHasWorkflowRole(user, stage5RoleId, stage5RoleName) ||
-                                                IsSuperAdmin(user) ||
-                                                (caseItem != null && caseItem.AssignedOfficerId.HasValue && caseItem.AssignedOfficerId.Value == p.UserId));
+            bool isSuper = IsSuperAdmin(user);
+            bool hasWf = UserHasWorkflowRole(user, stage5RoleId, stage5RoleName);
+            bool isAssigned = caseItem != null && caseItem.AssignedOfficerId.HasValue && caseItem.AssignedOfficerId.Value == p.UserId;
+            bool hasWorked = contributorUserIds.Contains(p.UserId);
+
+            bool userCanPost = isSuper || hasWf || isAssigned || hasWorked;
 
             return new DiscussionParticipantDto
             {
@@ -372,11 +469,31 @@ public class CaseDiscussionService : ICaseDiscussionService
                 FullName = user != null ? user.FullName : p.UserId.ToString(),
                 AvatarUrl = null, // No avatar field on User entity currently
                 RoleName = user?.Role?.Name ?? p.RoleName,
-                ParticipantTier = p.ParticipantTier,
+                ParticipantTier = hasWorked && !hasWf && !isSuper ? "contributor" : p.ParticipantTier,
                 IsReadOnly = !userCanPost,
                 IsOnline = false // Resolved by SignalR ChatHub presence in real-time
             };
         }).ToList();
+
+        // Add any prior contributor not yet recorded in thread.Participants
+        var recordedParticipantIds = thread.Participants.Select(p => p.UserId).ToHashSet();
+        foreach (var contributorId in contributorUserIds.Where(id => !recordedParticipantIds.Contains(id)))
+        {
+            var user = users.FirstOrDefault(u => u.Id == contributorId);
+            if (user != null)
+            {
+                participants.Add(new DiscussionParticipantDto
+                {
+                    UserId = user.Id,
+                    FullName = user.FullName,
+                    AvatarUrl = null,
+                    RoleName = user.Role?.Name ?? "Case Contributor",
+                    ParticipantTier = "contributor",
+                    IsReadOnly = false,
+                    IsOnline = false
+                });
+            }
+        }
 
         // Resolve sender details for messages
         var senderIds = thread.Messages.Select(m => m.SenderId).Distinct().ToList();
@@ -451,16 +568,18 @@ public class CaseDiscussionService : ICaseDiscussionService
         // Check if the user is the assigned case officer
         bool isAssignedOfficer = await IsAssignedOfficerAsync(caseItem, senderId, ct);
 
-        // RESTRICTION: Only users with the assigned workflow role, or assigned officer,
-        // or SuperAdmin oversight can chat.
-        // Users with other roles (e.g. Manager when stage is Senior Officer) are strictly forbidden!
-        bool isAuthorized = hasWorkflowRole || isAssignedOfficer || isSuperAdmin;
+        // Check if the user has worked on this case in any prior or current stage
+        bool hasWorkedOnCase = await HasWorkedOnCaseAsync(canonicalCaseId, senderId, ct);
+
+        // RESTRICTION: Users with the assigned workflow role, assigned officer,
+        // SuperAdmin oversight, OR officers who have worked on the case can chat.
+        bool isAuthorized = hasWorkflowRole || isAssignedOfficer || isSuperAdmin || hasWorkedOnCase;
 
         if (!isAuthorized)
         {
             var currentRole = sender.Role?.Name ?? "Unassigned";
             throw new UnauthorizedAccessException(
-                $"Access restricted. Only officers with the '{stage5RoleName ?? "assigned investigation"}' role can participate or comment in this investigation thread. Your current role is '{currentRole}'."
+                $"Access restricted. Only officers who have worked on this case, designated investigation officers ({stage5RoleName ?? "Investigation Role"}), or administrators can participate in this thread. Your current role is '{currentRole}'."
             );
         }
 
@@ -479,8 +598,8 @@ public class CaseDiscussionService : ICaseDiscussionService
                 Id = Guid.NewGuid(),
                 AgentChatId = thread.Id,
                 UserId = senderId,
-                RoleName = sender.Role?.Name ?? stage5RoleName ?? "Investigation Participant",
-                ParticipantTier = hasWorkflowRole ? "role" : (isSuperAdmin ? "admin" : "individual"),
+                RoleName = sender.Role?.Name ?? stage5RoleName ?? "Case Contributor",
+                ParticipantTier = hasWorkflowRole ? "role" : (hasWorkedOnCase ? "contributor" : (isSuperAdmin ? "admin" : "individual")),
                 IsReadOnly = false,
                 JoinedAt = DateTimeOffset.UtcNow
             };
@@ -488,7 +607,7 @@ public class CaseDiscussionService : ICaseDiscussionService
             thread.Participants.Add(participant);
             await _context.SaveChangesAsync(ct);
         }
-        else if (participant.IsReadOnly && !isSuperAdmin && !hasWorkflowRole && !isAssignedOfficer)
+        else if (participant.IsReadOnly && !isSuperAdmin && !hasWorkflowRole && !isAssignedOfficer && !hasWorkedOnCase)
         {
             throw new UnauthorizedAccessException("You have read-only access to this discussion thread and cannot post messages.");
         }
