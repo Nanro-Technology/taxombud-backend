@@ -18,6 +18,7 @@ using TaxOmbud.Domain.Entities.Identity;
 using TaxOmbud.Domain.Entities.Taxpayers;
 using TaxOmbud.Domain.Entities.Workflows;
 using TaxOmbud.Domain.Enums;
+using TaxOmbud.Application.Workflows.Strategies;
 
 namespace TaxOmbud.Application.Services;
 
@@ -1004,14 +1005,26 @@ public class CasesService : ICasesService
             }
 
             var previousStatus = caseEntity.Status;
-            caseEntity.UpdateStatus(caseEntity.Status, request.TargetStage, Guid.Empty);
+            var targetStatus = request.TargetStage switch
+            {
+                WorkflowStage.Intake => CaseStatus.Submitted,
+                WorkflowStage.RegistrationAndAcknowledgement => CaseStatus.Registered,
+                WorkflowStage.InitialReviewAndAssignment => CaseStatus.UnderAssessment,
+                WorkflowStage.JurisdictionAndAdmissibility => CaseStatus.UnderAssessment,
+                WorkflowStage.InvestigationAndResolution => CaseStatus.UnderInvestigation,
+                WorkflowStage.DecisionAndCommunication => CaseStatus.DecisionIssued,
+                WorkflowStage.ClosureAndArchiving => CaseStatus.Closed,
+                _ => caseEntity.Status
+            };
+
+            caseEntity.UpdateStatus(targetStatus, request.TargetStage, Guid.Empty);
             await _caseRepo.UpdateAsync(caseEntity);
             await _caseRepo.SaveAsync();
 
             var complaint = await _complaintRepo.GetByIdAsync(caseEntity.ComplaintId);
             if (complaint != null)
             {
-                complaint.UpdateStatus(caseEntity.Status, request.TargetStage);
+                complaint.UpdateStatus(targetStatus, request.TargetStage);
                 await _complaintRepo.UpdateAsync(complaint);
                 await _complaintRepo.SaveAsync();
             }
@@ -1030,6 +1043,131 @@ public class CasesService : ICasesService
             };
             await _historyRepo.AddAsync(historyEntry);
             await _historyRepo.SaveAsync();
+
+            // Synchronize active WorkflowInstance & CaseApprovalTask with the new stage
+            try
+            {
+                var instance = await _context.WorkflowInstances
+                    .Include(i => i.ApprovalTasks)
+                    .Include(i => i.InstanceLevels)
+                    .Include(i => i.Workflow)
+                        .ThenInclude(w => w.Levels)
+                            .ThenInclude(l => l.Targets)
+                    .FirstOrDefaultAsync(i => i.CaseId == caseEntity.Id && i.Status != WorkflowStatus.Completed && i.Status != WorkflowStatus.Cancelled, cancellationToken);
+
+                int? targetLvlNum = request.TargetStage switch
+                {
+                    WorkflowStage.Intake => 1,
+                    WorkflowStage.RegistrationAndAcknowledgement => 2,
+                    WorkflowStage.InitialReviewAndAssignment => 3,
+                    WorkflowStage.JurisdictionAndAdmissibility or WorkflowStage.NotAdmissible => 4,
+                    WorkflowStage.InvestigationAndResolution => 5,
+                    WorkflowStage.DecisionAndCommunication => 6,
+                    WorkflowStage.ClosureAndArchiving => 7,
+                    _ => null
+                };
+
+                if (targetLvlNum.HasValue)
+                {
+                    var activeWf = instance?.Workflow
+                                ?? await _context.Workflows
+                                    .Include(w => w.Levels).ThenInclude(l => l.Targets)
+                                    .FirstOrDefaultAsync(w => w.IsDefault && w.IsActive && !w.IsDeleted, cancellationToken)
+                                ?? await _context.Workflows
+                                    .Include(w => w.Levels).ThenInclude(l => l.Targets)
+                                    .FirstOrDefaultAsync(w => w.IsActive && !w.IsDeleted, cancellationToken);
+
+                    if (activeWf != null && activeWf.Levels.Any())
+                    {
+                        var targetLevel = activeWf.Levels.FirstOrDefault(l => l.LevelNumber == targetLvlNum.Value)
+                                       ?? activeWf.Levels.FirstOrDefault();
+
+                        if (targetLevel != null)
+                        {
+                            var roleTarget = targetLevel.Targets.FirstOrDefault(t => t.TargetType == WorkflowLevelTargetType.Role);
+                            var pRoleId = roleTarget?.TargetId;
+
+                            if (instance == null)
+                            {
+                                var versionId = await _context.WorkflowVersions
+                                    .Where(v => v.WorkflowId == activeWf.Id && v.IsPublished)
+                                    .OrderByDescending(v => v.VersionNumber)
+                                    .Select(v => v.Id)
+                                    .FirstOrDefaultAsync(cancellationToken);
+
+                                if (versionId == Guid.Empty)
+                                {
+                                    var version = new WorkflowVersion(activeWf.Id, 1, "{}");
+                                    version.Publish(Guid.Empty);
+                                    _context.WorkflowVersions.Add(version);
+                                    await _context.SaveChangesAsync(cancellationToken);
+                                    versionId = version.Id;
+                                }
+
+                                instance = new WorkflowInstance(caseEntity.Id, activeWf.Id, versionId);
+                                instance.CurrentLevelNumber = targetLevel.LevelNumber;
+                                _context.WorkflowInstances.Add(instance);
+
+                                foreach (var lvl in activeWf.Levels.OrderBy(l => l.LevelNumber))
+                                {
+                                    var lvlRole = lvl.Targets.FirstOrDefault(t => t.TargetType == WorkflowLevelTargetType.Role);
+                                    var instLvl = new WorkflowInstanceLevel(
+                                        instance.Id,
+                                        lvl.Id,
+                                        lvl.LevelNumber,
+                                        lvl.LevelNumber == targetLevel.LevelNumber ? caseEntity.AssignedOfficerId : null,
+                                        lvlRole?.TargetId,
+                                        lvl.SlaHours,
+                                        lvl.EscalationHours
+                                    );
+                                    if (lvl.LevelNumber == targetLevel.LevelNumber)
+                                    {
+                                        instLvl.Status = WorkflowLevelStatus.InProgress;
+                                    }
+                                    _context.WorkflowInstanceLevels.Add(instLvl);
+                                    instance.InstanceLevels.Add(instLvl);
+                                }
+
+                                caseEntity.ActiveWorkflowInstanceId = instance.Id;
+                            }
+                            else
+                            {
+                                foreach (var pendingTask in instance.ApprovalTasks.Where(t => t.TaskStatus == WorkflowLevelStatus.Pending))
+                                {
+                                    pendingTask.TaskStatus = WorkflowLevelStatus.Approved;
+                                    pendingTask.PerformedAt = DateTimeOffset.UtcNow;
+                                    pendingTask.Comment = request.Reason;
+                                }
+
+                                instance.CurrentLevelNumber = targetLvlNum.Value;
+                            }
+
+                            var instLevel = instance.InstanceLevels.FirstOrDefault(il => il.LevelNumber == targetLevel.LevelNumber)
+                                         ?? await _context.WorkflowInstanceLevels
+                                            .FirstOrDefaultAsync(il => il.WorkflowInstanceId == instance.Id && il.LevelNumber == targetLevel.LevelNumber, cancellationToken);
+
+                            if (instLevel != null)
+                            {
+                                instLevel.Status = WorkflowLevelStatus.InProgress;
+                                var task = new CaseApprovalTask(
+                                    instance.Id,
+                                    instLevel.Id,
+                                    caseEntity.Id,
+                                    caseEntity.AssignedOfficerId,
+                                    pRoleId
+                                );
+                                _context.CaseApprovalTasks.Add(task);
+                            }
+
+                            await _context.SaveChangesAsync(cancellationToken);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to synchronize workflow task during stage transition for case {CaseId}", caseEntity.Id);
+            }
 
             response.StatusCode = StatusCodes.Status200OK;
             response.Message = string.Format(Constants.Messages.CaseUpdated);
