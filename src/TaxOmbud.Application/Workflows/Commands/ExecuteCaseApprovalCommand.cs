@@ -191,15 +191,61 @@ public class ExecuteCaseApprovalCommandHandler : IRequestHandler<ExecuteCaseAppr
                 break;
         }
 
+        // Determine acting user's role and designated stage role
+        var actingUser = await _context.Users
+            .Include(u => u.Role)
+            .FirstOrDefaultAsync(u => u.Id == currentUserId, cancellationToken);
+
+        var targetRoleIds = levelConfig.Targets
+            .Where(t => t.TargetType == WorkflowLevelTargetType.Role)
+            .Select(t => t.TargetId)
+            .ToList();
+
+        var stageRoles = await _context.CustomRoles
+            .Where(r => targetRoleIds.Contains(r.Id))
+            .Select(r => r.Name)
+            .ToListAsync(cancellationToken);
+
+        string stageRoleName = stageRoles.Any()
+            ? string.Join(" / ", stageRoles)
+            : levelConfig.LevelRole switch
+            {
+                LevelRole.Intake => "Intake Officer",
+                LevelRole.Registration => "Registration Officer",
+                LevelRole.InitialReview => "Initial Reviewer",
+                LevelRole.AdmissibilityGate => "Assessment Officer",
+                LevelRole.Investigation => "Investigation Officer",
+                LevelRole.Decision => "Chief Executive",
+                LevelRole.Closure => "Closure & Archiving",
+                _ => levelConfig.Name
+            };
+
+        var userActualRole = actingUser?.Role?.Name ?? _currentUser.Roles.FirstOrDefault() ?? "Officer";
+        var recordedRole = userActualRole.Equals(stageRoleName, StringComparison.OrdinalIgnoreCase)
+            ? userActualRole
+            : $"{userActualRole} (Stage Role: {stageRoleName})";
+
+        string prevStatusDisplay = $"Stage {currentLevelNum} Pending";
+        string nextStatusDisplay = request.Action switch
+        {
+            WorkflowAction.Approve => allLevels.FirstOrDefault(l => l.LevelNumber > currentLevelNum) is { } nxt
+                ? $"Approved → Advanced to Stage {nxt.LevelNumber} ({nxt.Name})"
+                : "Approved → Final Decision",
+            WorkflowAction.Reject => "Rejected → Case Closed",
+            WorkflowAction.ReturnForCorrection => $"Returned to Stage {request.ReturnToLevelNumber ?? 1}",
+            WorkflowAction.Escalate => $"Escalated at Stage {currentLevelNum}",
+            _ => instance.Status.ToString()
+        };
+
         // Write Audit Log
         var audit = new CaseWorkflowAuditLog(
             @case.Id,
             instance.Id,
             currentUserId,
-            "Officer",
+            recordedRole,
             request.Action.ToString(),
-            previousStatus,
-            instance.Status.ToString(),
+            prevStatusDisplay,
+            nextStatusDisplay,
             currentLevelNum,
             levelConfig.Name,
             request.Comment,

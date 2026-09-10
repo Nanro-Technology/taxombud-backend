@@ -150,9 +150,6 @@ public class Case : BaseEntity, IHasDomainEvents
         if (Status == CaseStatus.Closed)
             throw new DomainException("Cannot start investigation on a closed case.");
 
-        if (Status != CaseStatus.Assigned)
-            throw new DomainException("A case must be assigned to an officer before investigation can begin.");
-
         Status = CaseStatus.UnderInvestigation;
         CurrentStage = WorkflowStage.InvestigationAndResolution;
     }
